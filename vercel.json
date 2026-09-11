@@ -1,9 +1,7 @@
 ﻿{
-    "rewrites":  [
-                     {
-                         "destination":  "/web/",
-                         "source":  "/(.*)"
-                     }
-                 ],
-    "cleanUrls":  true
+  "version": 2,
+  "rewrites": [
+    { "source": "/", "destination": "/web/index.html" },
+    { "source": "/(.*)", "destination": "/web/" }
+  ]
 }
