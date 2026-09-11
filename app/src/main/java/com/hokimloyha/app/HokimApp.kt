@@ -36,9 +36,13 @@ class HokimApp : Application() {
             }
             override fun onActivityResumed(activity: Activity) {
                 AppStateTracker.isAppInForeground = true
+                AppStateTracker.currentActivityRef = java.lang.ref.WeakReference(activity)
             }
             override fun onActivityPaused(activity: Activity) {}
             override fun onActivityStopped(activity: Activity) {
+                if (AppStateTracker.currentActivityRef?.get() == activity) {
+                    AppStateTracker.currentActivityRef = null
+                }
                 if (--activityCount <= 0) {
                     activityCount = 0
                     AppStateTracker.isAppInForeground = false
