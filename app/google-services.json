@@ -1,0 +1,38 @@
+{
+  "project_info": {
+    "project_number": "123456789012",
+    "project_id": "hokimloyha-dummy",
+    "storage_bucket": "hokimloyha-dummy.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123456789012:android:abcdef1234567890",
+        "android_client_info": {
+          "package_name": "uz.hokimloyha.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "123456789012-dummy.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "uz.hokimloyha.app",
+            "certificate_hash": "dummy"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "dummy_api_key"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

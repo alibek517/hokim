@@ -1,0 +1,24 @@
+{
+  "name": "IJRO - Boshqaruv va Nazorat Tizimi",
+  "short_name": "IJRO",
+  "description": "Hokimlik va xodimlar uchun tezkor topshiriqlar, rejalar va muloqot tizimi",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0F172A",
+  "theme_color": "#0F172A",
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

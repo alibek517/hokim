@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>IJRO - Tezkor Boshqaruv va Nazorat</title>
+
+  <!-- PWA & Apple iOS Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="IJRO">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="assets/icon-192.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0F172A">
+
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Firebase Web SDK (Compat v10) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+  <div id="app-container">
+
+    <!-- 1. LOGIN SCREEN -->
+    <div id="login-screen" class="screen active" style="justify-content: center; align-items: center; padding: 24px; background: linear-gradient(180deg, #0F172A 0%, #1E293B 100%);">
+      <div style="width: 100%; max-width: 360px; text-align: center;">
+        <img src="assets/logo.png" alt="IJRO" style="width: 100px; height: 100px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); margin-bottom: 16px;">
+        <h1 style="color: #FFFFFF; font-size: 26px; font-weight: 800; letter-spacing: 1px;">IJRO</h1>
+        <p style="color: #94A3B8; font-size: 13px; margin-bottom: 28px;">Tezkor Boshqaruv va Nazorat Tizimi</p>
+
+        <form onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 14px; text-align: left;">
+          <div class="form-group">
+            <label class="form-label" style="color: #CBD5E1;">Foydalanuvchi nomi</label>
+            <input type="text" id="login-user" class="form-input" placeholder="login kiriting" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color: #CBD5E1;">Maxfiy parol</label>
+            <input type="password" id="login-pass" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn btn-primary" style="margin-top: 8px; padding: 12px; font-size: 15px;">
+            Kirish
+          </button>
+        </form>
+
+        <div style="margin-top: 24px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 10px; font-size: 11px; color: #94A3B8; text-align: left; line-height: 1.6;">
+          <strong style="color: var(--gold);">Gurlan tumani hisoblari:</strong><br>
+          • Hokim: <code>hokim</code> / <code>12345</code><br>
+          • O'rinbosar: <code>toliev</code> / <code>12345</code><br>
+          • Xodimlar (parol: <code>12345</code>): <code>eshmetov</code>, <code>xojanbaev</code>, <code>panabaev</code>, <code>kim</code> va b.<br>
+          • Admin: <code>admin</code> / <code>admin123</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. MAYOR (HOKIM) SCREEN -->
+    <div id="mayor-screen" class="screen">
+      <!-- Top Bar -->
+      <div class="top-bar">
+        <div class="top-bar-left">
+          <div class="user-avatar" id="mayor-avatar">H</div>
+          <div class="user-info">
+            <div class="user-name" id="mayor-header-name">Tuman Hokimi</div>
+            <div class="user-role" id="mayor-header-region">Hokimlik Paneli</div>
+          </div>
+        </div>
+        <div class="top-bar-actions">
+          <button class="icon-btn" onclick="handleLogout()" title="Chiqish">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Content (Topshiriqlar, Rejalar, Ishchilar, Chatlar) -->
+      <div id="mayor-tab-content" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;"></div>
+
+      <!-- Floating Action Button -->
+      <button id="mayor-fab" class="fab">+</button>
+
+      <!-- Bottom Navigation Bar (Tab 0: Topshiriqlar is DEFAULT!) -->
+      <div class="bottom-nav" id="mayor-bottom-nav">
+        <button class="nav-item active" onclick="switchMayorTab(0)">
+          <svg fill="currentColor" viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+          Topshiriqlar
+        </button>
+        <button class="nav-item" onclick="switchMayorTab(1)">
+          <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+          Rejalar
+        </button>
+        <button class="nav-item" onclick="switchMayorTab(2)">
+          <svg fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 3s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+          Ishchilar
+        </button>
+        <button class="nav-item" onclick="switchMayorTab(3)">
+          <svg fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+          Chatlar
+        </button>
+      </div>
+    </div>
+
+    <!-- 3. WORKER (XODIM) SCREEN -->
+    <div id="worker-screen" class="screen">
+      <div class="top-bar">
+        <div class="top-bar-left">
+          <div class="user-avatar" id="worker-avatar">X</div>
+          <div class="user-info">
+            <div class="user-name" id="worker-header-name">Xodim Ismi</div>
+            <div class="user-role" id="worker-header-pos">Mas'ul Xodim</div>
+          </div>
+        </div>
+        <div class="top-bar-actions">
+          <button class="icon-btn" onclick="openWorkerChatWithMayor()" title="Hokim bilan Chat" style="background: rgba(37,99,235,0.4);">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+          </button>
+          <button class="icon-btn" onclick="handleLogout()" title="Chiqish">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="main-content">
+        <!-- Summary Stats Card -->
+        <div class="task-card" style="flex-direction: row; padding: 14px;" id="worker-stats-box"></div>
+        
+        <div style="font-weight: 700; font-size: 15px; color: var(--navy-dark); margin-top: 6px;">
+          Menga Biriktirilgan Vazifalar
+        </div>
+        
+        <div id="worker-tasks-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
+      </div>
+    </div>
+
+    <!-- 4. BIG ADMIN SCREEN -->
+    <div id="admin-screen" class="screen">
+      <div class="top-bar">
+        <div class="top-bar-left">
+          <div class="user-avatar" style="background: #D4AF37;">A</div>
+          <div class="user-info">
+            <div class="user-name">Bosh Administrator</div>
+            <div class="user-role">Tizim Boshqaruvi</div>
+          </div>
+        </div>
+        <div class="top-bar-actions">
+          <button class="icon-btn" onclick="handleLogout()">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="main-content" id="admin-content"></div>
+    </div>
+
+    <!-- 5. CHAT SCREEN (FULLSCREEN) -->
+    <div id="chat-screen" class="screen chat-screen">
+      <!-- Chat Header -->
+      <div class="chat-header">
+        <button class="icon-btn" onclick="closeChat()">
+          <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        </button>
+        <div style="flex: 1;">
+          <div style="font-weight: 700; font-size: 15px; line-height: 1.2;" id="chat-peer-name">Suhbatdosh</div>
+          <div style="font-size: 11px; color: #94A3B8;" id="chat-peer-role">Xodim</div>
+        </div>
+      </div>
+
+      <!-- Messages Stream -->
+      <div class="chat-messages-container" id="chat-messages-container"></div>
+
+      <!-- Edit Preview Bar (Shown when editing) -->
+      <div class="edit-bar" id="edit-preview-bar">
+        <div style="color: var(--primary-blue); font-size: 16px;">✏️</div>
+        <div class="edit-bar-info">
+          <div class="edit-bar-title">Xabarni tahrirlash</div>
+          <div class="edit-bar-text" id="edit-preview-text">...</div>
+        </div>
+        <button class="icon-btn" onclick="cancelEditing()" style="color: #64748B;">✕</button>
+      </div>
+
+      <!-- Input Bar -->
+      <div class="chat-input-bar">
+        <!-- Attachment (+) Button -->
+        <button class="icon-btn" style="color: var(--primary-blue); background: none;" onclick="document.getElementById('img-input').click()" title="Rasm yuborish">
+          <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        </button>
+        <input type="file" id="img-input" accept="image/*" style="display: none;" onchange="handleImagePicked(event)">
+        <input type="file" id="vid-input" accept="video/*" style="display: none;" onchange="handleVideoPicked(event)">
+
+        <textarea id="chat-text-input" class="chat-input" placeholder="Xabar yozing..." rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendChatMessage();}"></textarea>
+
+        <!-- Mic Button (Voice Recording) -->
+        <button id="mic-btn" class="icon-btn" style="color: var(--primary-blue); background: none;" onclick="toggleVoiceRecording()" title="Ovoz yozish">
+          <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+        </button>
+
+        <!-- Send Button -->
+        <button class="chat-send-btn" onclick="sendChatMessage()" title="Yuborish">
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- MODALS -->
+
+    <!-- Create Task Modal -->
+    <div id="create-task-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('create-task-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title">📌 Yangi Topshiriq Biriktirish</div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('create-task-modal')">✕</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Topshiriq nomi *</label>
+          <input type="text" id="new-task-title" class="form-input" placeholder="Masalan: Ko'chani asfaltlash va tozalash">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Manzil *</label>
+          <input type="text" id="new-task-address" class="form-input" placeholder="Masalan: Hamidovjon ko'chasi, 12-uy ro'parasi">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tavsif (Qilinishi kerak bo'lgan ishlar)</label>
+          <textarea id="new-task-desc" class="form-textarea" rows="3" placeholder="Ish ko'lami, talablar va ko'rsatmalar..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mas'ul xodim *</label>
+          <select id="new-task-worker" class="form-select"></select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label class="form-label">Boshlanish vaqti</label>
+            <input type="datetime-local" id="new-task-start" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tugash muddati</label>
+            <input type="datetime-local" id="new-task-end" class="form-input">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveNewTask()" style="margin-top: 8px;">
+          Topshiriqni Saqlash va Biriktirish
+        </button>
+      </div>
+    </div>
+
+    <!-- Create Schedule Modal -->
+    <div id="create-schedule-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('create-schedule-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title">🗓️ Yangi Reja Kiritish</div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('create-schedule-modal')">✕</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reja / Uchrashuv nomi *</label>
+          <input type="text" id="new-schedule-title" class="form-input" placeholder="Masalan: Maktab ta'lim holatini ko'rish">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Manzil / Joy *</label>
+          <input type="text" id="new-schedule-loc" class="form-input" placeholder="Masalan: 24-sonli maktab binosi">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Qo'shimcha eslatma</label>
+          <input type="text" id="new-schedule-notes" class="form-input" placeholder="Masalan: Isitish tizimi va o'quv qurollari">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rejalashtirilgan vaqt *</label>
+          <input type="datetime-local" id="new-schedule-time" class="form-input">
+        </div>
+        <button class="btn btn-primary" onclick="saveNewSchedule()" style="margin-top: 8px;">
+          Rejani Saqlash
+        </button>
+      </div>
+    </div>
+
+    <!-- Create Worker Modal -->
+    <div id="create-worker-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('create-worker-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title">👤 Yangi Mas'ul Xodim Qo'shish</div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('create-worker-modal')">✕</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">F.I.SH (To'liq ism) *</label>
+          <input type="text" id="new-worker-name" class="form-input" placeholder="Masalan: Olim Hamidov">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lavozimi / Mas'uliyati</label>
+          <input type="text" id="new-worker-pos" class="form-input" placeholder="Masalan: Obodonlashtirish bo'lim boshlig'i">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Telefon raqami</label>
+          <input type="text" id="new-worker-phone" class="form-input" placeholder="+998901234567">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label class="form-label">Login *</label>
+            <input type="text" id="new-worker-user" class="form-input" placeholder="ishchi3">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Parol *</label>
+            <input type="password" id="new-worker-pass" class="form-input" placeholder="••••••••">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveNewWorker()" style="margin-top: 8px;">
+          Xodimni Qo'shish
+        </button>
+      </div>
+    </div>
+
+    <!-- Worker Completion Note Modal -->
+    <div id="worker-complete-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('worker-complete-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title" style="color: var(--status-green);">✅ Topshiriqni Yakunlash</div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('worker-complete-modal')">✕</button>
+        </div>
+        <div style="font-weight: bold; font-size: 14px; color: var(--primary-blue);" id="complete-task-title">Vazifa</div>
+        <div style="font-size: 12px; color: #64748B;" id="complete-task-addr">Manzil: ...</div>
+
+        <div class="form-group">
+          <label class="form-label">Bajarilgan ish bo'yicha hisobot / izoh yozing:</label>
+          <textarea id="complete-task-note" class="form-textarea" rows="4" placeholder="Masalan: Chuqurlar to'liq tekislanib yangi asfalt qoplamasi yotqizildi, obodonlashtirildi va topshirishga tayyor holga keltirildi..."></textarea>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-outline" style="flex: 1;" onclick="closeModal('worker-complete-modal')">Bekor qilish</button>
+          <button class="btn btn-green" style="flex: 2;" onclick="confirmWorkerComplete()">Tugatdim va Yuborish</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Message Actions Modal (Edit / Delete) -->
+    <div id="message-actions-modal" class="modal-overlay" onclick="if(event.target===this)closeMessageActionsModal()">
+      <div class="modal-sheet" style="padding-bottom: calc(24px + var(--safe-bottom));">
+        <div class="modal-title" style="margin-bottom: 4px;">Xabar amallari</div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div id="msg-action-edit" class="task-card" style="flex-direction: row; align-items: center; gap: 12px; cursor: pointer; padding: 12px;" onclick="startEditingSelectedMessage()">
+            <div style="font-size: 20px; color: var(--primary-blue);">✏️</div>
+            <div>
+              <div style="font-weight: 700; font-size: 14px;">Tahrirlash</div>
+              <div style="font-size: 11px; color: var(--text-secondary);">Xabar matnini o'zgartirish</div>
+            </div>
+          </div>
+          <div id="msg-action-delete" class="task-card" style="flex-direction: row; align-items: center; gap: 12px; cursor: pointer; padding: 12px; background: #FEE2E2;" onclick="deleteSelectedMessage()">
+            <div style="font-size: 20px; color: var(--status-red);">🗑️</div>
+            <div>
+              <div style="font-weight: 700; font-size: 14px; color: var(--status-red);">O'chirish</div>
+              <div style="font-size: 11px; color: #991B1B;">Xabarni butunlay o'chirib tashlash</div>
+            </div>
+          </div>
+          <button class="btn btn-outline" style="margin-top: 4px;" onclick="closeMessageActionsModal()">Bekor qilish</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fullscreen Video Player Modal -->
+    <div id="video-player-modal" class="modal-overlay" style="background: black; z-index: 250; padding: 0;">
+      <button class="icon-btn" style="position: absolute; top: calc(16px + var(--safe-top)); right: 16px; background: rgba(0,0,0,0.6); z-index: 300; width: 44px; height: 44px;" onclick="closeVideoModal()">✕</button>
+      <video id="full-video-element" controls style="width: 100%; max-height: 100%; outline: none;" playsinline></video>
+    </div>
+
+    <!-- Toast Component -->
+    <div id="toast" class="toast">Bildirishnoma</div>
+
+  </div>
+
+  <!-- App Scripts -->
+  <script src="js/firebase-config.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/mayor.js"></script>
+  <script src="js/worker.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/app.js"></script>
+
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW reg error:', err));
+      });
+    }
+  </script>
+</body>
+</html>
