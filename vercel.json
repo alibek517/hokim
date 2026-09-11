@@ -1,0 +1,9 @@
+﻿{
+    "rewrites":  [
+                     {
+                         "destination":  "/web/",
+                         "source":  "/(.*)"
+                     }
+                 ],
+    "cleanUrls":  true
+}
