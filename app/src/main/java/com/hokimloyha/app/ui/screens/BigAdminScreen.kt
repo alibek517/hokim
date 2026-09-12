@@ -50,6 +50,8 @@ import com.hokimloyha.app.ui.theme.NavyDark
 import com.hokimloyha.app.ui.theme.PrimaryBlue
 import com.hokimloyha.app.ui.theme.SlateBg
 import com.hokimloyha.app.ui.theme.TextSecondary
+import com.hokimloyha.app.util.RatingCalculator
+import com.hokimloyha.app.util.WorkerStats
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -95,6 +97,7 @@ fun BigAdminScreen(
     }
 
     val users by storage.users.collectAsState()
+    val allTasks by storage.tasks.collectAsState()
     val mayors = users.filter { it.role == UserRole.MAYOR }
     val workers = users.filter { it.role == UserRole.WORKER }
     val allTrackableUsers = users.filter { it.role == UserRole.MAYOR || it.role == UserRole.WORKER }
@@ -388,10 +391,20 @@ fun BigAdminScreen(
                                     modifier = Modifier.fillMaxWidth(0.9f)
                                 ) {
                                     allTrackableUsers.forEach { u ->
+                                        val uScore = if (u.role == UserRole.WORKER) {
+                                            RatingCalculator.calculateWorkerStats(u, allTasks).score
+                                        } else null
+
                                         DropdownMenuItem(
                                             text = {
                                                 Column {
-                                                    Text(u.fullName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Text(u.fullName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                                        if (uScore != null) {
+                                                            Spacer(modifier = Modifier.width(6.dp))
+                                                            Text(if (uScore == 0.0) "⚪ 0.0" else "⭐ $uScore", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD97706))
+                                                        }
+                                                    }
                                                     Text("${u.position ?: "Xodim"} • @${u.username}", fontSize = 11.sp, color = TextSecondary)
                                                 }
                                             },

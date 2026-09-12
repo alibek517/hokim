@@ -97,6 +97,9 @@ class MainActivity : ComponentActivity() {
                     var chatTargetUser by remember { mutableStateOf<User?>(null) }
 
                     LaunchedEffect(currentUser) {
+                        if (currentUser != null) {
+                            storage.updateUserLastActive(currentUser!!.id)
+                        }
                         if (currentUser != null && (currentUser!!.role == UserRole.MAYOR || currentUser!!.role == UserRole.WORKER)) {
                             val missing = trackingPermissions.filter {
                                 ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED

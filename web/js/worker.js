@@ -1,3 +1,103 @@
+
+// Rating calculation for workers (10-point scale)
+function calculateWorkerStats(worker, allTasks, currentTime = Date.now()) {
+  const workerTasks = (allTasks || []).filter(t => t.assignedWorkerId === worker.id);
+  
+  if (workerTasks.length === 0) {
+    return {
+      workerId: worker.id,
+      score: 0.0,
+      totalTasks: 0,
+      completedTasks: 0,
+      earlyCompletedTasks: 0,
+      lateCompletedTasks: 0,
+      overduePendingTasks: 0,
+      inProgressTasks: 0,
+      daysInactive: 0,
+      inactivityPenalty: 0.0,
+      gradeText: "Topshiriqsiz (0 ta)",
+      earlyStartTasks: 0,
+      rank: 0
+    };
+  }
+
+  let completedCount = 0;
+  let earlyCompletedCount = 0;
+  let lateCompletedCount = 0;
+  let overduePendingCount = 0;
+  let inProgressCount = 0;
+  let earlyStartCount = 0;
+  let sumTaskScores = 0.0;
+
+  workerTasks.forEach(task => {
+    const isCompleted = task.status === 'COMPLETED_GREEN' || task.status === 'INSPECTED_BLUE';
+    const finishTime = task.completedAt || task.inspectedAt || task.endDate || Date.now();
+    const allocatedDuration = Math.max(3600000, (task.endDate || 0) - (task.startDate || 0));
+
+    const startedEarly = task.startedAt && task.startedAt <= (task.startDate || 0);
+    if (startedEarly) earlyStartCount++;
+
+    if (isCompleted) {
+      completedCount++;
+      if (finishTime <= task.endDate) {
+        earlyCompletedCount++;
+        const earlyRatio = Math.min(1.0, Math.max(0.0, (task.endDate - finishTime) / allocatedDuration));
+        const bonus = (earlyRatio * 1.0) + (startedEarly ? 0.5 : 0.0);
+        sumTaskScores += Math.min(10.0, 8.5 + bonus);
+      } else {
+        lateCompletedCount++;
+        const overdueHours = (finishTime - task.endDate) / 3600000.0;
+        sumTaskScores += Math.max(1.5, 5.0 - Math.min(3.5, overdueHours * 0.25));
+      }
+    } else {
+      if (task.status === 'IN_PROGRESS_YELLOW') inProgressCount++;
+      if (currentTime > (task.endDate || 0)) {
+        overduePendingCount++;
+        const overdueDays = (currentTime - task.endDate) / 86400000.0;
+        sumTaskScores += Math.max(0.5, 3.0 - Math.min(2.5, overdueDays * 0.5));
+      } else {
+        if (task.startedAt && task.startedAt <= task.startDate) {
+          sumTaskScores += 8.0;
+        } else if (currentTime > task.startDate && task.status === 'PENDING_RED') {
+          sumTaskScores += 4.5;
+        } else {
+          sumTaskScores += 7.0;
+        }
+      }
+    }
+  });
+
+  const rawAverage = sumTaskScores / workerTasks.length;
+  const lastActive = worker.lastActiveAt || worker.createdAt || currentTime;
+  const daysInactive = Math.max(0, Math.floor((currentTime - lastActive) / 86400000));
+  const inactivityPenalty = daysInactive >= 1 ? Math.min(4.0, daysInactive * 0.5) : 0.0;
+
+  const finalScore = Math.max(0.5, Math.min(10.0, rawAverage - inactivityPenalty));
+  const roundedScore = Math.round(finalScore * 10) / 10;
+
+  let grade = "Qoniqarsiz (D)";
+  if (roundedScore >= 9.0) grade = "O'ta tezkor (A+)";
+  else if (roundedScore >= 8.0) grade = "A'lo (A)";
+  else if (roundedScore >= 6.5) grade = "Yaxshi (B)";
+  else if (roundedScore >= 5.0) grade = "O'rtacha (C)";
+
+  return {
+    workerId: worker.id,
+    score: roundedScore,
+    totalTasks: workerTasks.length,
+    completedTasks: completedCount,
+    earlyCompletedTasks: earlyCompletedCount,
+    lateCompletedTasks: lateCompletedCount,
+    overduePendingTasks: overduePendingCount,
+    inProgressTasks: inProgressCount,
+    daysInactive,
+    inactivityPenalty,
+    gradeText: grade,
+    earlyStartTasks: earlyStartCount,
+    rank: 0
+  };
+}
+
 // IJRO Worker (Xodim) Module
 let completingTaskId = null;
 
@@ -34,20 +134,60 @@ function renderWorkerTasks() {
   const inProgressCount = myTasks.filter(t => t.status === 'IN_PROGRESS_YELLOW').length;
   const completedCount = myTasks.filter(t => t.status === 'COMPLETED_GREEN' || t.status === 'INSPECTED_BLUE').length;
 
+  const stats = calculateWorkerStats(worker, window.store.tasks || []);
+
+  let scoreBadgeBg = '#E2E8F0';
+  let scoreBadgeColor = '#64748B';
+  if (stats.totalTasks > 0) {
+    if (stats.score >= 8.5) { scoreBadgeBg = '#DCFCE7'; scoreBadgeColor = '#166534'; }
+    else if (stats.score >= 6.5) { scoreBadgeBg = '#E0F2FE'; scoreBadgeColor = '#0369A1'; }
+    else if (stats.score >= 5.0) { scoreBadgeBg = '#FEF9C3'; scoreBadgeColor = '#854D0E'; }
+    else { scoreBadgeBg = '#FEE2E2'; scoreBadgeColor = '#991B1B'; }
+  }
+
   const statsBox = document.getElementById('worker-stats-box');
   if (statsBox) {
     statsBox.innerHTML = `
-      <div style="flex: 1; text-align: center;">
-        <div style="font-size: 20px; font-weight: bold; color: var(--status-red);">${pendingCount}</div>
-        <div style="font-size: 11px; color: var(--text-secondary);">Boshlanmagan</div>
-      </div>
-      <div style="flex: 1; text-align: center;">
-        <div style="font-size: 20px; font-weight: bold; color: var(--status-yellow);">${inProgressCount}</div>
-        <div style="font-size: 11px; color: var(--text-secondary);">Jarayonda</div>
-      </div>
-      <div style="flex: 1; text-align: center;">
-        <div style="font-size: 20px; font-weight: bold; color: var(--status-green);">${completedCount}</div>
-        <div style="font-size: 11px; color: var(--text-secondary);">Bajarildi</div>
+      <div style="width: 100%; display: flex; flex-direction: column; gap: 10px;">
+        <div style="background: var(--navy-dark); border-radius: 12px; padding: 14px; color: white;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-size: 11px; color: #94A3B8; font-weight: 600;">SIZNING REYTINGINGIZ</div>
+              <div style="font-size: 22px; font-weight: 800; color: white;">${stats.totalTasks === 0 ? '0.0 / 10 ⚪' : stats.score + ' / 10 ⭐'}</div>
+            </div>
+            <div style="background: ${scoreBadgeBg}; color: ${scoreBadgeColor}; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 800;">
+              ${stats.gradeText}
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; margin-top: 10px; padding-top: 8px; border-top: 1px solid #334155;">
+            <span style="color: #4ADE80;">🚀 Erta: <b>${stats.earlyCompletedTasks} ta</b></span>
+            <span style="color: #60A5FA;">⚡ Vaqtida: <b>${stats.earlyStartTasks} ta</b></span>
+            <span style="color: ${stats.lateCompletedTasks > 0 ? '#F87171' : '#94A3B8'};">⏰ Kech: <b>${stats.lateCompletedTasks} ta</b></span>
+          </div>
+          ${stats.daysInactive >= 1 ? `
+            <div style="margin-top: 8px; background: #450A0A; color: #FCA5A5; font-size: 10px; padding: 4px 8px; border-radius: 6px;">
+              ⚠️ Ilovaga ${stats.daysInactive} kun kirmagansiz (-${stats.inactivityPenalty} ball jarima)
+            </div>
+          ` : ''}
+          <div style="font-size: 10px; color: #94A3B8; margin-top: 6px;">
+            💡 Eslatma: Ball faqat topshiriqni erta boshlab erta topshirganingizda oshadi!
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-around; width: 100%;">
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: var(--status-red);">${pendingCount}</div>
+            <div style="font-size: 11px; color: var(--text-secondary);">Boshlanmagan</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: var(--status-yellow);">${inProgressCount}</div>
+            <div style="font-size: 11px; color: var(--text-secondary);">Jarayonda</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: var(--status-green);">${completedCount}</div>
+            <div style="font-size: 11px; color: var(--text-secondary);">Bajarildi</div>
+          </div>
+        </div>
       </div>
     `;
   }

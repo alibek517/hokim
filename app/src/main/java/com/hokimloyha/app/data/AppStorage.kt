@@ -988,10 +988,23 @@ class AppStorage(private val context: Context) {
             it.username.trim().equals(username.trim(), ignoreCase = true) && it.password == pass
         }
         if (user != null) {
-            _currentUser.value = user
+            val now = System.currentTimeMillis()
+            val updatedUser = user.copy(lastActiveAt = now)
+            _currentUser.value = updatedUser
             prefs.edit().putString("current_user_id", user.id).apply()
+            updateUserLastActive(user.id, now)
         }
         return user
+    }
+
+    fun updateUserLastActive(userId: String, timestamp: Long = System.currentTimeMillis()) {
+        val updated = _users.value.map {
+            if (it.id == userId) it.copy(lastActiveAt = timestamp) else it
+        }
+        _users.value = updated
+        saveUsersLocally(updated)
+        usersRef?.child(userId)?.child("lastActiveAt")?.setValue(timestamp)
+        sendRestFallback("users/" + userId + "/lastActiveAt", timestamp)
     }
 
     fun logout() {

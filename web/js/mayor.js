@@ -214,15 +214,115 @@ function renderMayorSchedules() {
   container.innerHTML = html;
 }
 
-// 3. Ishchilar (Workers) Tab
+
+// Rating calculation for workers (10-point scale)
+function calculateWorkerStats(worker, allTasks, currentTime = Date.now()) {
+  const workerTasks = (allTasks || []).filter(t => t.assignedWorkerId === worker.id);
+  
+  if (workerTasks.length === 0) {
+    return {
+      workerId: worker.id,
+      score: 0.0,
+      totalTasks: 0,
+      completedTasks: 0,
+      earlyCompletedTasks: 0,
+      lateCompletedTasks: 0,
+      overduePendingTasks: 0,
+      inProgressTasks: 0,
+      daysInactive: 0,
+      inactivityPenalty: 0.0,
+      gradeText: "Topshiriqsiz (0 ta)",
+      earlyStartTasks: 0,
+      rank: 0
+    };
+  }
+
+  let completedCount = 0;
+  let earlyCompletedCount = 0;
+  let lateCompletedCount = 0;
+  let overduePendingCount = 0;
+  let inProgressCount = 0;
+  let earlyStartCount = 0;
+  let sumTaskScores = 0.0;
+
+  workerTasks.forEach(task => {
+    const isCompleted = task.status === 'COMPLETED_GREEN' || task.status === 'INSPECTED_BLUE';
+    const finishTime = task.completedAt || task.inspectedAt || task.endDate || Date.now();
+    const allocatedDuration = Math.max(3600000, (task.endDate || 0) - (task.startDate || 0));
+
+    const startedEarly = task.startedAt && task.startedAt <= (task.startDate || 0);
+    if (startedEarly) earlyStartCount++;
+
+    if (isCompleted) {
+      completedCount++;
+      if (finishTime <= task.endDate) {
+        earlyCompletedCount++;
+        const earlyRatio = Math.min(1.0, Math.max(0.0, (task.endDate - finishTime) / allocatedDuration));
+        const bonus = (earlyRatio * 1.0) + (startedEarly ? 0.5 : 0.0);
+        sumTaskScores += Math.min(10.0, 8.5 + bonus);
+      } else {
+        lateCompletedCount++;
+        const overdueHours = (finishTime - task.endDate) / 3600000.0;
+        sumTaskScores += Math.max(1.5, 5.0 - Math.min(3.5, overdueHours * 0.25));
+      }
+    } else {
+      if (task.status === 'IN_PROGRESS_YELLOW') inProgressCount++;
+      if (currentTime > (task.endDate || 0)) {
+        overduePendingCount++;
+        const overdueDays = (currentTime - task.endDate) / 86400000.0;
+        sumTaskScores += Math.max(0.5, 3.0 - Math.min(2.5, overdueDays * 0.5));
+      } else {
+        if (task.startedAt && task.startedAt <= task.startDate) {
+          sumTaskScores += 8.0;
+        } else if (currentTime > task.startDate && task.status === 'PENDING_RED') {
+          sumTaskScores += 4.5;
+        } else {
+          sumTaskScores += 7.0;
+        }
+      }
+    }
+  });
+
+  const rawAverage = sumTaskScores / workerTasks.length;
+  const lastActive = worker.lastActiveAt || worker.createdAt || currentTime;
+  const daysInactive = Math.max(0, Math.floor((currentTime - lastActive) / 86400000));
+  const inactivityPenalty = daysInactive >= 1 ? Math.min(4.0, daysInactive * 0.5) : 0.0;
+
+  const finalScore = Math.max(0.5, Math.min(10.0, rawAverage - inactivityPenalty));
+  const roundedScore = Math.round(finalScore * 10) / 10;
+
+  let grade = "Qoniqarsiz (D)";
+  if (roundedScore >= 9.0) grade = "O'ta tezkor (A+)";
+  else if (roundedScore >= 8.0) grade = "A'lo (A)";
+  else if (roundedScore >= 6.5) grade = "Yaxshi (B)";
+  else if (roundedScore >= 5.0) grade = "O'rtacha (C)";
+
+  return {
+    workerId: worker.id,
+    score: roundedScore,
+    totalTasks: workerTasks.length,
+    completedTasks: completedCount,
+    earlyCompletedTasks: earlyCompletedCount,
+    lateCompletedTasks: lateCompletedCount,
+    overduePendingTasks: overduePendingCount,
+    inProgressTasks: inProgressCount,
+    daysInactive,
+    inactivityPenalty,
+    gradeText: grade,
+    earlyStartTasks: earlyStartCount,
+    rank: 0
+  };
+}
+
+// 3. Ishchilar (Workers) Tab & Leaderboard
 function renderMayorWorkers() {
   const container = document.getElementById('mayor-tab-content');
   const mayor = window.store.currentUser;
   if (!container || !mayor) return;
 
-  const workers = window.store.users.filter(u => u.role === 'WORKER' && u.mayorId === mayor.id);
+  const rawWorkers = window.store.users.filter(u => u.role === 'WORKER' && u.mayorId === mayor.id);
 
-  if (workers.length === 0) {
+  if (rawWorkers.length === 0) {
     container.innerHTML = `
       <div class="main-content" style="align-items: center; justify-content: center; color: #94A3B8;">
         Xodimlar topilmadi. Yangi xodim qo'shish uchun (+) tugmasini bosing.
@@ -231,26 +331,144 @@ function renderMayorWorkers() {
     return;
   }
 
+  // Calculate stats for each worker
+  const allTasks = window.store.tasks || [];
+  const workersWithStats = rawWorkers.map(w => ({
+    worker: w,
+    stats: calculateWorkerStats(w, allTasks)
+  }));
+
+  // Sort by score descending
+  workersWithStats.sort((a, b) => {
+    if (b.stats.score !== a.stats.score) return b.stats.score - a.stats.score;
+    if (b.stats.earlyCompletedTasks !== a.stats.earlyCompletedTasks) return b.stats.earlyCompletedTasks - a.stats.earlyCompletedTasks;
+    return (a.worker.fullName || '').localeCompare(b.worker.fullName || '');
+  });
+
+  workersWithStats.forEach((item, idx) => {
+    item.stats.rank = idx + 1;
+  });
+
   let html = '<div class="main-content">';
-  workers.forEach(w => {
+
+  // Header Rating Card
+  html += `
+    <div class="task-card" style="background: var(--navy-dark); color: white; border: none; padding: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-size: 15px; font-weight: 800; color: white;">🏆 XODIMLAR REYTINGI</div>
+          <div style="font-size: 11px; color: #94A3B8;">10 ballik tezkorlik & ijro tizimi</div>
+        </div>
+        <div style="background: #1E293B; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; color: #FBBF24;">
+          ${rawWorkers.length} nafar xodim
+        </div>
+      </div>
+  `;
+
+  // Top 3 Podium
+  if (workersWithStats.length > 0 && workersWithStats[0].stats.score > 0) {
+    html += `<div style="display: flex; justify-content: space-around; align-items: flex-end; margin-top: 16px; padding-top: 12px; border-top: 1px solid #334155;">`;
+    // 2nd Place
+    if (workersWithStats.length >= 2 && workersWithStats[1].stats.score > 0) {
+      const s = workersWithStats[1];
+      html += `
+        <div style="text-align: center;">
+          <div style="font-size: 20px;">🥈</div>
+          <div style="font-size: 11px; font-weight: bold; color: #CBD5E1; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(s.worker.firstName || s.worker.fullName)}</div>
+          <div style="font-size: 11px; font-weight: bold; color: #CBD5E1;">${s.stats.score} ⭐</div>
+        </div>
+      `;
+    }
+    // 1st Place
+    const f = workersWithStats[0];
     html += `
-      <div class="task-card" style="flex-direction: row; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <div class="user-avatar" style="width: 44px; height: 44px; font-size: 15px;">
-            ${(w.firstName || 'X')[0]}
+      <div style="text-align: center;">
+        <div style="font-size: 28px;">🥇</div>
+        <div style="font-size: 13px; font-weight: 800; color: #FBBF24; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(f.worker.firstName || f.worker.fullName)}</div>
+        <div style="font-size: 12px; font-weight: 800; color: #FBBF24;">${f.stats.score} / 10 ⭐</div>
+      </div>
+    `;
+    // 3rd Place
+    if (workersWithStats.length >= 3 && workersWithStats[2].stats.score > 0) {
+      const t = workersWithStats[2];
+      html += `
+        <div style="text-align: center;">
+          <div style="font-size: 18px;">🥉</div>
+          <div style="font-size: 11px; font-weight: bold; color: #CD7F32; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(t.worker.firstName || t.worker.fullName)}</div>
+          <div style="font-size: 11px; font-weight: bold; color: #CD7F32;">${t.stats.score} ⭐</div>
+        </div>
+      `;
+    }
+    html += `</div>`;
+  }
+
+  html += `</div>`; // Close card
+
+  // Workers List
+  workersWithStats.forEach(({ worker: w, stats }) => {
+    let rankBadge = `#${stats.rank}`;
+    if (stats.rank === 1) rankBadge = '🥇';
+    else if (stats.rank === 2) rankBadge = '🥈';
+    else if (stats.rank === 3) rankBadge = '🥉';
+
+    let scoreBadgeBg = '#E2E8F0';
+    let scoreBadgeColor = '#64748B';
+    if (stats.totalTasks > 0) {
+      if (stats.score >= 8.5) { scoreBadgeBg = '#DCFCE7'; scoreBadgeColor = '#166534'; }
+      else if (stats.score >= 6.5) { scoreBadgeBg = '#E0F2FE'; scoreBadgeColor = '#0369A1'; }
+      else if (stats.score >= 5.0) { scoreBadgeBg = '#FEF9C3'; scoreBadgeColor = '#854D0E'; }
+      else { scoreBadgeBg = '#FEE2E2'; scoreBadgeColor = '#991B1B'; }
+    }
+
+    html += `
+      <div class="task-card" style="flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="user-avatar" style="width: 44px; height: 44px; font-size: ${stats.rank <= 3 ? '20px' : '15px'}; font-weight: bold;">
+              ${rankBadge}
+            </div>
+            <div>
+              <div style="font-weight: 700; font-size: 15px; color: var(--navy-dark);">${escapeHtml(w.fullName || (w.firstName + ' ' + w.lastName))}</div>
+              <div style="font-size: 12px; color: var(--primary-blue); font-weight: 500;">${escapeHtml(w.position || 'Xodim')}</div>
+            </div>
           </div>
-          <div>
-            <div style="font-weight: 700; font-size: 15px; color: var(--navy-dark);">${escapeHtml(w.fullName || (w.firstName + ' ' + w.lastName))}</div>
-            <div style="font-size: 12px; color: var(--text-secondary);">${escapeHtml(w.position || 'Xodim')}</div>
-            <div style="font-size: 11px; color: #94A3B8;">📞 ${escapeHtml(w.phone || w.username)}</div>
+          <div style="text-align: right;">
+            <span style="display: inline-block; background: ${scoreBadgeBg}; color: ${scoreBadgeColor}; font-weight: 800; font-size: 12px; padding: 4px 8px; border-radius: 8px;">
+              ${stats.totalTasks === 0 ? '0.0 / 10 ⚪' : stats.score + ' / 10 ⭐'}
+            </span>
+            <div style="font-size: 10px; color: ${scoreBadgeColor}; font-weight: 600; margin-top: 2px;">${stats.gradeText}</div>
           </div>
         </div>
-        <button class="btn btn-primary" style="width: auto; padding: 8px 14px; font-size: 12px;" onclick="openChatFromWorkerId('${w.id}')">
-          💬 Chat
-        </button>
+
+        <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 6px 0; border-top: 1px solid #F1F5F9; border-bottom: 1px solid #F1F5F9;">
+          <div>
+            <span style="color: #15803D;">🚀 Erta: <b>${stats.earlyCompletedTasks}</b></span> &nbsp;
+            <span style="color: #0369A1;">⚡ Vaqtida: <b>${stats.earlyStartTasks}</b></span>
+          </div>
+          <div>
+            <span style="color: ${stats.lateCompletedTasks > 0 ? 'var(--status-red)' : '#94A3B8'};">⏰ Kechikkan: <b>${stats.lateCompletedTasks}</b></span> &nbsp;
+            <span style="color: ${stats.overduePendingTasks > 0 ? 'var(--status-red)' : '#94A3B8'};">❌ Muddati o'tgan: <b>${stats.overduePendingTasks}</b></span>
+          </div>
+        </div>
+
+        ${stats.daysInactive >= 1 ? `
+          <div style="background: #FEF2F2; color: var(--status-red); font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 600;">
+            ⚠️ Ilovaga ${stats.daysInactive} kundan beri kirmagan (-${stats.inactivityPenalty} ball jarima)
+          </div>
+        ` : ''}
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+          <div style="font-size: 11px; color: #64748B;">
+            📞 ${escapeHtml(w.phone || w.username)} &nbsp;|&nbsp; Login: <span style="color: #0284C7;">${escapeHtml(w.username)}</span>
+          </div>
+          <button class="btn btn-primary" style="width: auto; padding: 6px 12px; font-size: 12px;" onclick="openChatFromWorkerId('${w.id}')">
+            💬 Chat
+          </button>
+        </div>
       </div>
     `;
   });
+
   html += '</div>';
   container.innerHTML = html;
 }

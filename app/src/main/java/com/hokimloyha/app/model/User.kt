@@ -18,6 +18,7 @@ data class User(
     val note: String? = null,           // Xodim haqida qo'shimcha ma'lumot
     val regionOrDistrict: String? = null, // Hokim uchun: Tuman/shahar nomi
     val mayorId: String? = null,        // Ishchi qaysi hokimga tegishli ekanligi
+    val lastActiveAt: Long? = null,     // Oxirgi marta ilovaga kirgan / faol bo'lgan vaqti
     val createdAt: Long = System.currentTimeMillis()
 ) {
     val fullName: String get() = "$firstName $lastName".trim()

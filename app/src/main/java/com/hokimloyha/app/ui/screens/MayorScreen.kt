@@ -33,6 +33,9 @@ import com.hokimloyha.app.service.ScheduleScheduler
 import com.hokimloyha.app.service.TaskDeadlineWorker
 import com.hokimloyha.app.ui.components.TaskStatusBadge
 import com.hokimloyha.app.ui.theme.*
+import com.hokimloyha.app.util.RatingCalculator
+import com.hokimloyha.app.util.WorkerStats
+import androidx.compose.foundation.border
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -781,8 +784,18 @@ fun MayorWorkersTab(
 ) {
     val context = LocalContext.current
     val users by storage.users.collectAsState()
+    val tasks by storage.tasks.collectAsState()
     val workers = users.filter { it.role == UserRole.WORKER && it.mayorId == currentUser.id }
     var showAddWorkerDialog by remember { mutableStateOf(false) }
+    var sortByRating by remember { mutableStateOf(true) }
+
+    val rankedWorkers = remember(workers, tasks) {
+        RatingCalculator.calculateAllWorkerStats(workers, tasks)
+    }
+
+    val displayedWorkers = remember(rankedWorkers, sortByRating) {
+        if (sortByRating) rankedWorkers else rankedWorkers.sortedBy { it.first.fullName }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -790,55 +803,268 @@ fun MayorWorkersTab(
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            Text("Mening Mas'ul Xodimlarim (" + workers.size + ")", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NavyDark)
+            // Header summary card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = NavyDark)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("🏆 XODIMLAR REYTINGI", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text("10 ballik tezkorlik & ijro tizimi", color = TextSecondary, fontSize = 11.sp)
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color(0xFF1E293B)
+                        ) {
+                            Row(modifier = Modifier.padding(4.dp)) {
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = if (sortByRating) PrimaryBlue else Color.Transparent,
+                                    modifier = Modifier.clickable { sortByRating = true }
+                                ) {
+                                    Text(
+                                        "Ball ⭐",
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        color = if (sortByRating) Color.White else TextSecondary,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = if (!sortByRating) PrimaryBlue else Color.Transparent,
+                                    modifier = Modifier.clickable { sortByRating = false }
+                                ) {
+                                    Text(
+                                        "A-Z",
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        color = if (!sortByRating) Color.White else TextSecondary,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
 
-            Spacer(modifier = Modifier.height(10.dp))
+                    // Top 3 Podium
+                    if (rankedWorkers.isNotEmpty() && rankedWorkers.any { it.second.score > 0 }) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            // 2nd Place
+                            if (rankedWorkers.size >= 2 && rankedWorkers[1].second.score > 0) {
+                                val second = rankedWorkers[1]
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("🥈", fontSize = 20.sp)
+                                    Text(second.first.firstName, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                    Text("${second.second.score} ⭐", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            // 1st Place (Winner)
+                            val first = rankedWorkers[0]
+                            if (first.second.score > 0) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("🥇", fontSize = 28.sp)
+                                    Text(first.first.firstName, color = Color(0xFFFBBF24), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                    Text("${first.second.score} / 10 ⭐", color = Color(0xFFFBBF24), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            // 3rd Place
+                            if (rankedWorkers.size >= 3 && rankedWorkers[2].second.score > 0) {
+                                val third = rankedWorkers[2]
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("🥉", fontSize = 18.sp)
+                                    Text(third.first.firstName, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                    Text("${third.second.score} ⭐", color = Color(0xFFCD7F32), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                "Xodimlar ro'yxati (${workers.size} nafar)",
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                color = NavyDark
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             if (workers.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Xodimlar mavjud emas. '+' orqali ishchi qo'shing.", color = TextSecondary)
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(workers) { worker ->
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(displayedWorkers) { (worker, stats) ->
+                        val rankIcon = when (stats.rank) {
+                            1 -> "🥇"
+                            2 -> "🥈"
+                            3 -> "🥉"
+                            else -> "#${stats.rank}"
+                        }
+
+                        val scoreBgColor = when {
+                            stats.totalTasks == 0 -> Color(0xFFE2E8F0)
+                            stats.score >= 8.5 -> Color(0xFFDCFCE7)
+                            stats.score >= 6.5 -> Color(0xFFE0F2FE)
+                            stats.score >= 5.0 -> Color(0xFFFEF9C3)
+                            else -> Color(0xFFFEE2E2)
+                        }
+
+                        val scoreTextColor = when {
+                            stats.totalTasks == 0 -> Color(0xFF64748B)
+                            stats.score >= 8.5 -> Color(0xFF166534)
+                            stats.score >= 6.5 -> Color(0xFF0369A1)
+                            stats.score >= 5.0 -> Color(0xFF854D0E)
+                            else -> Color(0xFF991B1B)
+                        }
+
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
                             colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(46.dp)
-                                        .clip(CircleShape)
-                                        .background(PrimaryBlue.copy(alpha = 0.1f)),
-                                    contentAlignment = Alignment.Center
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryBlue)
+                                    // Rank & Avatar
+                                    Box(
+                                        modifier = Modifier
+                                            .size(46.dp)
+                                            .clip(CircleShape)
+                                            .background(PrimaryBlue.copy(alpha = 0.1f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(rankIcon, fontSize = if (rankIcon.startsWith("#")) 14.sp else 22.sp, fontWeight = FontWeight.Bold, color = PrimaryBlue)
+                                    }
+
+                                    Spacer(modifier = Modifier.width(12.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                worker.fullName,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp,
+                                                color = NavyDark,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            // Score Badge
+                                            Surface(
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = scoreBgColor,
+                                                modifier = Modifier.padding(start = 6.dp)
+                                            ) {
+                                                Text(
+                                                    if (stats.totalTasks == 0) "0.0 / 10 ⚪" else "${stats.score} / 10 ⭐",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp,
+                                                    color = scoreTextColor,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Text(
+                                            worker.position ?: "Lavozim ko'rsatilmagan",
+                                            color = PrimaryBlue,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            "Baholash: ${stats.gradeText}",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = scoreTextColor
+                                        )
+                                    }
                                 }
 
-                                Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Divider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(worker.fullName, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = NavyDark)
-                                    Text(worker.position ?: "Lavozim ko'rsatilmagan", color = PrimaryBlue, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                                    if (!worker.phone.isNullOrBlank()) {
-                                        Text("Tel: " + worker.phone, fontSize = 12.sp, color = TextSecondary)
+                                // Task statistics breakdown
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text("🚀 Erta tugatilgan: ${stats.earlyCompletedTasks}", fontSize = 11.sp, color = Color(0xFF15803D), fontWeight = FontWeight.Medium)
+                                        Text("⚡ Vaqtida boshlangan: ${stats.earlyStartTasks}", fontSize = 11.sp, color = Color(0xFF0369A1), fontWeight = FontWeight.Medium)
                                     }
-                                    if (!worker.note.isNullOrBlank()) {
-                                        Text("Izoh: " + worker.note, fontSize = 11.sp, color = TextSecondary)
+                                    Column {
+                                        Text("⏰ Kechiktirilgan: ${stats.lateCompletedTasks}", fontSize = 11.sp, color = if (stats.lateCompletedTasks > 0) StatusRed else TextSecondary, fontWeight = FontWeight.Medium)
+                                        Text("❌ Muddati o'tgan: ${stats.overduePendingTasks}", fontSize = 11.sp, color = if (stats.overduePendingTasks > 0) StatusRed else TextSecondary, fontWeight = FontWeight.Medium)
                                     }
-                                    Text("Login: " + worker.username + " | Parol: " + worker.password, fontSize = 11.sp, color = Color(0xFF0369A1))
                                 }
 
-                                IconButton(onClick = { onOpenChat(worker) }) {
-                                    Icon(Icons.Default.Email, contentDescription = "Chat", tint = PrimaryBlue)
+                                // Inactivity penalty alert
+                                if (stats.daysInactive >= 1) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color(0xFFFEF2F2),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            "⚠️ Ilovaga ${stats.daysInactive} kundan beri kirmagan (-${stats.inactivityPenalty} ball jarima)",
+                                            fontSize = 11.sp,
+                                            color = StatusRed,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        if (!worker.phone.isNullOrBlank()) {
+                                            Text("Tel: ${worker.phone}", fontSize = 11.sp, color = TextSecondary)
+                                        }
+                                        Text("Login: ${worker.username} | Parol: ${worker.password}", fontSize = 11.sp, color = Color(0xFF0284C7))
+                                    }
+
+                                    IconButton(
+                                        onClick = { onOpenChat(worker) },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(PrimaryBlue.copy(alpha = 0.1f), CircleShape)
+                                    ) {
+                                        Icon(Icons.Default.Email, contentDescription = "Chat", tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                                    }
                                 }
                             }
                         }

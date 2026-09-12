@@ -28,6 +28,8 @@ import com.hokimloyha.app.model.User
 import com.hokimloyha.app.service.NotificationHelper
 import com.hokimloyha.app.ui.components.TaskStatusBadge
 import com.hokimloyha.app.ui.theme.*
+import com.hokimloyha.app.util.RatingCalculator
+import com.hokimloyha.app.util.WorkerStats
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -155,6 +157,114 @@ fun WorkerTasksView(
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        val myStats = remember(tasks, currentUser) {
+            RatingCalculator.calculateWorkerStats(currentUser, tasks)
+        }
+
+        val scoreBgColor = when {
+            myStats.totalTasks == 0 -> Color(0xFFE2E8F0)
+            myStats.score >= 8.5 -> Color(0xFFDCFCE7)
+            myStats.score >= 6.5 -> Color(0xFFE0F2FE)
+            myStats.score >= 5.0 -> Color(0xFFFEF9C3)
+            else -> Color(0xFFFEE2E2)
+        }
+
+        val scoreTextColor = when {
+            myStats.totalTasks == 0 -> Color(0xFF64748B)
+            myStats.score >= 8.5 -> Color(0xFF166534)
+            myStats.score >= 6.5 -> Color(0xFF0369A1)
+            myStats.score >= 5.0 -> Color(0xFF854D0E)
+            else -> Color(0xFF991B1B)
+        }
+
+        // 1. Worker Rating Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = NavyDark),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("SIZNING REYTINGINGIZ", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                if (myStats.totalTasks == 0) "0.0 / 10" else "${myStats.score} / 10",
+                                color = Color.White,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("⭐", fontSize = 20.sp)
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = scoreBgColor
+                    ) {
+                        Text(
+                            myStats.gradeText,
+                            color = scoreTextColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Divider(color = Color(0xFF334155), thickness = 1.dp)
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("🚀 Erta tugatilgan: ${myStats.earlyCompletedTasks} ta", fontSize = 11.sp, color = Color(0xFF4ADE80), fontWeight = FontWeight.Medium)
+                        Text("⚡ Vaqtida boshlangan: ${myStats.earlyStartTasks} ta", fontSize = 11.sp, color = Color(0xFF60A5FA), fontWeight = FontWeight.Medium)
+                    }
+                    Column {
+                        Text("⏰ Kech tugatilgan: ${myStats.lateCompletedTasks} ta", fontSize = 11.sp, color = if (myStats.lateCompletedTasks > 0) Color(0xFFF87171) else Color(0xFF94A3B8), fontWeight = FontWeight.Medium)
+                        Text("❌ Muddati o'tgan: ${myStats.overduePendingTasks} ta", fontSize = 11.sp, color = if (myStats.overduePendingTasks > 0) Color(0xFFF87171) else Color(0xFF94A3B8), fontWeight = FontWeight.Medium)
+                    }
+                }
+
+                if (myStats.daysInactive >= 1) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF450A0A),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "⚠️ Ilovaga ${myStats.daysInactive} kundan beri kirmagansiz (-${myStats.inactivityPenalty} ball jarima)",
+                            color = Color(0xFFFCA5A5),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    "💡 Eslatma: Ball faqat topshiriqni erta boshlab erta topshirganingizda oshadi! Ilovaga kirmay qo'yish ballni tushiradi.",
+                    fontSize = 10.sp,
+                    color = Color(0xFF94A3B8)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 2. Task Counts Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -164,7 +274,7 @@ fun WorkerTasksView(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(14.dp),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
                 val pending = myTasks.count { it.status == TaskStatus.PENDING_RED }
@@ -172,15 +282,15 @@ fun WorkerTasksView(
                 val completed = myTasks.count { it.status == TaskStatus.COMPLETED_GREEN || it.status == TaskStatus.INSPECTED_BLUE }
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(pending.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = StatusRed)
+                    Text(pending.toString(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = StatusRed)
                     Text("Boshlanmagan", fontSize = 11.sp, color = TextSecondary)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(inProgress.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = StatusYellow)
+                    Text(inProgress.toString(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = StatusYellow)
                     Text("Jarayonda", fontSize = 11.sp, color = TextSecondary)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(completed.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = StatusGreen)
+                    Text(completed.toString(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = StatusGreen)
                     Text("Bajarildi", fontSize = 11.sp, color = TextSecondary)
                 }
             }
