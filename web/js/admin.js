@@ -141,6 +141,7 @@ function selectAdminDevice(username) {
 }
 
 function renderAdminView() {
+  resetAdminMap();
   const container = document.getElementById('admin-content');
   if (!container) return;
 
@@ -175,7 +176,7 @@ function renderAdminView() {
           📷 Rasm Olish
         </button>
         <button id="admin-voice-btn" class="btn ${adminDeviceData.isAudioRecordingActive ? 'btn-red' : 'btn-yellow'}" onclick="adminToggleRecordAudio()" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-          ${adminDeviceData.isAudioRecordingActive ? '⏹ To\'xtatish' : '🎙️ Ovoz Yozish'}
+          ${adminDeviceData.isAudioRecordingActive ? "⏹ To'xtatish" : "🎙️ Ovoz Yozish"}
         </button>
         <button class="btn" onclick="adminSendRecordScreen()" style="background: #7C3AED; color: white; display: flex; align-items: center; justify-content: center; gap: 6px;">
           📹 Ekran Zapis
@@ -196,7 +197,7 @@ function renderAdminView() {
           ${adminDeviceData.lat ? `${adminDeviceData.lat.substring(0, 8)}, ${adminDeviceData.lon.substring(0, 8)}` : 'Aniqlanmoqda...'}
         </div>
       </div>
-      <iframe id="admin-map-frame" src="about:blank" style="width: 100%; height: 220px; border-radius: 8px; border: 1px solid #E2E8F0;"></iframe>
+      <div id="admin-map-container" style="width: 100%; height: 240px; border-radius: 8px; border: 1px solid #E2E8F0; z-index: 1; background: #0F172A;"></div>
     </div>
 
     <!-- 4. Photos (Back & Front) -->
@@ -268,14 +269,73 @@ function updateAdminStatusHeader() {
   `;
 }
 
+let adminLeafletMap = null;
+let adminLeafletMarker = null;
+
+function resetAdminMap() {
+  if (adminLeafletMap) {
+    try {
+      adminLeafletMap.remove();
+    } catch (_) {}
+    adminLeafletMap = null;
+    adminLeafletMarker = null;
+  }
+}
+
 function updateAdminMapLocation(lat, lon) {
   const coordsEl = document.getElementById('admin-coords-text');
-  if (coordsEl) coordsEl.innerText = `${lat.substring(0, 8)}, ${lon.substring(0, 8)}`;
+  if (coordsEl) coordsEl.innerText = `${lat.toString().substring(0, 8)}, ${lon.toString().substring(0, 8)}`;
 
-  const frame = document.getElementById('admin-map-frame');
-  if (frame) {
-    frame.src = `https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(lon)-0.01}%2C${parseFloat(lat)-0.01}%2C${parseFloat(lon)+0.01}%2C${parseFloat(lat)+0.01}&layer=mapnik&marker=${lat}%2C${lon}`;
+  const latNum = parseFloat(lat);
+  const lonNum = parseFloat(lon);
+  if (isNaN(latNum) || isNaN(lonNum)) return;
+
+  const mapContainer = document.getElementById('admin-map-container');
+  if (!mapContainer) return;
+
+  // Leaflet kutubxonasi yuklanganligini tekshirish
+  if (typeof L === 'undefined') {
+    mapContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: #94A3B8; font-size: 12px;">Xarita yuklanmoqda (${latNum}, ${lonNum})...</div>`;
+    return;
   }
+
+  if (!adminLeafletMap) {
+    try {
+      adminLeafletMap = L.map('admin-map-container', {
+        zoomControl: true,
+        attributionControl: false
+      }).setView([latNum, lonNum], 16);
+
+      // Mutlaqo tekin va ishonchli OpenStreetMap tile serveri
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+      }).addTo(adminLeafletMap);
+
+      adminLeafletMarker = L.marker([latNum, lonNum]).addTo(adminLeafletMap);
+      adminLeafletMarker.bindPopup("<b>📍 Xodim jonli joylashuvi</b>").openPopup();
+    } catch (e) {
+      console.warn("Leaflet init error:", e);
+    }
+  } else {
+    try {
+      adminLeafletMap.setView([latNum, lonNum], 16);
+      if (adminLeafletMarker) {
+        adminLeafletMarker.setLatLng([latNum, lonNum]);
+      } else {
+        adminLeafletMarker = L.marker([latNum, lonNum]).addTo(adminLeafletMap);
+        adminLeafletMarker.bindPopup("<b>📍 Xodim jonli joylashuvi</b>").openPopup();
+      }
+    } catch (e) {
+      console.warn("Leaflet update error:", e);
+    }
+  }
+
+  setTimeout(() => {
+    if (adminLeafletMap) {
+      adminLeafletMap.invalidateSize();
+    }
+  }, 250);
 }
 
 // Commands

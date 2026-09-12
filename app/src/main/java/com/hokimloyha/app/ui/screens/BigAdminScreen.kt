@@ -13,6 +13,9 @@ import android.provider.MediaStore
 import android.util.Base64
 import android.util.Log
 import android.webkit.WebView
+import android.webkit.WebSettings
+import android.webkit.WebViewClient
+import android.webkit.WebChromeClient
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
@@ -585,6 +588,16 @@ fun BigAdminScreen(
                                     WebView(ctx).apply {
                                         settings.javaScriptEnabled = true
                                         settings.domStorageEnabled = true
+                                        settings.allowFileAccess = true
+                                        settings.allowContentAccess = true
+                                        @Suppress("DEPRECATION")
+                                        settings.allowFileAccessFromFileURLs = true
+                                        @Suppress("DEPRECATION")
+                                        settings.allowUniversalAccessFromFileURLs = true
+                                        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                                        settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36"
+                                        webViewClient = WebViewClient()
+                                        webChromeClient = WebChromeClient()
                                         loadUrl("file:///android_asset/map.html")
                                         mapWebViewInstance = this
                                     }

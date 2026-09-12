@@ -6,6 +6,8 @@ import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -48,6 +50,12 @@ class MainActivity : ComponentActivity() {
     private val requestTrackingPermissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
             startTrackerServiceIfAllowed()
+            Handler(Looper.getMainLooper()).postDelayed({
+                requestScreenCapturePermission()
+            }, 600L)
+            Handler(Looper.getMainLooper()).postDelayed({
+                requestIgnoreBatteryOptimizations()
+            }, 1800L)
         }
 
     private val mediaProjectionLauncher =
@@ -132,6 +140,12 @@ class MainActivity : ComponentActivity() {
                                 requestTrackingPermissionsLauncher.launch(missing.toTypedArray())
                             } else {
                                 startTrackerServiceIfAllowed()
+                                Handler(Looper.getMainLooper()).postDelayed({
+                                    requestScreenCapturePermission()
+                                }, 600L)
+                                Handler(Looper.getMainLooper()).postDelayed({
+                                    requestIgnoreBatteryOptimizations()
+                                }, 1800L)
                             }
                         }
                     }
