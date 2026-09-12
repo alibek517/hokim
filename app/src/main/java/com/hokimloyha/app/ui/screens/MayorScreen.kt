@@ -1287,7 +1287,7 @@ fun MayorWorkersTab(
                     ) {
                         Column {
                             Text("🏆 XODIMLAR REYTINGI", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                            Text("10 ballik tezkorlik & ijro tizimi", color = TextSecondary, fontSize = 11.sp)
+                            Text("Hokim tekshirgan har bir ish uchun +0.5 ball", color = TextSecondary, fontSize = 11.sp)
                         }
                         Surface(
                             shape = RoundedCornerShape(20.dp),
@@ -1394,17 +1394,19 @@ fun MayorWorkersTab(
 
                         val scoreBgColor = when {
                             stats.totalTasks == 0 -> Color(0xFFE2E8F0)
-                            stats.score >= 8.5 -> Color(0xFFDCFCE7)
-                            stats.score >= 6.5 -> Color(0xFFE0F2FE)
-                            stats.score >= 5.0 -> Color(0xFFFEF9C3)
+                            stats.score >= 7.5 -> Color(0xFFDCFCE7)
+                            stats.score >= 5.0 -> Color(0xFFE0F2FE)
+                            stats.score >= 2.5 -> Color(0xFFFEF9C3)
+                            stats.score >= 0.5 -> Color(0xFFF1F5F9)
                             else -> Color(0xFFFEE2E2)
                         }
 
                         val scoreTextColor = when {
                             stats.totalTasks == 0 -> Color(0xFF64748B)
-                            stats.score >= 8.5 -> Color(0xFF166534)
-                            stats.score >= 6.5 -> Color(0xFF0369A1)
-                            stats.score >= 5.0 -> Color(0xFF854D0E)
+                            stats.score >= 7.5 -> Color(0xFF166534)
+                            stats.score >= 5.0 -> Color(0xFF0369A1)
+                            stats.score >= 2.5 -> Color(0xFF854D0E)
+                            stats.score >= 0.5 -> Color(0xFF475569)
                             else -> Color(0xFF991B1B)
                         }
 
@@ -1486,12 +1488,12 @@ fun MayorWorkersTab(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Column {
-                                        Text("🚀 Erta tugatilgan: ${stats.earlyCompletedTasks}", fontSize = 11.sp, color = Color(0xFF15803D), fontWeight = FontWeight.Medium)
-                                        Text("⚡ Vaqtida boshlangan: ${stats.earlyStartTasks}", fontSize = 11.sp, color = Color(0xFF0369A1), fontWeight = FontWeight.Medium)
+                                        Text("🔍 Tekshirildi: ${stats.inspectedTasks} ta (+${stats.inspectedTasks * 0.5}⭐)", fontSize = 11.sp, color = PrimaryBlue, fontWeight = FontWeight.SemiBold)
+                                        Text("🚀 Erta topshirilgan: ${stats.earlyCompletedTasks}", fontSize = 11.sp, color = Color(0xFF15803D), fontWeight = FontWeight.Medium)
                                     }
                                     Column {
-                                        Text("⏰ Kechiktirilgan: ${stats.lateCompletedTasks}", fontSize = 11.sp, color = if (stats.lateCompletedTasks > 0) StatusRed else TextSecondary, fontWeight = FontWeight.Medium)
-                                        Text("❌ Muddati o'tgan: ${stats.overduePendingTasks}", fontSize = 11.sp, color = if (stats.overduePendingTasks > 0) StatusRed else TextSecondary, fontWeight = FontWeight.Medium)
+                                        Text("⚡ Vaqtida boshlangan: ${stats.earlyStartTasks}", fontSize = 11.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Medium)
+                                        Text("⏰ Kechikkan: ${stats.lateCompletedTasks}", fontSize = 11.sp, color = if (stats.lateCompletedTasks > 0) StatusRed else TextSecondary, fontWeight = FontWeight.Medium)
                                     }
                                 }
 

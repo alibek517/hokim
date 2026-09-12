@@ -181,17 +181,19 @@ fun WorkerTasksView(
 
         val scoreBgColor = when {
             myStats.totalTasks == 0 -> Color(0xFFE2E8F0)
-            myStats.score >= 8.5 -> Color(0xFFDCFCE7)
-            myStats.score >= 6.5 -> Color(0xFFE0F2FE)
-            myStats.score >= 5.0 -> Color(0xFFFEF9C3)
+            myStats.score >= 7.5 -> Color(0xFFDCFCE7)
+            myStats.score >= 5.0 -> Color(0xFFE0F2FE)
+            myStats.score >= 2.5 -> Color(0xFFFEF9C3)
+            myStats.score >= 0.5 -> Color(0xFFF1F5F9)
             else -> Color(0xFFFEE2E2)
         }
 
         val scoreTextColor = when {
             myStats.totalTasks == 0 -> Color(0xFF64748B)
-            myStats.score >= 8.5 -> Color(0xFF166534)
-            myStats.score >= 6.5 -> Color(0xFF0369A1)
-            myStats.score >= 5.0 -> Color(0xFF854D0E)
+            myStats.score >= 7.5 -> Color(0xFF166534)
+            myStats.score >= 5.0 -> Color(0xFF0369A1)
+            myStats.score >= 2.5 -> Color(0xFF854D0E)
+            myStats.score >= 0.5 -> Color(0xFF475569)
             else -> Color(0xFF991B1B)
         }
 
@@ -245,12 +247,12 @@ fun WorkerTasksView(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column {
+                        Text("🔍 Tekshirildi: ${myStats.inspectedTasks} ta (+${(myStats.inspectedTasks * 0.5)}⭐)", fontSize = 11.sp, color = Color(0xFF38BDF8), fontWeight = FontWeight.SemiBold)
                         Text("🚀 Erta tugatilgan: ${myStats.earlyCompletedTasks} ta", fontSize = 11.sp, color = Color(0xFF4ADE80), fontWeight = FontWeight.Medium)
-                        Text("⚡ Vaqtida boshlangan: ${myStats.earlyStartTasks} ta", fontSize = 11.sp, color = Color(0xFF60A5FA), fontWeight = FontWeight.Medium)
                     }
                     Column {
+                        Text("⚡ Vaqtida boshlangan: ${myStats.earlyStartTasks} ta", fontSize = 11.sp, color = Color(0xFF94A3B8), fontWeight = FontWeight.Medium)
                         Text("⏰ Kech tugatilgan: ${myStats.lateCompletedTasks} ta", fontSize = 11.sp, color = if (myStats.lateCompletedTasks > 0) Color(0xFFF87171) else Color(0xFF94A3B8), fontWeight = FontWeight.Medium)
-                        Text("❌ Muddati o'tgan: ${myStats.overduePendingTasks} ta", fontSize = 11.sp, color = if (myStats.overduePendingTasks > 0) Color(0xFFF87171) else Color(0xFF94A3B8), fontWeight = FontWeight.Medium)
                     }
                 }
 
@@ -273,7 +275,7 @@ fun WorkerTasksView(
 
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    "💡 Eslatma: Ball faqat topshiriqni erta boshlab erta topshirganingizda oshadi! Ilovaga kirmay qo'yish ballni tushiradi.",
+                    "💡 Eslatma: Ball faqat Hokim topshiriqni tekshirib tasdiqlaganda (+0.5 ball) qo'shiladi! Boshlash yoki tugatishning o'ziga ball berilmaydi.",
                     fontSize = 10.sp,
                     color = Color(0xFF94A3B8)
                 )

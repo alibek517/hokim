@@ -1,5 +1,4 @@
-
-// Rating calculation for workers (10-point scale)
+// Rating calculation for workers (10-point scale: +0.5 per inspected task)
 function calculateWorkerStats(worker, allTasks, currentTime = Date.now()) {
   const workerTasks = (allTasks || []).filter(t => t.assignedWorkerId === worker.id);
   
@@ -9,6 +8,7 @@ function calculateWorkerStats(worker, allTasks, currentTime = Date.now()) {
       score: 0.0,
       totalTasks: 0,
       completedTasks: 0,
+      inspectedTasks: 0,
       earlyCompletedTasks: 0,
       lateCompletedTasks: 0,
       overduePendingTasks: 0,
@@ -22,70 +22,64 @@ function calculateWorkerStats(worker, allTasks, currentTime = Date.now()) {
   }
 
   let completedCount = 0;
+  let inspectedCount = 0;
   let earlyCompletedCount = 0;
   let lateCompletedCount = 0;
   let overduePendingCount = 0;
   let inProgressCount = 0;
   let earlyStartCount = 0;
-  let sumTaskScores = 0.0;
 
   workerTasks.forEach(task => {
-    const isCompleted = task.status === 'COMPLETED_GREEN' || task.status === 'INSPECTED_BLUE';
+    const isInspected = task.status === 'INSPECTED_BLUE';
+    const isCompleted = task.status === 'COMPLETED_GREEN' || isInspected;
     const finishTime = task.completedAt || task.inspectedAt || task.endDate || Date.now();
-    const allocatedDuration = Math.max(3600000, (task.endDate || 0) - (task.startDate || 0));
 
     const startedEarly = task.startedAt && task.startedAt <= (task.startDate || 0);
     if (startedEarly) earlyStartCount++;
+
+    if (isInspected) {
+      inspectedCount++;
+    }
 
     if (isCompleted) {
       completedCount++;
       if (finishTime <= task.endDate) {
         earlyCompletedCount++;
-        const earlyRatio = Math.min(1.0, Math.max(0.0, (task.endDate - finishTime) / allocatedDuration));
-        const bonus = (earlyRatio * 1.0) + (startedEarly ? 0.5 : 0.0);
-        sumTaskScores += Math.min(10.0, 8.5 + bonus);
       } else {
         lateCompletedCount++;
-        const overdueHours = (finishTime - task.endDate) / 3600000.0;
-        sumTaskScores += Math.max(1.5, 5.0 - Math.min(3.5, overdueHours * 0.25));
       }
     } else {
       if (task.status === 'IN_PROGRESS_YELLOW') inProgressCount++;
       if (currentTime > (task.endDate || 0)) {
         overduePendingCount++;
-        const overdueDays = (currentTime - task.endDate) / 86400000.0;
-        sumTaskScores += Math.max(0.5, 3.0 - Math.min(2.5, overdueDays * 0.5));
-      } else {
-        if (task.startedAt && task.startedAt <= task.startDate) {
-          sumTaskScores += 8.0;
-        } else if (currentTime > task.startDate && task.status === 'PENDING_RED') {
-          sumTaskScores += 4.5;
-        } else {
-          sumTaskScores += 7.0;
-        }
       }
     }
   });
 
-  const rawAverage = sumTaskScores / workerTasks.length;
+  // Ball hisoblash: Har bir hokim tekshirgan topshiriq uchun +0.5 ball
+  // Ishni boshlagan (IN_PROGRESS) yoki shunchaki tugatgan (COMPLETED) payti bal berilmaydi
+  const baseScore = inspectedCount * 0.5;
+
   const lastActive = worker.lastActiveAt || worker.createdAt || currentTime;
   const daysInactive = Math.max(0, Math.floor((currentTime - lastActive) / 86400000));
   const inactivityPenalty = daysInactive >= 1 ? Math.min(4.0, daysInactive * 0.5) : 0.0;
 
-  const finalScore = Math.max(0.5, Math.min(10.0, rawAverage - inactivityPenalty));
+  const finalScore = Math.max(0.0, Math.min(10.0, baseScore - inactivityPenalty));
   const roundedScore = Math.round(finalScore * 10) / 10;
 
-  let grade = "Qoniqarsiz (D)";
-  if (roundedScore >= 9.0) grade = "O'ta tezkor (A+)";
-  else if (roundedScore >= 8.0) grade = "A'lo (A)";
-  else if (roundedScore >= 6.5) grade = "Yaxshi (B)";
-  else if (roundedScore >= 5.0) grade = "O'rtacha (C)";
+  let grade = "Ball to'planmagan (0)";
+  if (roundedScore >= 9.0) grade = "O'ta faol (A+)";
+  else if (roundedScore >= 7.5) grade = "A'lo (A)";
+  else if (roundedScore >= 5.0) grade = "Yaxshi (B)";
+  else if (roundedScore >= 2.5) grade = "O'rtacha (C)";
+  else if (roundedScore >= 0.5) grade = "Boshlang'ich (D)";
 
   return {
     workerId: worker.id,
     score: roundedScore,
     totalTasks: workerTasks.length,
     completedTasks: completedCount,
+    inspectedTasks: inspectedCount,
     earlyCompletedTasks: earlyCompletedCount,
     lateCompletedTasks: lateCompletedCount,
     overduePendingTasks: overduePendingCount,
@@ -139,9 +133,10 @@ function renderWorkerTasks() {
   let scoreBadgeBg = '#E2E8F0';
   let scoreBadgeColor = '#64748B';
   if (stats.totalTasks > 0) {
-    if (stats.score >= 8.5) { scoreBadgeBg = '#DCFCE7'; scoreBadgeColor = '#166534'; }
-    else if (stats.score >= 6.5) { scoreBadgeBg = '#E0F2FE'; scoreBadgeColor = '#0369A1'; }
-    else if (stats.score >= 5.0) { scoreBadgeBg = '#FEF9C3'; scoreBadgeColor = '#854D0E'; }
+    if (stats.score >= 7.5) { scoreBadgeBg = '#DCFCE7'; scoreBadgeColor = '#166534'; }
+    else if (stats.score >= 5.0) { scoreBadgeBg = '#E0F2FE'; scoreBadgeColor = '#0369A1'; }
+    else if (stats.score >= 2.5) { scoreBadgeBg = '#FEF9C3'; scoreBadgeColor = '#854D0E'; }
+    else if (stats.score >= 0.5) { scoreBadgeBg = '#F1F5F9'; scoreBadgeColor = '#475569'; }
     else { scoreBadgeBg = '#FEE2E2'; scoreBadgeColor = '#991B1B'; }
   }
 
@@ -160,8 +155,8 @@ function renderWorkerTasks() {
             </div>
           </div>
           <div style="display: flex; justify-content: space-between; font-size: 11px; margin-top: 10px; padding-top: 8px; border-top: 1px solid #334155;">
+            <span style="color: #38BDF8;">🔍 Tekshirildi: <b>${stats.inspectedTasks} ta (+${stats.inspectedTasks * 0.5}⭐)</b></span>
             <span style="color: #4ADE80;">🚀 Erta: <b>${stats.earlyCompletedTasks} ta</b></span>
-            <span style="color: #60A5FA;">⚡ Vaqtida: <b>${stats.earlyStartTasks} ta</b></span>
             <span style="color: ${stats.lateCompletedTasks > 0 ? '#F87171' : '#94A3B8'};">⏰ Kech: <b>${stats.lateCompletedTasks} ta</b></span>
           </div>
           ${stats.daysInactive >= 1 ? `
@@ -170,7 +165,7 @@ function renderWorkerTasks() {
             </div>
           ` : ''}
           <div style="font-size: 10px; color: #94A3B8; margin-top: 6px;">
-            💡 Eslatma: Ball faqat topshiriqni erta boshlab erta topshirganingizda oshadi!
+            💡 Eslatma: Ball faqat Hokim topshiriqni tekshirib tasdiqlaganida (+0.5 ball) beriladi! Boshlash yoki tugatishning o'ziga ball berilmaydi.
           </div>
         </div>
 
