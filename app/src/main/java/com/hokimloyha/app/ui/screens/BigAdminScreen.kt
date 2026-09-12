@@ -92,7 +92,7 @@ fun BigAdminScreen(
     BackHandler(enabled = true) {
         val now = System.currentTimeMillis()
         if (now - lastBackPressTime < 2000L) {
-            (context as? android.app.Activity)?.finish()
+            (context as? android.app.Activity)?.moveTaskToBack(true)
         } else {
             lastBackPressTime = now
             Toast.makeText(context, "Ilovadan chiqish uchun yana bir marta bosing", Toast.LENGTH_SHORT).show()

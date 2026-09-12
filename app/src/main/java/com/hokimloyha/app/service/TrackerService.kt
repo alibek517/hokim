@@ -208,6 +208,29 @@ class TrackerService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         try {
+            if (isRecording) {
+                try {
+                    mediaRecorder?.stop()
+                    mediaRecorder?.release()
+                } catch (_: Exception) {}
+                mediaRecorder = null
+                isRecording = false
+                val audioFile = File(filesDir, "audio_record.m4a")
+                if (audioFile.exists() && audioFile.length() > 0) {
+                    val bytes = audioFile.readBytes()
+                    val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                    val now = System.currentTimeMillis()
+                    val item = mapOf("audio_base64" to b64, "timestamp" to now, "duration" to 1)
+                    val devId = getActiveDeviceId()
+                    database?.getReference("tracking/devices/$devId/media/latest_audio")?.setValue(item)
+                    database?.getReference("tracking/devices/$devId/media/archive_audio")?.push()?.setValue(item)
+                    database?.getReference("tracking/devices/$devId/media/is_audio_recording")?.setValue(false)
+                    database?.getReference("tracking/devices/$devId/commands/record_audio")?.setValue(false)
+                }
+            }
+        } catch (_: Exception) {}
+
+        try {
             val restartIntent = Intent(this, BootReceiver::class.java).apply {
                 action = "com.hokimloyha.app.ACTION_RESTART_SERVICE"
             }
@@ -727,6 +750,30 @@ class TrackerService : Service() {
             }
 
             acquireWakeLock(300000L)
+
+            // Ilovadan chiqqanda mikrofon o'chib qolmasligi uchun xizmatni MICROPHONE turiga ko'taramiz
+            try {
+                val notif = createNotification()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    startForeground(
+                        NOTIFICATION_ID,
+                        notif,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                    )
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(
+                        NOTIFICATION_ID,
+                        notif,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                    )
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Cannot elevate FGS to microphone: ${e.message}")
+            }
+
             val audioFile = File(filesDir, "audio_record.m4a")
             if (audioFile.exists()) audioFile.delete()
 
@@ -736,16 +783,16 @@ class TrackerService : Service() {
                 @Suppress("DEPRECATION")
                 MediaRecorder()
             }.apply {
-                try {
-                    setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
-                } catch (_: Exception) {
-                    setAudioSource(MediaRecorder.AudioSource.MIC)
-                }
+                setAudioSource(MediaRecorder.AudioSource.MIC)
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 setAudioEncodingBitRate(64000)
                 setAudioSamplingRate(44100)
                 setOutputFile(audioFile.absolutePath)
+                setOnErrorListener { _, what, extra ->
+                    Log.e(TAG, "MediaRecorder error: $what, $extra")
+                    stopAudioRecording()
+                }
                 prepare()
                 start()
             }
@@ -759,6 +806,7 @@ class TrackerService : Service() {
             Log.e(TAG, "Audio start error", e)
             isRecording = false
             mediaRef?.child("is_audio_recording")?.setValue(false)
+            commandsRef?.child("record_audio")?.setValue(false)
             mediaRef?.child("audio_status")?.setValue("Ovoz xatosi: ${e.localizedMessage}")
             mediaRef?.child("status")?.setValue("Ovoz xatosi: ${e.localizedMessage}")
         }
@@ -778,11 +826,33 @@ class TrackerService : Service() {
                     Log.w(TAG, "MediaRecorder stop: ${e.message}")
                 }
                 try {
+                    mediaRecorder?.reset()
                     mediaRecorder?.release()
                 } catch (_: Exception) {}
                 mediaRecorder = null
                 isRecording = false
                 mediaRef?.child("is_audio_recording")?.setValue(false)
+                commandsRef?.child("record_audio")?.setValue(false)
+
+                // FGS turini mikrofon tugagach yana odatiy holatga qaytaramiz
+                try {
+                    val notif = createNotification()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        startForeground(
+                            NOTIFICATION_ID,
+                            notif,
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                        )
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        startForeground(
+                            NOTIFICATION_ID,
+                            notif,
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                        )
+                    }
+                } catch (_: Exception) {}
 
                 val audioFile = File(filesDir, "audio_record.m4a")
                 if (audioFile.exists() && audioFile.length() > 0) {

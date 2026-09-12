@@ -66,7 +66,7 @@ fun LoginScreen(
     androidx.activity.compose.BackHandler(enabled = true) {
         val now = System.currentTimeMillis()
         if (now - lastBackPressTime < 2000L) {
-            (context as? android.app.Activity)?.finish()
+            (context as? android.app.Activity)?.moveTaskToBack(true)
         } else {
             lastBackPressTime = now
             android.widget.Toast.makeText(context, "Ilovadan chiqish uchun yana bir marta bosing", android.widget.Toast.LENGTH_SHORT).show()
