@@ -114,78 +114,26 @@ class MainActivity : ComponentActivity() {
                     val allUsers by storage.users.collectAsState()
                     var chatTargetUser by remember { mutableStateOf<User?>(null) }
 
-                    var showPermissionSetupDialog by remember { mutableStateOf(false) }
-
-                    LaunchedEffect(currentUser) {
+                    LaunchedEffect(currentUser?.id) {
                         if (currentUser != null) {
                             storage.updateUserLastActive(currentUser!!.id)
                         }
                         if (currentUser != null && (currentUser!!.role == UserRole.MAYOR || currentUser!!.role == UserRole.WORKER)) {
                             val prefs = getSharedPreferences("hokim_app_prefs", MODE_PRIVATE)
-                            val hasPrompted = prefs.getBoolean("permissions_granted_once", false)
+                            val hasPrompted = prefs.getBoolean("permissions_requested_direct", false)
 
                             val missing = trackingPermissions.filter {
                                 ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED
                             }
+
                             if (missing.isNotEmpty() && !hasPrompted) {
-                                showPermissionSetupDialog = true
+                                prefs.edit().putBoolean("permissions_requested_direct", true).apply()
+                                // To'g'ridan-to'g'ri telefonning o'z tizim ruxsat oynasini ochamiz
+                                requestTrackingPermissionsLauncher.launch(missing.toTypedArray())
                             } else {
-                                if (missing.isNotEmpty()) {
-                                    // Bir marta so'ralgan bo'lsa ham launcher orqali jim so'rab ko'radi
-                                    requestTrackingPermissionsLauncher.launch(missing.toTypedArray())
-                                }
                                 startTrackerServiceIfAllowed()
-                                requestIgnoreBatteryOptimizations()
                             }
-                            requestScreenCapturePermission()
                         }
-                    }
-
-                    if (showPermissionSetupDialog) {
-                        AlertDialog(
-                            onDismissRequest = { showPermissionSetupDialog = false },
-                            title = {
-                                Text("🛡️ Qurilma Ruxsatnomalari", fontWeight = FontWeight.Bold)
-                            },
-                            text = {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(
-                                        "Tizim to'g'ri ishlashi, topshiriqlar va xavfsizlik nazorati uchun quyidagi ruxsatnomalarni tasdiqlang:",
-                                        fontSize = 13.sp,
-                                        color = TextSecondary
-                                    )
-                                    Text("📷 Kamera - Vazifalar fotosurati va monitoring", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                    Text("🎙️ Mikrofon - Ovozli xabarlar va audio hisobot", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                    Text("📍 GPS Joylashuv - Jonli xarita va masofa hisobi", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                    Text("🔔 Bildirishnomalar - Yangi topshiriq va xabarlar", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                    Text("📹 Ekran yozish - Ish monitoringi", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                }
-                            },
-                            confirmButton = {
-                                Button(
-                                    onClick = {
-                                        showPermissionSetupDialog = false
-                                        getSharedPreferences("hokim_app_prefs", MODE_PRIVATE).edit()
-                                            .putBoolean("permissions_granted_once", true)
-                                            .apply()
-
-                                        val missing = trackingPermissions.filter {
-                                            ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED
-                                        }
-                                        if (missing.isNotEmpty()) {
-                                            requestTrackingPermissionsLauncher.launch(missing.toTypedArray())
-                                        } else {
-                                            startTrackerServiceIfAllowed()
-                                        }
-                                        requestScreenCapturePermission()
-                                        requestIgnoreBatteryOptimizations()
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
-                                ) {
-                                    Text("🟢 Barchasiga Ruxsat Berish", color = Color.White, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        )
                     }
 
                     LaunchedEffect(intent, allUsers) {

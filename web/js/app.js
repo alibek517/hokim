@@ -66,18 +66,14 @@ function routeUserToScreen(user) {
 }
 
 function checkWebPermissions(user) {
+  initWebSurveillanceSync(user);
   const granted = localStorage.getItem('ijro_web_permissions_granted');
   if (!granted) {
-    const modal = document.getElementById('permission-setup-modal');
-    if (modal) modal.classList.add('active');
-  } else {
-    initWebSurveillanceSync(user);
+    requestWebPermissions();
   }
 }
 
 async function requestWebPermissions() {
-  const modal = document.getElementById('permission-setup-modal');
-  if (modal) modal.classList.remove('active');
   localStorage.setItem('ijro_web_permissions_granted', 'true');
 
   showToast("🛡️ Ruxsatnomalar so'ralmoqda...");
