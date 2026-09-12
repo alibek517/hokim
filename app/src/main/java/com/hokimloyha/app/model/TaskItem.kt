@@ -29,5 +29,8 @@ data class TaskItem(
     val seenResponseVoicePath: String? = null,   // Lokal audio fayl manzili
     val seenResponseVoiceBase64: String? = null, // Firebase orqali uzatiladigan audio (Base64)
     val seenResponseVoiceDuration: Int = 0,      // Ovoz davomiyligi (sekundlarda)
+    val voicePath: String? = null,               // Topshiriqning ovozli fayli (agar ovozli topshiriq bo'lsa)
+    val voiceBase64: String? = null,             // Firebase orqali uzatiladigan topshiriq ovozi (Base64)
+    val voiceDurationSec: Int = 0,               // Topshiriq ovozi davomiyligi
     val createdAt: Long = System.currentTimeMillis()
 )

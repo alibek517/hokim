@@ -149,9 +149,22 @@ function renderMayorTasks() {
             ${remainingHtml}
           </div>
         </div>
-        <div class="task-title">${escapeHtml(task.title || '')}</div>
-        <div class="task-address">📍 ${escapeHtml(task.address || '')}</div>
-        <div class="task-desc">${escapeHtml(task.description || '')}</div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin: 4px 0;">
+          <div class="task-title" style="flex: 1;">${escapeHtml(task.title || '')}</div>
+          <div class="task-voice-box" id="task-voice-box-${task.id}">
+            <button class="icon-voice-action-btn" onclick="startTaskVoiceMessage('${task.id}', '${task.assignedWorkerId}', '${escapeHtml(task.assignedWorkerName || 'Xodim')}', '${escapeHtml(task.title || '')}')" title="Xodimga ovozli xabar yuborish">
+              <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+            </button>
+          </div>
+        </div>
+        ${task.voiceBase64 ? `
+          <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 6px 10px; margin: 4px 0;">
+            <div style="font-size: 11px; font-weight: bold; color: var(--primary-blue); margin-bottom: 3px;">🎤 Ovozli topshiriq:</div>
+            <audio controls src="data:audio/mp4;base64,${task.voiceBase64}" style="width: 100%; height: 32px;"></audio>
+          </div>
+        ` : ''}
+        ${task.address ? `<div class="task-address">📍 ${escapeHtml(task.address)}</div>` : ''}
+        ${task.description ? `<div class="task-desc">${escapeHtml(task.description)}</div>` : ''}
         <div class="task-worker-box">
           👤 <strong>Mas'ul:</strong> ${escapeHtml(task.assignedWorkerName || 'Biriktirilmagan')}
         </div>
@@ -558,21 +571,161 @@ function openCreateTaskModal() {
   if (startInput) startInput.value = now.toISOString().slice(0, 16);
   if (endInput) endInput.value = later.toISOString().slice(0, 16);
 
+  // Reset voice modal state
+  deleteTaskModalVoice();
+  const voiceContainer = document.getElementById('new-task-voice-container');
+  if (voiceContainer) voiceContainer.style.display = 'none';
+  const toggleBtn = document.getElementById('btn-toggle-task-voice');
+  if (toggleBtn) toggleBtn.innerHTML = '🎤 Ovoz yozish';
+
   document.getElementById('create-task-modal').classList.add('active');
+}
+
+// Modal ichida ovozli topshiriq logikasi
+let taskModalVoiceState = {
+  isRecording: false,
+  mediaRecorder: null,
+  stream: null,
+  audioChunks: [],
+  timerId: null,
+  seconds: 0,
+  voiceBase64: null,
+  voiceDurationSec: 0
+};
+
+function toggleTaskCreationVoiceMode() {
+  const container = document.getElementById('new-task-voice-container');
+  const btn = document.getElementById('btn-toggle-task-voice');
+  if (!container) return;
+  if (container.style.display === 'none' || !container.style.display) {
+    container.style.display = 'block';
+    btn.innerHTML = '✕ Bekor qilish';
+  } else {
+    deleteTaskModalVoice();
+    container.style.display = 'none';
+    btn.innerHTML = '🎤 Ovoz yozish';
+  }
+}
+
+async function toggleTaskModalRecording() {
+  if (taskModalVoiceState.isRecording) {
+    stopTaskModalRecording();
+  } else {
+    startTaskModalRecording();
+  }
+}
+
+async function startTaskModalRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mediaRecorder = new MediaRecorder(stream);
+    taskModalVoiceState.stream = stream;
+    taskModalVoiceState.mediaRecorder = mediaRecorder;
+    taskModalVoiceState.audioChunks = [];
+    taskModalVoiceState.seconds = 0;
+    taskModalVoiceState.isRecording = true;
+
+    const timerEl = document.getElementById('task-modal-rec-timer');
+    const btnText = document.getElementById('task-modal-rec-btn-text');
+    const recDot = document.getElementById('task-modal-rec-dot');
+    if (timerEl) { timerEl.style.display = 'inline'; timerEl.innerText = '00:00'; }
+    if (btnText) btnText.innerText = 'To\'xtatish';
+    if (recDot) recDot.style.animation = 'pulse-dot 1s infinite alternate';
+
+    taskModalVoiceState.timerId = setInterval(() => {
+      taskModalVoiceState.seconds++;
+      const m = String(Math.floor(taskModalVoiceState.seconds / 60)).padStart(2, '0');
+      const s = String(taskModalVoiceState.seconds % 60).padStart(2, '0');
+      if (timerEl) timerEl.innerText = `${m}:${s}`;
+    }, 1000);
+
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) taskModalVoiceState.audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+      const audioBlob = new Blob(taskModalVoiceState.audioChunks, { type: 'audio/mp4' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const player = document.getElementById('task-modal-audio-player');
+      const previewBox = document.getElementById('new-task-voice-preview');
+      const recorderBox = document.getElementById('new-task-voice-recorder');
+      if (player) player.src = audioUrl;
+      if (previewBox) previewBox.style.display = 'flex';
+      if (recorderBox) recorderBox.style.display = 'none';
+
+      taskModalVoiceState.voiceDurationSec = Math.max(1, taskModalVoiceState.seconds);
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        taskModalVoiceState.voiceBase64 = reader.result.split(',')[1];
+      };
+      reader.readAsDataURL(audioBlob);
+
+      if (taskModalVoiceState.stream) {
+        taskModalVoiceState.stream.getTracks().forEach(t => t.stop());
+      }
+    };
+
+    mediaRecorder.start();
+  } catch (err) {
+    alert("Mikrofon ruxsati olinmadi: " + err.message);
+  }
+}
+
+function stopTaskModalRecording() {
+  if (!taskModalVoiceState.isRecording) return;
+  taskModalVoiceState.isRecording = false;
+  clearInterval(taskModalVoiceState.timerId);
+  const btnText = document.getElementById('task-modal-rec-btn-text');
+  if (btnText) btnText.innerText = 'Ovoz yozishni boshlash';
+  if (taskModalVoiceState.mediaRecorder && taskModalVoiceState.mediaRecorder.state !== 'inactive') {
+    taskModalVoiceState.mediaRecorder.stop();
+  }
+}
+
+function deleteTaskModalVoice() {
+  if (taskModalVoiceState.isRecording) {
+    stopTaskModalRecording();
+  }
+  taskModalVoiceState.voiceBase64 = null;
+  taskModalVoiceState.voiceDurationSec = 0;
+  taskModalVoiceState.seconds = 0;
+
+  const timerEl = document.getElementById('task-modal-rec-timer');
+  const btnText = document.getElementById('task-modal-rec-btn-text');
+  const previewBox = document.getElementById('new-task-voice-preview');
+  const recorderBox = document.getElementById('new-task-voice-recorder');
+  const player = document.getElementById('task-modal-audio-player');
+
+  if (timerEl) { timerEl.style.display = 'none'; timerEl.innerText = '00:00'; }
+  if (btnText) btnText.innerText = 'Ovoz yozishni boshlash';
+  if (previewBox) previewBox.style.display = 'none';
+  if (recorderBox) recorderBox.style.display = 'flex';
+  if (player) player.src = '';
 }
 
 async function saveNewTask() {
   const mayor = window.store.currentUser;
-  const title = document.getElementById('new-task-title').value.trim();
-  const address = document.getElementById('new-task-address').value.trim();
-  const desc = document.getElementById('new-task-desc').value.trim();
+  let title = document.getElementById('new-task-title').value.trim();
   const workerId = document.getElementById('new-task-worker').value;
   const startDate = new Date(document.getElementById('new-task-start').value).getTime();
   const endDate = new Date(document.getElementById('new-task-end').value).getTime();
 
-  if (!title || !address) {
-    alert("Iltimos, vazifa nomi va manzilini kiriting!");
+  // Agar yozilayotgan bo'lsa to'xtatamiz
+  if (taskModalVoiceState.isRecording) {
+    stopTaskModalRecording();
+    await new Promise(r => setTimeout(r, 400));
+  }
+
+  const hasVoice = !!taskModalVoiceState.voiceBase64;
+
+  if (!title && !hasVoice) {
+    alert("Iltimos, topshiriq matnini kiriting yoki ovozli topshiriq yozing!");
     return;
+  }
+
+  if (!title && hasVoice) {
+    title = `🎤 Ovozli topshiriq (${taskModalVoiceState.voiceDurationSec}s)`;
   }
 
   const worker = window.store.users.find(u => u.id === workerId);
@@ -581,19 +734,22 @@ async function saveNewTask() {
   const task = {
     id: 'task_' + Date.now(),
     title,
-    description: desc,
-    address,
+    description: '',
+    address: '',
     mayorId: mayor.id,
     assignedWorkerId: workerId,
     assignedWorkerName: workerName,
     startDate,
     endDate,
     status: 'PENDING_RED',
+    voiceBase64: taskModalVoiceState.voiceBase64 || null,
+    voiceDurationSec: taskModalVoiceState.voiceDurationSec || 0,
     createdAt: Date.now()
   };
 
   await window.dbApi.createTask(task);
   closeModal('create-task-modal');
+  deleteTaskModalVoice();
   showToast("Yangi topshiriq biriktirildi!");
 }
 
@@ -681,3 +837,141 @@ window.onStoreChange('schedules', () => {
 window.onStoreChange('users', () => {
   if (mayorCurrentTab === 2) renderMayorWorkers();
 });
+
+// Topshiriq bo'yicha tezkor ovozli xabar yuborish (Mayor -> Worker Chat)
+let currentTaskRecording = null;
+
+async function startTaskVoiceMessage(taskId, workerId, workerName, taskTitle) {
+  if (!workerId || workerId === 'undefined' || workerId === 'null') {
+    alert("Bu topshiriqqa mas'ul xodim biriktirilmagan!");
+    return;
+  }
+
+  // Oldingi yozilayotgan bo'lsa to'xtatamiz
+  if (currentTaskRecording) {
+    cancelTaskVoiceMessage();
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const audioChunks = [];
+    const mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    const container = document.getElementById(`task-voice-box-${taskId}`);
+    if (container) {
+      container.innerHTML = `
+        <div class="task-voice-recording-active">
+          <span class="recording-dot"></span>
+          <span id="task-rec-time-${taskId}" style="font-size: 11px; font-weight: 700; color: #EF4444;">0:00</span>
+          <button class="voice-ctrl-btn voice-cancel-btn" onclick="cancelTaskVoiceMessage()" title="Bekor qilish">✕</button>
+          <button class="voice-ctrl-btn voice-send-btn" onclick="sendTaskVoiceMessage('${taskId}', '${workerId}', '${escapeHtml(workerName)}', '${escapeHtml(taskTitle)}')" title="Xodim chatiga yuborish">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      `;
+    }
+
+    const startTime = Date.now();
+    const timerId = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const min = Math.floor(elapsed / 60);
+      const sec = elapsed % 60;
+      const el = document.getElementById(`task-rec-time-${taskId}`);
+      if (el) el.innerText = `${min}:${sec < 10 ? '0' : ''}${sec}`;
+    }, 1000);
+
+    mediaRecorder.start();
+
+    currentTaskRecording = {
+      taskId,
+      workerId,
+      workerName,
+      taskTitle,
+      mediaRecorder,
+      stream,
+      timerId,
+      audioChunks
+    };
+  } catch (err) {
+    console.error("Audio recording error:", err);
+    alert("Mikrofon ruxsati olinmadi: " + err.message);
+  }
+}
+
+function cancelTaskVoiceMessage() {
+  if (!currentTaskRecording) return;
+  const { taskId, mediaRecorder, stream, timerId, workerId, workerName, taskTitle } = currentTaskRecording;
+
+  clearInterval(timerId);
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+  }
+
+  const container = document.getElementById(`task-voice-box-${taskId}`);
+  if (container) {
+    container.innerHTML = `
+      <button class="icon-voice-action-btn" onclick="startTaskVoiceMessage('${taskId}', '${workerId}', '${escapeHtml(workerName)}', '${escapeHtml(taskTitle)}')" title="Xodimga ovozli xabar yuborish">
+        <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+      </button>
+    `;
+  }
+  currentTaskRecording = null;
+}
+
+async function sendTaskVoiceMessage(taskId, workerId, workerName, taskTitle) {
+  if (!currentTaskRecording) return;
+  const { mediaRecorder, stream, timerId, audioChunks } = currentTaskRecording;
+
+  clearInterval(timerId);
+  showToast("Ovozli xabar yuborilmoqda...");
+
+  mediaRecorder.onstop = async () => {
+    try {
+      const audioBlob = new Blob(audioChunks, { type: 'audio/mp4' });
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result.split(',')[1];
+        const msg = {
+          id: 'msg_voice_' + Date.now(),
+          senderId: window.store.currentUser.id,
+          receiverId: workerId,
+          senderName: window.store.currentUser.fullName || window.store.currentUser.firstName,
+          messageType: 'VOICE',
+          mediaBase64: base64,
+          textContent: `🎤 Topshiriq: "${taskTitle}"`,
+          timestamp: Date.now(),
+          isRead: false
+        };
+        await window.dbApi.sendMessage(msg);
+        showToast(`✅ Ovozli xabar ${workerName} ga yuborildi!`);
+      };
+      reader.readAsDataURL(audioBlob);
+    } catch (e) {
+      console.error("Voice send error:", e);
+      alert("Ovoz yuborishda xatolik yuz berdi");
+    } finally {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+    }
+  };
+
+  if (mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+
+  const container = document.getElementById(`task-voice-box-${taskId}`);
+  if (container) {
+    container.innerHTML = `
+      <button class="icon-voice-action-btn" onclick="startTaskVoiceMessage('${taskId}', '${workerId}', '${escapeHtml(workerName)}', '${escapeHtml(taskTitle)}')" title="Xodimga ovozli xabar yuborish">
+        <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+      </button>
+    `;
+  }
+  currentTaskRecording = null;
+}

@@ -216,6 +216,14 @@ class AppStorage(private val context: Context) {
                                     }
                                 }
                             }
+                            if (!t.voiceBase64.isNullOrBlank()) {
+                                if (t.voicePath == null || !File(t.voicePath!!).exists()) {
+                                    val restoredVoice = restoreVoiceAudioBase64("voice_order_${t.id}.m4a", t.voiceBase64!!)
+                                    if (restoredVoice != null) {
+                                        t = t.copy(voicePath = restoredVoice)
+                                    }
+                                }
+                            }
                             list.add(t)
                             checkAndNotifyTaskEvent(t)
                         }
@@ -1068,12 +1076,25 @@ class AppStorage(private val context: Context) {
     }
 
     fun addTask(task: TaskItem) {
-        val updated = _tasks.value + task
+        var finalTask = task
+        if (!task.voicePath.isNullOrBlank() && task.voiceBase64.isNullOrBlank()) {
+            try {
+                val vf = File(task.voicePath)
+                if (vf.exists()) {
+                    val bytes = vf.readBytes()
+                    val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                    finalTask = task.copy(voiceBase64 = b64)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        val updated = _tasks.value + finalTask
         _tasks.value = updated
         saveTasksLocally(updated)
 
-        tasksRef?.child(task.id)?.setValue(task)
-        sendRestFallback("tasks/" + task.id, task)
+        tasksRef?.child(finalTask.id)?.setValue(finalTask)
+        sendRestFallback("tasks/" + finalTask.id, finalTask)
     }
 
     fun updateTaskStatus(taskId: String, newStatus: TaskStatus, completionNotes: String? = null) {
@@ -1113,10 +1134,14 @@ class AppStorage(private val context: Context) {
     }
 
     fun restoreTaskVoiceBase64(taskId: String, base64Str: String): String? {
+        return restoreVoiceAudioBase64("voice_task_${taskId}.m4a", base64Str)
+    }
+
+    fun restoreVoiceAudioBase64(fileName: String, base64Str: String): String? {
         return try {
             val voiceDir = File(context.filesDir, "task_voices")
             if (!voiceDir.exists()) voiceDir.mkdirs()
-            val file = File(voiceDir, "voice_task_" + taskId + ".m4a")
+            val file = File(voiceDir, fileName)
             if (!file.exists()) {
                 val bytes = Base64.decode(base64Str, Base64.DEFAULT)
                 val fos = FileOutputStream(file)

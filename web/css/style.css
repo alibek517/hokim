@@ -656,3 +656,92 @@ html, body {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+/* Task Card Quick Voice Message */
+.icon-voice-action-btn {
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--primary-blue);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.icon-voice-action-btn:hover {
+  background: var(--primary-blue);
+  color: white;
+}
+
+.task-voice-recording-active {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: 20px;
+  padding: 4px 8px;
+}
+
+.recording-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #EF4444;
+  animation: pulse-dot 1s infinite alternate;
+}
+
+@keyframes pulse-dot {
+  0% { opacity: 0.4; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1.1); }
+}
+
+.voice-ctrl-btn {
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.voice-ctrl-btn:active {
+  transform: scale(0.9);
+}
+
+.voice-cancel-btn {
+  background: #E2E8F0;
+  color: #64748B;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.voice-send-btn {
+  background: #2563EB;
+  color: white;
+}
+
+.btn-voice-toggle {
+  background: #EFF6FF;
+  color: var(--primary-blue);
+  border: 1px solid #BFDBFE;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-voice-toggle:hover {
+  background: #DBEAFE;
+}

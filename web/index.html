@@ -205,16 +205,29 @@
           <button class="icon-btn" style="color: #64748B;" onclick="closeModal('create-task-modal')">✕</button>
         </div>
         <div class="form-group">
-          <label class="form-label">Topshiriq nomi *</label>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label class="form-label" style="margin-bottom: 0;">Topshiriq (Matn yoki Ovoz) *</label>
+            <button type="button" class="btn-voice-toggle" id="btn-toggle-task-voice" onclick="toggleTaskCreationVoiceMode()">
+              🎤 Ovoz yozish
+            </button>
+          </div>
           <input type="text" id="new-task-title" class="form-input" placeholder="Masalan: Ko'chani asfaltlash va tozalash">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Manzil *</label>
-          <input type="text" id="new-task-address" class="form-input" placeholder="Masalan: Hamidovjon ko'chasi, 12-uy ro'parasi">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Tavsif (Qilinishi kerak bo'lgan ishlar)</label>
-          <textarea id="new-task-desc" class="form-textarea" rows="3" placeholder="Ish ko'lami, talablar va ko'rsatmalar..."></textarea>
+          
+          <!-- Ovozli topshiriq konteyneri -->
+          <div id="new-task-voice-container" style="display: none; margin-top: 6px;">
+            <div id="new-task-voice-recorder" style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 10px; padding: 8px 12px;">
+              <button type="button" id="btn-task-modal-record" class="btn" onclick="toggleTaskModalRecording()" style="background: #EF4444; color: white; padding: 6px 14px; font-size: 13px; font-weight: bold; border-radius: 20px; display: flex; align-items: center; gap: 6px;">
+                <span id="task-modal-rec-dot" style="width: 8px; height: 8px; border-radius: 50%; background: white;"></span>
+                <span id="task-modal-rec-btn-text">Ovoz yozishni boshlash</span>
+              </button>
+              <span id="task-modal-rec-timer" style="font-weight: bold; font-size: 13px; color: #EF4444; display: none;">00:00</span>
+            </div>
+            <!-- Yozib olingan ovoz preview -->
+            <div id="new-task-voice-preview" style="display: none; align-items: center; gap: 8px; margin-top: 6px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px; padding: 6px 10px;">
+              <audio id="task-modal-audio-player" controls style="flex: 1; height: 32px;"></audio>
+              <button type="button" onclick="deleteTaskModalVoice()" style="background: #FEE2E2; color: #EF4444; border: none; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: bold; cursor: pointer;">O'chirish</button>
+            </div>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Mas'ul xodim *</label>

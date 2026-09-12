@@ -304,8 +304,14 @@ function renderWorkerTasks() {
           </div>
         </div>
         <div class="task-title">${escapeHtml(task.title || '')}</div>
-        <div class="task-address">📍 ${escapeHtml(task.address || '')}</div>
-        <div class="task-desc">${escapeHtml(task.description || '')}</div>
+        ${task.voiceBase64 ? `
+          <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 6px 10px; margin: 6px 0;">
+            <div style="font-size: 11px; font-weight: bold; color: var(--primary-blue); margin-bottom: 3px;">🎤 Rahbardan ovozli topshiriq:</div>
+            <audio controls src="data:audio/mp4;base64,${task.voiceBase64}" style="width: 100%; height: 32px;"></audio>
+          </div>
+        ` : ''}
+        ${task.address ? `<div class="task-address">📍 ${escapeHtml(task.address)}</div>` : ''}
+        ${task.description ? `<div class="task-desc">${escapeHtml(task.description)}</div>` : ''}
         ${completionNoteHtml}
         ${actionBtnHtml}
       </div>

@@ -382,20 +382,65 @@ fun WorkerTasksView(
 
                             Text(task.title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NavyDark)
 
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.LocationOn, contentDescription = null, tint = StatusRed, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(task.address, fontSize = 13.sp, color = NavyDark, fontWeight = FontWeight.SemiBold)
+                            if (!task.voiceBase64.isNullOrBlank() || !task.voicePath.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                val isPlayingOrderVoice = currentlyPlayingTaskId == "order_${task.id}"
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(PrimaryBlue.copy(alpha = 0.1f))
+                                        .clickable {
+                                            if (isPlayingOrderVoice) {
+                                                voicePlayer.stop()
+                                                currentlyPlayingTaskId = null
+                                            } else {
+                                                val p = task.voicePath ?: storage.restoreVoiceAudioBase64("voice_order_${task.id}.m4a", task.voiceBase64 ?: "")
+                                                if (p != null && File(p).exists()) {
+                                                    currentlyPlayingTaskId = "order_${task.id}"
+                                                    voicePlayer.play(p) {
+                                                        currentlyPlayingTaskId = null
+                                                    }
+                                                } else {
+                                                    Toast.makeText(context, "Ovoz yuklanmoqda...", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (isPlayingOrderVoice) Icons.Default.Close else Icons.Default.PlayArrow,
+                                        contentDescription = null,
+                                        tint = PrimaryBlue,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        if (isPlayingOrderVoice) "Topshiriq tinglanmoqda..." else "🎤 Rahbardan ovozli topshiriq (${task.voiceDurationSec}s)",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PrimaryBlue
+                                    )
+                                }
                             }
 
-                            Text(
-                                text = task.description,
-                                fontSize = 13.sp,
-                                color = TextSecondary,
-                                modifier = Modifier.padding(vertical = 6.dp)
-                            )
+                            if (task.address.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = StatusRed, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(task.address, fontSize = 13.sp, color = NavyDark, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+
+                            if (task.description.isNotBlank()) {
+                                Text(
+                                    text = task.description,
+                                    fontSize = 13.sp,
+                                    color = TextSecondary,
+                                    modifier = Modifier.padding(vertical = 6.dp)
+                                )
+                            }
 
                             Text(
                                 text = "Rejalashtirilgan boshlanish: " + dateFormat.format(Date(task.startDate)),
