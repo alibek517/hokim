@@ -256,16 +256,63 @@ fun WorkerTasksView(
                     }
                 }
 
-                if (myStats.daysInactive >= 1) {
+                if (myStats.hasLoggedIn) {
+                    if (myStats.daysInactive >= 2L) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF450A0A),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                "⚠️ Ilovaga ${myStats.daysInactive} kundan beri kirmagansiz (-${myStats.inactivityPenalty} ball jarima)",
+                                color = Color(0xFFFCA5A5),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+                    } else if (myStats.daysInactive == 1L) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF713F12),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                "ℹ️ Kecha kirgansiz (Bugungi faollik kutilmoqda)",
+                                color = Color(0xFFFEF08A),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF14532D),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                "🟢 Bugun ilovada faol bo'ldingiz",
+                                color = Color(0xFFBBF7D0),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+                } else {
                     Spacer(modifier = Modifier.height(8.dp))
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF450A0A),
+                        color = Color(0xFF334155),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            "⚠️ Ilovaga ${myStats.daysInactive} kundan beri kirmagansiz (-${myStats.inactivityPenalty} ball jarima)",
-                            color = Color(0xFFFCA5A5),
+                            "⚪ Yangi biriktirilgan (Hali ilovaga kirmagan)",
+                            color = Color(0xFFCBD5E1),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)

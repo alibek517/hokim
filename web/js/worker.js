@@ -60,9 +60,41 @@ function calculateWorkerStats(worker, allTasks, currentTime = Date.now()) {
   // Ishni boshlagan (IN_PROGRESS) yoki shunchaki tugatgan (COMPLETED) payti bal berilmaydi
   const baseScore = inspectedCount * 0.5;
 
-  const lastActive = worker.lastActiveAt || worker.createdAt || currentTime;
-  const daysInactive = Math.max(0, Math.floor((currentTime - lastActive) / 86400000));
-  const inactivityPenalty = daysInactive >= 1 ? Math.min(4.0, daysInactive * 0.5) : 0.0;
+  // 1. Oxirgi faollik vaqti (oxirgi kirish yoki topshiriqlar bo'yicha harakat)
+  let lastActive = 0;
+  if (worker.lastActiveAt && worker.lastActiveAt > 0) {
+    lastActive = worker.lastActiveAt;
+  }
+
+  workerTasks.forEach(t => {
+    const tTime = Math.max(t.completedAt || 0, t.startedAt || 0, t.seenAt || 0);
+    if (tTime > lastActive) {
+      lastActive = tTime;
+    }
+  });
+
+  const hasLoggedIn = lastActive > 0;
+  let daysInactive = 0;
+  let inactivityPenalty = 0.0;
+
+  if (hasLoggedIn) {
+    const diffMs = currentTime - lastActive;
+    if (diffMs > 0) {
+      const rawDays = Math.floor(diffMs / 86400000);
+      if (rawDays >= 2) {
+        // Faqat 2 kundan boshlab jarima hisoblanadi (maksimal 8 kun / 4.0 ball)
+        daysInactive = Math.min(8, rawDays);
+        inactivityPenalty = Math.min(4.0, (daysInactive - 1) * 0.5);
+      } else if (rawDays === 1) {
+        daysInactive = 1;
+        inactivityPenalty = 0.0; // Kecha kirgan bo'lsa jarima yo'q
+      }
+    }
+  } else {
+    // Yangi xodim bo'lsa, qadimiy createdAt (2024-yil) sababli 731 kunlik asossiz jarima solinmaydi!
+    daysInactive = 0;
+    inactivityPenalty = 0.0;
+  }
 
   const finalScore = Math.max(0.0, Math.min(10.0, baseScore - inactivityPenalty));
   const roundedScore = Math.round(finalScore * 10) / 10;
@@ -88,6 +120,7 @@ function calculateWorkerStats(worker, allTasks, currentTime = Date.now()) {
     inactivityPenalty,
     gradeText: grade,
     earlyStartTasks: earlyStartCount,
+    hasLoggedIn,
     rank: 0
   };
 }
@@ -159,11 +192,25 @@ function renderWorkerTasks() {
             <span style="color: #4ADE80;">🚀 Erta: <b>${stats.earlyCompletedTasks} ta</b></span>
             <span style="color: ${stats.lateCompletedTasks > 0 ? '#F87171' : '#94A3B8'};">⏰ Kech: <b>${stats.lateCompletedTasks} ta</b></span>
           </div>
-          ${stats.daysInactive >= 1 ? `
-            <div style="margin-top: 8px; background: #450A0A; color: #FCA5A5; font-size: 10px; padding: 4px 8px; border-radius: 6px;">
-              ⚠️ Ilovaga ${stats.daysInactive} kun kirmagansiz (-${stats.inactivityPenalty} ball jarima)
+          ${stats.hasLoggedIn ? (
+            stats.daysInactive >= 2 ? `
+              <div style="margin-top: 8px; background: #450A0A; color: #FCA5A5; font-size: 10px; padding: 4px 8px; border-radius: 6px;">
+                ⚠️ Ilovaga ${stats.daysInactive} kundan beri kirmagansiz (-${stats.inactivityPenalty} ball jarima)
+              </div>
+            ` : (stats.daysInactive === 1 ? `
+              <div style="margin-top: 8px; background: #713F12; color: #FEF08A; font-size: 10px; padding: 4px 8px; border-radius: 6px;">
+                ℹ️ Kecha kirgansiz (Bugungi faollik kutilmoqda)
+              </div>
+            ` : `
+              <div style="margin-top: 8px; background: #14532D; color: #BBF7D0; font-size: 10px; padding: 4px 8px; border-radius: 6px;">
+                🟢 Bugun ilovada faol bo'ldingiz
+              </div>
+            `)
+          ) : `
+            <div style="margin-top: 8px; background: #334155; color: #CBD5E1; font-size: 10px; padding: 4px 8px; border-radius: 6px;">
+              ⚪ Yangi biriktirilgan (Hali ilovaga kirmagan)
             </div>
-          ` : ''}
+          `}
           <div style="font-size: 10px; color: #94A3B8; margin-top: 6px;">
             💡 Eslatma: Ball faqat Hokim topshiriqni tekshirib tasdiqlaganida (+0.5 ball) beriladi! Boshlash yoki tugatishning o'ziga ball berilmaydi.
           </div>

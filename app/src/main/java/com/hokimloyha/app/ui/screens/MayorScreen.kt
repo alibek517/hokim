@@ -1563,17 +1563,61 @@ fun MayorWorkersTab(
                                 }
 
                                 // Inactivity penalty alert
-                                if (stats.daysInactive >= 1) {
-                                    Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
+                                if (stats.hasLoggedIn) {
+                                    if (stats.daysInactive >= 2L) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0xFFFEF2F2),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(
+                                                "⚠️ Ilovaga ${stats.daysInactive} kundan beri kirmagan (-${stats.inactivityPenalty} ball jarima)",
+                                                fontSize = 11.sp,
+                                                color = StatusRed,
+                                                fontWeight = FontWeight.SemiBold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    } else if (stats.daysInactive == 1L) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0xFFFEF9C3),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(
+                                                "ℹ️ Kecha kirgan (Bugun hali kirmagan)",
+                                                fontSize = 11.sp,
+                                                color = Color(0xFF854D0E),
+                                                fontWeight = FontWeight.SemiBold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    } else {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0xFFF0FDF4),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(
+                                                "🟢 Bugun ilovada faol bo'lgan",
+                                                fontSize = 11.sp,
+                                                color = Color(0xFF166534),
+                                                fontWeight = FontWeight.SemiBold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    }
+                                } else {
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFFFEF2F2),
+                                        color = Color(0xFFF8FAFC),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Text(
-                                            "⚠️ Ilovaga ${stats.daysInactive} kundan beri kirmagan (-${stats.inactivityPenalty} ball jarima)",
+                                            "⚪ Yangi biriktirilgan (Hali ilovaga kirmagan)",
                                             fontSize = 11.sp,
-                                            color = StatusRed,
+                                            color = Color(0xFF64748B),
                                             fontWeight = FontWeight.SemiBold,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                         )

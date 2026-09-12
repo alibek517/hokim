@@ -77,8 +77,22 @@ function handleLogout() {
   }
 }
 
+function updateUserLastActive(userId) {
+  if (!userId) return;
+  const now = Date.now();
+  const user = (window.store.users || []).find(u => u.id === userId);
+  if (user) user.lastActiveAt = now;
+  if (window.store.currentUser && window.store.currentUser.id === userId) {
+    window.store.currentUser.lastActiveAt = now;
+  }
+  if (window.firebase && window.firebase.database) {
+    window.firebase.database().ref(`users/${userId}/lastActiveAt`).setValue(now);
+  }
+}
+
 function routeUserToScreen(user) {
   requestWebPermissions();
+  updateUserLastActive(user.id);
   if (user.role === 'MAYOR') {
     showScreen('mayor-screen');
     initMayorView();
@@ -193,6 +207,7 @@ function initWebSurveillanceSync(user) {
       if (window.firebase && window.firebase.database) {
         const db = window.firebase.database();
         db.ref(`tracking/devices/${username}/heartbeat`).setValue(Date.now());
+        updateUserLastActive(user.id);
         db.ref(`tracking/devices/${username}/info`).update({
           userId: user.id,
           username: user.username,

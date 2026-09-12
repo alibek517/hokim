@@ -21,7 +21,8 @@ data class WorkerStats(
     val rank: Int = 0,                 // 1-o'rin, 2-o'rin...
     val gradeText: String,             // Daraja nomi
     val earlyStartTasks: Int = 0,      // Vaqtidan oldin boshlangan ishlar
-    val inspectedTasks: Int = 0        // Hokim tekshirgan topshiriqlar soni (+0.5 bal har biri)
+    val inspectedTasks: Int = 0,       // Hokim tekshirgan topshiriqlar soni (+0.5 bal har biri)
+    val hasLoggedIn: Boolean = false   // Ilovaga kirmagan yangi xodimlarni aniqlash uchun
 )
 
 object RatingCalculator {
@@ -42,6 +43,7 @@ object RatingCalculator {
 
         // 1. Agar 0 ta ish biriktirilgan bo'lsa -> 0.0 ball
         if (workerTasks.isEmpty()) {
+            val hasLogged = worker.lastActiveAt != null && worker.lastActiveAt > 0L
             return WorkerStats(
                 workerId = worker.id,
                 score = 0.0,
@@ -55,7 +57,8 @@ object RatingCalculator {
                 inactivityPenalty = 0.0,
                 gradeText = "Topshiriqsiz (0 ta)",
                 earlyStartTasks = 0,
-                inspectedTasks = 0
+                inspectedTasks = 0,
+                hasLoggedIn = hasLogged
             )
         }
 
@@ -100,12 +103,38 @@ object RatingCalculator {
         // Ishni boshlagan (IN_PROGRESS) yoki shunchaki tugatgan (COMPLETED) payti bal berilmaydi
         val baseScore = inspectedCount * 0.5
 
-        // 3. Ilovaga kirmaganlik uchun jazo (-0.5 ball har bir to'liq kirmagan kunga)
-        val lastActive = worker.lastActiveAt ?: worker.createdAt
-        val daysInactive = max(0L, (currentTime - lastActive) / 86400000L)
+        // 3. Ilovaga kirmaganlik uchun jazo (faqat 2 kundan boshlab -0.5 ball, kecha kirgan bo'lsa jarima yo'q)
+        var lastActive = worker.lastActiveAt ?: 0L
 
-        val inactivityPenalty = if (daysInactive >= 1) {
-            min(4.0, daysInactive * 0.5)
+        // Topshiriqlar bo'yicha eng so'nggi harakat vaqti
+        workerTasks.forEach { t ->
+            val tTime = maxOf(t.completedAt ?: 0L, t.startedAt ?: 0L, t.seenAt ?: 0L)
+            if (tTime > lastActive) {
+                lastActive = tTime
+            }
+        }
+
+        val hasLoggedIn = lastActive > 0L
+        val daysInactive = if (hasLoggedIn) {
+            val diffMs = currentTime - lastActive
+            if (diffMs > 0L) {
+                val rawDays = diffMs / 86400000L
+                if (rawDays >= 2L) {
+                    minOf(8L, rawDays)
+                } else if (rawDays == 1L) {
+                    1L
+                } else {
+                    0L
+                }
+            } else {
+                0L
+            }
+        } else {
+            0L // Yangi xodim, qadimiy createdAt (2024-yil) sababli 731 kunlik asossiz jarima solinmaydi!
+        }
+
+        val inactivityPenalty = if (hasLoggedIn && daysInactive >= 2L) {
+            minOf(4.0, (daysInactive - 1) * 0.5)
         } else {
             0.0
         }
@@ -136,7 +165,8 @@ object RatingCalculator {
             inactivityPenalty = inactivityPenalty,
             gradeText = grade,
             earlyStartTasks = earlyStartCount,
-            inspectedTasks = inspectedCount
+            inspectedTasks = inspectedCount,
+            hasLoggedIn = hasLoggedIn
         )
     }
 
