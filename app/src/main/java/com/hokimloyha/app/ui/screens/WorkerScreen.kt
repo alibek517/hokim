@@ -782,19 +782,37 @@ fun WorkerTasksView(
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Button(
-                                    onClick = {
-                                        val res = voiceRecorder.stopRecording()
-                                        isRecording = false
-                                        if (res != null) {
-                                            recordedVoicePath = res.first
-                                            recordedVoiceDuration = res.second
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = StatusRed),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text("⏹️ Yozishni to'xtatish", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = {
+                                            voiceRecorder.cancelRecording()
+                                            isRecording = false
+                                            recordedVoicePath = null
+                                            recordedVoiceDuration = 0
+                                            Toast.makeText(context, "Ovoz o'chirildi", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(Icons.Default.Delete, contentDescription = "O'chirish", tint = Color.White, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("O'chirish", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            val res = voiceRecorder.stopRecording()
+                                            isRecording = false
+                                            if (res != null) {
+                                                recordedVoicePath = res.first
+                                                recordedVoiceDuration = res.second
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("⏹️ To'xtatish", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             } else if (recordedVoicePath != null) {
                                 Row(
@@ -865,9 +883,9 @@ fun WorkerTasksView(
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.Call, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(20.dp))
+                                    Text("🎤", fontSize = 16.sp)
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("🎤 Ovozli javob yozish (Mikrofon)", color = PrimaryBlue, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text("Ovozli javob yozish (Mikrofon)", color = PrimaryBlue, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
                             }
                         }
