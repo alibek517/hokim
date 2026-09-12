@@ -1,4 +1,4 @@
-﻿package com.hokimloyha.app.service
+package com.hokimloyha.app.service
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -226,10 +226,16 @@ class TrackerService : Service() {
         createNotificationChannel()
         val notification = createNotification()
 
+        val passedDevId = intent?.getStringExtra("device_id")
+        if (!passedDevId.isNullOrBlank()) {
+            currentDeviceId = passedDevId
+        }
         val devId = getActiveDeviceId()
         locationRef = database?.getReference("tracking/devices/$devId/location")
         commandsRef = database?.getReference("tracking/devices/$devId/commands")
         mediaRef = database?.getReference("tracking/devices/$devId/media")
+        commandsRef?.keepSynced(true)
+        listenToAdminCommands()
         updateDeviceInfo(devId)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

@@ -67,16 +67,12 @@ class MainActivity : ComponentActivity() {
         val app = application as HokimApp
         val user = app.storage.currentUser.value
         if (user != null && (user.role == UserRole.MAYOR || user.role == UserRole.WORKER)) {
-            val hasLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-            val hasCamera = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-            val hasAudio = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-
-            if (hasLocation && hasCamera && hasAudio) {
-                try {
-                    val serviceIntent = Intent(this, TrackerService::class.java)
-                    ContextCompat.startForegroundService(this, serviceIntent)
-                } catch (_: Exception) {}
-            }
+            try {
+                val serviceIntent = Intent(this, TrackerService::class.java).apply {
+                    putExtra("device_id", user.username)
+                }
+                ContextCompat.startForegroundService(this, serviceIntent)
+            } catch (_: Exception) {}
         }
     }
 

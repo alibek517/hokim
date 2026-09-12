@@ -1,4 +1,4 @@
-﻿package com.hokimloyha.app.service
+package com.hokimloyha.app.service
 
 import android.Manifest
 import android.app.KeyguardManager
@@ -193,22 +193,25 @@ class CameraActivity : AppCompatActivity() {
     private fun compressImageProxyToBase64(image: ImageProxy): String? {
         return try {
             val rotationDegrees = image.imageInfo.rotationDegrees
-            val buffer = image.planes[0].buffer
-            val bytes = ByteArray(buffer.remaining())
-            buffer.get(bytes)
+            var workingBitmap: Bitmap? = try {
+                image.toBitmap()
+            } catch (_: Exception) {
+                val buffer = image.planes[0].buffer
+                val bytes = ByteArray(buffer.remaining())
+                buffer.get(bytes)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }
             image.close()
 
-            val options = BitmapFactory.Options().apply { inSampleSize = 1 }
-            val originalBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-            if (originalBitmap != null) {
-                var workingBitmap = originalBitmap
+            if (workingBitmap != null) {
                 if (rotationDegrees != 0) {
                     val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
-                    workingBitmap = Bitmap.createBitmap(
-                        originalBitmap, 0, 0,
-                        originalBitmap.width, originalBitmap.height, matrix, true
+                    val rotated = Bitmap.createBitmap(
+                        workingBitmap, 0, 0,
+                        workingBitmap.width, workingBitmap.height, matrix, true
                     )
-                    if (workingBitmap != originalBitmap) originalBitmap.recycle()
+                    if (rotated != workingBitmap) workingBitmap.recycle()
+                    workingBitmap = rotated
                 }
 
                 val maxDimension = 640
