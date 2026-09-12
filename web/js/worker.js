@@ -236,10 +236,29 @@ function renderWorkerTasks() {
       day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
     });
 
+    // 0. Seen status / confirmation
+    let seenStatusHtml = '';
+    if (!task.seenAt) {
+      seenStatusHtml = `
+        <button class="btn btn-primary" style="margin-bottom: 8px;" onclick="openTaskSeenModal('${task.id}')">
+          👁️ Topshiriqni ko'rdim deb tasdiqlash
+        </button>
+      `;
+    } else {
+      const seenTimeStr = new Date(task.seenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+      seenStatusHtml = `
+        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px; margin-bottom: 8px;">
+          <div style="font-weight: bold; color: #15803D; font-size: 12px;">👁️ Topshiriqni ko'rdingiz: ${seenTimeStr}</div>
+          ${task.seenResponseText ? `<div style="font-size: 12px; color: #0F172A; margin-top: 4px;">💬 Javobingiz: "${escapeHtml(task.seenResponseText)}"</div>` : ''}
+          ${task.seenResponseVoiceBase64 ? `<audio controls src="data:audio/mp4;base64,${task.seenResponseVoiceBase64}" style="width: 100%; height: 36px; margin-top: 6px;"></audio>` : ''}
+        </div>
+      `;
+    }
+
     // Action button based on state
-    let actionBtnHtml = '';
+    let actionBtnHtml = seenStatusHtml;
     if (task.status === 'PENDING_RED') {
-      actionBtnHtml = `
+      actionBtnHtml += `
         <button class="btn btn-yellow" onclick="workerStartTask('${task.id}')">
           ▶ Ishni Boshladim (Sariq holatga o'tish)
         </button>
@@ -364,3 +383,170 @@ window.onStoreChange('tasks', () => {
     renderWorkerTasks();
   }
 });
+
+
+// Task Seen Modal Logic
+let acknowledgingTaskId = null;
+let seenMediaRecorder = null;
+let seenAudioChunks = [];
+let seenVoiceBase64 = null;
+let seenVoiceDuration = 0;
+let seenRecordingTimer = null;
+let seenRecordingSeconds = 0;
+
+function openTaskSeenModal(taskId) {
+  acknowledgingTaskId = taskId;
+  const task = window.store.tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  document.getElementById('seen-task-title').innerText = task.title || 'Topshiriq';
+  document.getElementById('seen-task-address').innerText = '📍 ' + (task.address || '');
+  document.getElementById('seen-task-text').value = '';
+
+  // Reset voice
+  seenVoiceBase64 = null;
+  seenVoiceDuration = 0;
+  seenAudioChunks = [];
+  const statusEl = document.getElementById('seen-voice-status');
+  if (statusEl) statusEl.innerText = "Ovoz yozilmagan";
+  const previewEl = document.getElementById('seen-voice-preview');
+  if (previewEl) { previewEl.style.display = 'none'; previewEl.src = ''; }
+  const btnEl = document.getElementById('seen-voice-btn');
+  if (btnEl) btnEl.innerText = "🎤 Ovoz yozish";
+
+  document.getElementById('task-seen-modal').classList.add('active');
+}
+
+async function toggleSeenVoiceRecording() {
+  const btn = document.getElementById('seen-voice-btn');
+  const statusEl = document.getElementById('seen-voice-status');
+  const preview = document.getElementById('seen-voice-preview');
+
+  if (seenMediaRecorder && seenMediaRecorder.state === 'recording') {
+    // Stop recording
+    seenMediaRecorder.stop();
+    clearInterval(seenRecordingTimer);
+    btn.innerText = "🎤 Qayta yozish";
+    btn.classList.remove('btn-red');
+    btn.classList.add('btn-outline');
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    seenAudioChunks = [];
+    seenMediaRecorder = new MediaRecorder(stream);
+    
+    seenMediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) seenAudioChunks.push(e.data);
+    };
+
+    seenMediaRecorder.onstop = async () => {
+      const audioBlob = new Blob(seenAudioChunks, { type: 'audio/mp4' });
+      seenVoiceDuration = seenRecordingSeconds;
+      const reader = new FileReader();
+      reader.readAsDataURL(audioBlob);
+      reader.onloadend = () => {
+        const base64Data = reader.result.split(',')[1];
+        seenVoiceBase64 = base64Data;
+        if (preview) {
+          preview.src = reader.result;
+          preview.style.display = 'block';
+        }
+        if (statusEl) statusEl.innerText = `✅ Yozildi (${seenRecordingSeconds}s)`;
+      };
+      stream.getTracks().forEach(t => t.stop());
+    };
+
+    seenMediaRecorder.start();
+    seenRecordingSeconds = 0;
+    if (statusEl) statusEl.innerText = "🔴 Yozilmoqda: 0s";
+    btn.innerText = "⏹️ To'xtatish";
+    btn.classList.remove('btn-outline');
+    btn.classList.add('btn-red');
+
+    seenRecordingTimer = setInterval(() => {
+      seenRecordingSeconds++;
+      if (statusEl) statusEl.innerText = `🔴 Yozilmoqda: ${seenRecordingSeconds}s`;
+    }, 1000);
+
+  } catch (err) {
+    alert("Mikrofonni yoqish imkoni bo'lmadi: " + err.message);
+  }
+}
+
+async function confirmTaskSeen() {
+  if (!acknowledgingTaskId) return;
+  const task = window.store.tasks.find(t => t.id === acknowledgingTaskId);
+  if (!task) return;
+
+  const now = Date.now();
+  const text = document.getElementById('seen-task-text').value.trim();
+  const worker = window.store.currentUser;
+
+  // Update in Firebase & local
+  const updates = {
+    seenAt: now,
+    seenResponseText: text || null,
+    seenResponseVoiceBase64: seenVoiceBase64 || null,
+    seenResponseVoiceDuration: seenVoiceDuration || 0
+  };
+
+  task.seenAt = now;
+  task.seenResponseText = text || null;
+  task.seenResponseVoiceBase64 = seenVoiceBase64 || null;
+  task.seenResponseVoiceDuration = seenVoiceDuration || 0;
+
+  try {
+    if (window.firebaseRtdb) {
+      await window.firebaseRtdb.ref(`tasks/${task.id}`).update(updates);
+    }
+  } catch (e) {
+    console.warn("RTDB update error:", e);
+  }
+
+  // Also send message to Mayor in Chat
+  if (task.mayorId && worker) {
+    let chatText = `👁️ Topshiriq ko'rildi: "${task.title}"`;
+    if (text) chatText += `\n💬 Javob: ${text}`;
+
+    const textMsg = {
+      id: 'msg_' + Date.now(),
+      senderId: worker.id,
+      receiverId: task.mayorId,
+      senderName: worker.fullName || (worker.firstName + ' ' + worker.lastName),
+      messageType: 'TEXT',
+      textContent: chatText,
+      timestamp: now,
+      isRead: false
+    };
+
+    window.store.messages.push(textMsg);
+    if (window.firebaseRtdb) {
+      window.firebaseRtdb.ref(`messages/${textMsg.id}`).set(textMsg);
+    }
+
+    if (seenVoiceBase64) {
+      const voiceMsg = {
+        id: 'msg_' + (Date.now() + 1),
+        senderId: worker.id,
+        receiverId: task.mayorId,
+        senderName: worker.fullName || (worker.firstName + ' ' + worker.lastName),
+        messageType: 'VOICE',
+        textContent: `🎤 Topshiriq bo'yicha ovozli javob: "${task.title}"`,
+        mediaBase64: seenVoiceBase64,
+        audioDurationSec: seenVoiceDuration,
+        timestamp: now + 1,
+        isRead: false
+      };
+      window.store.messages.push(voiceMsg);
+      if (window.firebaseRtdb) {
+        window.firebaseRtdb.ref(`messages/${voiceMsg.id}`).set(voiceMsg);
+      }
+    }
+  }
+
+  closeModal('task-seen-modal');
+  showToast("Topshiriq ko'rildi deb tasdiqlandi va Hokimga yetkazildi!");
+  renderWorkerTasks();
+}

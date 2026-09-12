@@ -155,6 +155,19 @@ function renderMayorTasks() {
         <div class="task-worker-box">
           👤 <strong>Mas'ul:</strong> ${escapeHtml(task.assignedWorkerName || 'Biriktirilmagan')}
         </div>
+        ${task.seenAt ? `
+          <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 8px 10px; margin-top: 6px;">
+            <div style="font-weight: bold; color: #15803D; font-size: 11px;">
+              👁️ Xodim ko'rdi: ${new Date(task.seenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+            </div>
+            ${task.seenResponseText ? `<div style="font-size: 11px; color: #0F172A; margin-top: 4px;">💬 Xodim javobi: "${escapeHtml(task.seenResponseText)}"</div>` : ''}
+            ${task.seenResponseVoiceBase64 ? `<audio controls src="data:audio/mp4;base64,${task.seenResponseVoiceBase64}" style="width: 100%; height: 32px; margin-top: 6px;"></audio>` : ''}
+          </div>
+        ` : `
+          <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 600; color: #B45309; margin-top: 6px;">
+            ⚠️ Xodim hali ko'rmagan (Tasdiqlanmagan)
+          </div>
+        `}
         ${completionNoteHtml}
         ${actionBtnHtml}
       </div>
