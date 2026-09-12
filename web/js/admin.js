@@ -129,6 +129,34 @@ function attachAdminDeviceListeners(devId) {
   };
   devRef.child('media/status').on('value', statusCb);
   adminDeviceListeners['status'] = { ref: devRef.child('media/status'), cb: statusCb };
+
+  // Command state: audio
+  const audioCmdCb = snap => {
+    const val = snap.val();
+    const isActive = (val === true || val === 'start' || val === 'true');
+    adminDeviceData.isAudioRecordingActive = isActive;
+    const btn = document.getElementById('admin-voice-btn');
+    if (btn) {
+      btn.innerText = isActive ? "⏹ To'xtatish" : "🎙️ Ovoz Yozish";
+      btn.className = isActive ? "btn btn-red" : "btn btn-yellow";
+    }
+  };
+  devRef.child('commands/record_audio').on('value', audioCmdCb);
+  adminDeviceListeners['cmd_audio'] = { ref: devRef.child('commands/record_audio'), cb: audioCmdCb };
+
+  // Command state: screen
+  const screenCmdCb = snap => {
+    const val = snap.val();
+    const isActive = (val === true || val === 'start' || val === 'true');
+    adminDeviceData.isScreenRecordingActive = isActive;
+    const btn = document.getElementById('admin-screen-btn');
+    if (btn) {
+      btn.innerText = isActive ? "⏹ To'xtatish" : "📹 Ekran Zapis";
+      btn.style.background = isActive ? "#DC2626" : "#7C3AED";
+    }
+  };
+  devRef.child('commands/record_screen').on('value', screenCmdCb);
+  adminDeviceListeners['cmd_screen'] = { ref: devRef.child('commands/record_screen'), cb: screenCmdCb };
 }
 
 function selectAdminDevice(username) {
@@ -178,8 +206,8 @@ function renderAdminView() {
         <button id="admin-voice-btn" class="btn ${adminDeviceData.isAudioRecordingActive ? 'btn-red' : 'btn-yellow'}" onclick="adminToggleRecordAudio()" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
           ${adminDeviceData.isAudioRecordingActive ? "⏹ To'xtatish" : "🎙️ Ovoz Yozish"}
         </button>
-        <button class="btn" onclick="adminSendRecordScreen()" style="background: #7C3AED; color: white; display: flex; align-items: center; justify-content: center; gap: 6px;">
-          📹 Ekran Zapis
+        <button id="admin-screen-btn" class="btn ${adminDeviceData.isScreenRecordingActive ? 'btn-red' : ''}" onclick="adminToggleRecordScreen()" style="background: ${adminDeviceData.isScreenRecordingActive ? '#DC2626' : '#7C3AED'}; color: white; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          ${adminDeviceData.isScreenRecordingActive ? "⏹ To'xtatish" : "📹 Ekran Zapis"}
         </button>
         <button class="btn btn-outline" onclick="adminSendRequestGps()" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
           🛰️ GPS Yangilash
@@ -299,6 +327,14 @@ function updateAdminMapLocation(lat, lon) {
     return;
   }
 
+  const webCustomPin = L.divIcon({
+    className: 'web-pulse-marker',
+    html: '<div style="position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;"><div style="position:absolute;width:36px;height:36px;border-radius:50%;background:rgba(220,38,38,0.35);"></div><svg viewBox="0 0 24 24" width="30" height="30" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" fill="#DC2626"/><circle cx="12" cy="9" r="3.5" fill="#FFFFFF"/></svg></div>',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32]
+  });
+
   if (!adminLeafletMap) {
     try {
       adminLeafletMap = L.map('admin-map-container', {
@@ -306,13 +342,33 @@ function updateAdminMapLocation(lat, lon) {
         attributionControl: false
       }).setView([latNum, lonNum], 16);
 
-      // Mutlaqo tekin va ishonchli OpenStreetMap tile serveri
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      const googleLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        attribution: 'Google'
+      });
+      const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        attribution: 'Google Satellite'
+      });
+      const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution: '© OpenStreetMap'
+        attribution: 'OSM'
+      });
+      const cartoLayer = L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
+        maxZoom: 19,
+        attribution: 'CARTO'
+      });
+
+      googleLayer.addTo(adminLeafletMap);
+
+      L.control.layers({
+        "Google Standart": googleLayer,
+        "Sun'iy yo'ldosh (Google)": googleHybrid,
+        "OpenStreetMap": osmLayer,
+        "CARTO": cartoLayer
       }).addTo(adminLeafletMap);
 
-      adminLeafletMarker = L.marker([latNum, lonNum]).addTo(adminLeafletMap);
+      adminLeafletMarker = L.marker([latNum, lonNum], { icon: webCustomPin }).addTo(adminLeafletMap);
       adminLeafletMarker.bindPopup("<b>📍 Xodim jonli joylashuvi</b>").openPopup();
     } catch (e) {
       console.warn("Leaflet init error:", e);
@@ -323,7 +379,7 @@ function updateAdminMapLocation(lat, lon) {
       if (adminLeafletMarker) {
         adminLeafletMarker.setLatLng([latNum, lonNum]);
       } else {
-        adminLeafletMarker = L.marker([latNum, lonNum]).addTo(adminLeafletMap);
+        adminLeafletMarker = L.marker([latNum, lonNum], { icon: webCustomPin }).addTo(adminLeafletMap);
         adminLeafletMarker.bindPopup("<b>📍 Xodim jonli joylashuvi</b>").openPopup();
       }
     } catch (e) {
@@ -335,7 +391,7 @@ function updateAdminMapLocation(lat, lon) {
     if (adminLeafletMap) {
       adminLeafletMap.invalidateSize();
     }
-  }, 250);
+  }, 200);
 }
 
 // Commands
@@ -361,11 +417,19 @@ function adminToggleRecordAudio() {
   showToast(nextState ? (isOnline ? "🎙️ Masofaviy ovoz yozish boshlandi" : "🎙️ Ovoz yozish navbatga qo'yildi") : "🎙️ Ovoz yozish to'xtatildi, saqlanmoqda...");
 }
 
-function adminSendRecordScreen() {
+function adminToggleRecordScreen() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
   const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
-  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/record_screen`).set(Date.now());
-  showToast(isOnline ? "📹 Ekran zapis buyrug'i yuborildi!" : "📹 Ekran zapis navbatga qo'yildi");
+  const nextState = !adminDeviceData.isScreenRecordingActive;
+  adminDeviceData.isScreenRecordingActive = nextState;
+  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/record_screen`).set(nextState);
+
+  const btn = document.getElementById('admin-screen-btn');
+  if (btn) {
+    btn.innerText = nextState ? "⏹ To'xtatish" : "📹 Ekran Zapis";
+    btn.style.background = nextState ? "#DC2626" : "#7C3AED";
+  }
+  showToast(nextState ? (isOnline ? "📹 Masofaviy ekran yozish boshlandi..." : "📹 Ekran yozish navbatga qo'yildi") : "📹 Ekran yozish to'xtatildi, saqlanmoqda...");
 }
 
 function adminSendRequestGps() {
@@ -462,7 +526,7 @@ function renderAdminAudio() {
 
   container.innerHTML = `
     <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">Vaqt: ${timeStr}</div>
-    <audio controls src="data:audio/3gpp;base64,${cur.audio_base64}" style="width: 100%; height: 38px; margin-bottom: 8px;"></audio>
+    <audio controls src="data:audio/mp4;base64,${cur.audio_base64}" style="width: 100%; height: 38px; margin-bottom: 8px;"></audio>
     <div style="display: flex; justify-content: space-between;">
       <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminPrevAudio()" ${idx === 0 ? 'disabled' : ''}>◀ Oldingi</button>
       <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminNextAudio()" ${idx === audios.length - 1 ? 'disabled' : ''}>Keyingi ▶</button>

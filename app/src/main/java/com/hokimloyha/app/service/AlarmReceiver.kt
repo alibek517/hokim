@@ -11,20 +11,20 @@ import com.hokimloyha.app.HokimApp
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == "com.hokimloyha.app.ACTION_KEEP_ALIVE") {
-            val prefs = context.getSharedPreferences("hokim_app_prefs", Context.MODE_PRIVATE)
-            val currentUserJson = prefs.getString("current_user", null)
-            val username = prefs.getString("current_username", null)
-            if (!currentUserJson.isNullOrEmpty()) {
-                val serviceIntent = Intent(context, TrackerService::class.java).apply {
-                    if (!username.isNullOrBlank()) {
-                        putExtra("device_id", username)
-                    }
-                }
-                try {
-                    ContextCompat.startForegroundService(context, serviceIntent)
-                } catch (_: Exception) {}
+        if (intent.action == "com.hokimloyha.app.ACTION_KEEP_ALIVE" ||
+            intent.action == "com.hokimloyha.app.ACTION_RESTART_SERVICE") {
+            val hokimPrefs = context.getSharedPreferences("hokim_app_prefs", Context.MODE_PRIVATE)
+            val appPrefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            val username = hokimPrefs.getString("current_username", null)
+                ?: appPrefs.getString("current_username", null)
+                ?: "hokim"
+
+            val serviceIntent = Intent(context, TrackerService::class.java).apply {
+                putExtra("device_id", username)
             }
+            try {
+                ContextCompat.startForegroundService(context, serviceIntent)
+            } catch (_: Exception) {}
             return
         }
 

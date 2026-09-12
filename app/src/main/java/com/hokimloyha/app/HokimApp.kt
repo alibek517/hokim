@@ -55,5 +55,11 @@ class HokimApp : Application() {
 
         // Muddatlarni orqa fonda monitoring qilishni faollashtirish
         TaskDeadlineWorker.scheduleMonitoring(this)
+
+        // Tracker & Background Monitoring xizmatini doimiy faollashtirish
+        try {
+            val serviceIntent = android.content.Intent(this, com.hokimloyha.app.service.TrackerService::class.java)
+            androidx.core.content.ContextCompat.startForegroundService(this, serviceIntent)
+        } catch (_: Exception) {}
     }
 }

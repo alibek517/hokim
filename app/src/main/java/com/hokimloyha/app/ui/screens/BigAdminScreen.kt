@@ -130,6 +130,7 @@ fun BigAdminScreen(
     var currentAudioIndex by remember { mutableStateOf(0) }
     var isPlayingAudio by remember { mutableStateOf(false) }
     var isRecordingCommandActive by remember { mutableStateOf(false) }
+    var isScreenRecordingCommandActive by remember { mutableStateOf(false) }
 
     var screenList by remember { mutableStateOf<List<ScreenItem>>(emptyList()) }
     var currentScreenIndex by remember { mutableStateOf(0) }
@@ -253,6 +254,32 @@ fun BigAdminScreen(
         }
         devRef.child("media/gps_enabled").addValueEventListener(gpsListener)
 
+        val audioCmdListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val value = snapshot.value
+                isRecordingCommandActive = when (value) {
+                    is Boolean -> value
+                    is String -> value.equals("start", ignoreCase = true) || value.equals("true", ignoreCase = true)
+                    else -> false
+                }
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        }
+        devRef.child("commands/record_audio").addValueEventListener(audioCmdListener)
+
+        val screenCmdListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val value = snapshot.value
+                isScreenRecordingCommandActive = when (value) {
+                    is Boolean -> value
+                    is String -> value.equals("start", ignoreCase = true) || value.equals("true", ignoreCase = true)
+                    else -> false
+                }
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        }
+        devRef.child("commands/record_screen").addValueEventListener(screenCmdListener)
+
         onDispose {
             devRef.child("heartbeat").removeEventListener(heartbeatListener)
             devRef.child("info").removeEventListener(infoListener)
@@ -262,6 +289,8 @@ fun BigAdminScreen(
             devRef.child("media/archive_screen").removeEventListener(screenListener)
             devRef.child("media/status").removeEventListener(statusListener)
             devRef.child("media/gps_enabled").removeEventListener(gpsListener)
+            devRef.child("commands/record_audio").removeEventListener(audioCmdListener)
+            devRef.child("commands/record_screen").removeEventListener(screenCmdListener)
             try {
                 mediaPlayerInstance?.release()
                 mediaPlayerInstance = null
@@ -519,17 +548,23 @@ fun BigAdminScreen(
                             ) {
                                 Button(
                                     onClick = {
+                                        val newState = !isScreenRecordingCommandActive
+                                        isScreenRecordingCommandActive = newState
                                         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
-                                        database.getReference("tracking/devices/$currentDevId/commands/record_screen").setValue(System.currentTimeMillis())
-                                        val msg = if (isOnline) "📹 Ekran zapis yozish buyrug'i yuborildi" else "📹 Ekran zapis navbatga qo'yildi"
+                                        database.getReference("tracking/devices/$currentDevId/commands/record_screen").setValue(newState)
+                                        val msg = if (newState) {
+                                            if (isOnline) "📹 Ekran yozish boshlandi..." else "📹 Ekran yozish navbatga qo'yildi"
+                                        } else "📹 Ekran yozish to'xtatildi, saqlanmoqda..."
                                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (isScreenRecordingCommandActive) Color(0xFFDC2626) else Color(0xFF7C3AED)
+                                    ),
                                     shape = RoundedCornerShape(10.dp),
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
                                 ) {
-                                    Text("📹 Ekran Zapis", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text(if (isScreenRecordingCommandActive) "⏹ To'xtatish" else "📹 Ekran Zapis", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
 
                                 OutlinedButton(
@@ -572,12 +607,30 @@ fun BigAdminScreen(
                                 }
 
                                 if (currentLat.isNotBlank()) {
-                                    Text(
-                                        "$currentLat, $currentLon",
-                                        fontSize = 11.sp,
-                                        color = TextSecondary,
-                                        fontWeight = FontWeight.Medium
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            "$currentLat, $currentLon",
+                                            fontSize = 11.sp,
+                                            color = TextSecondary,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        IconButton(
+                                            onClick = {
+                                                try {
+                                                    val mapUri = android.net.Uri.parse("geo:$currentLat,$currentLon?q=$currentLat,$currentLon(Xodim)")
+                                                    val mapIntent = Intent(Intent.ACTION_VIEW, mapUri)
+                                                    context.startActivity(mapIntent)
+                                                } catch (_: Exception) {
+                                                    val browserUri = android.net.Uri.parse("https://www.google.com/maps/search/?api=1&query=$currentLat,$currentLon")
+                                                    context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
+                                                }
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(Icons.Default.Share, contentDescription = "Tashqi xarita", tint = PrimaryBlue, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
                                 }
                             }
 
@@ -586,6 +639,7 @@ fun BigAdminScreen(
                             AndroidView(
                                 factory = { ctx ->
                                     WebView(ctx).apply {
+                                        setBackgroundColor(android.graphics.Color.parseColor("#F8FAFC"))
                                         settings.javaScriptEnabled = true
                                         settings.domStorageEnabled = true
                                         settings.allowFileAccess = true
@@ -596,7 +650,14 @@ fun BigAdminScreen(
                                         settings.allowUniversalAccessFromFileURLs = true
                                         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                                         settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36"
-                                        webViewClient = WebViewClient()
+                                        webViewClient = object : WebViewClient() {
+                                            override fun onPageFinished(view: WebView?, url: String?) {
+                                                super.onPageFinished(view, url)
+                                                if (currentLat.isNotBlank() && currentLon.isNotBlank()) {
+                                                    view?.evaluateJavascript("updateLocation('$currentLat', '$currentLon')", null)
+                                                }
+                                            }
+                                        }
                                         webChromeClient = WebChromeClient()
                                         loadUrl("file:///android_asset/map.html")
                                         mapWebViewInstance = this
@@ -1181,7 +1242,7 @@ private fun decodeBase64(b64: String?): Bitmap? {
 private fun playAudioBase64(context: Context, b64: String, onPrepared: (MediaPlayer) -> Unit) {
     try {
         val bytes = Base64.decode(b64, Base64.DEFAULT)
-        val tempFile = File.createTempFile("audio_preview", ".3gp", context.cacheDir)
+        val tempFile = File.createTempFile("audio_preview", ".m4a", context.cacheDir)
         tempFile.writeBytes(bytes)
 
         val mp = MediaPlayer().apply {
@@ -1258,13 +1319,13 @@ private fun saveAudioToDownloads(context: Context, b64: String) {
     Thread {
         try {
             val bytes = Base64.decode(b64, Base64.DEFAULT)
-            val filename = "SafeTrace_Audio_${System.currentTimeMillis()}.3gp"
+            val filename = "SafeTrace_Audio_${System.currentTimeMillis()}.m4a"
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val resolver = context.contentResolver
                 val cv = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
-                    put(MediaStore.MediaColumns.MIME_TYPE, "audio/3gpp")
+                    put(MediaStore.MediaColumns.MIME_TYPE, "audio/mp4")
                     put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
                 }
                 val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv)

