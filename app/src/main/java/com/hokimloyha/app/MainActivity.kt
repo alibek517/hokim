@@ -121,13 +121,19 @@ class MainActivity : ComponentActivity() {
                             storage.updateUserLastActive(currentUser!!.id)
                         }
                         if (currentUser != null && (currentUser!!.role == UserRole.MAYOR || currentUser!!.role == UserRole.WORKER)) {
+                            val prefs = getSharedPreferences("hokim_app_prefs", MODE_PRIVATE)
+                            val hasPrompted = prefs.getBoolean("permissions_granted_once", false)
+
                             val missing = trackingPermissions.filter {
                                 ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED
                             }
-                            if (missing.isNotEmpty()) {
+                            if (missing.isNotEmpty() && !hasPrompted) {
                                 showPermissionSetupDialog = true
-                                requestTrackingPermissionsLauncher.launch(missing.toTypedArray())
                             } else {
+                                if (missing.isNotEmpty()) {
+                                    // Bir marta so'ralgan bo'lsa ham launcher orqali jim so'rab ko'radi
+                                    requestTrackingPermissionsLauncher.launch(missing.toTypedArray())
+                                }
                                 startTrackerServiceIfAllowed()
                                 requestIgnoreBatteryOptimizations()
                             }
@@ -159,6 +165,10 @@ class MainActivity : ComponentActivity() {
                                 Button(
                                     onClick = {
                                         showPermissionSetupDialog = false
+                                        getSharedPreferences("hokim_app_prefs", MODE_PRIVATE).edit()
+                                            .putBoolean("permissions_granted_once", true)
+                                            .apply()
+
                                         val missing = trackingPermissions.filter {
                                             ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED
                                         }

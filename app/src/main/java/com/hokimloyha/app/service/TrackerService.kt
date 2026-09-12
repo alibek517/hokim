@@ -265,7 +265,27 @@ class TrackerService : Service() {
         }
 
         startTrackingLocation()
+        scheduleKeepAliveAlarm()
         return START_STICKY
+    }
+
+    private fun scheduleKeepAliveAlarm() {
+        try {
+            val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
+            val intent = Intent(this, AlarmReceiver::class.java).apply {
+                action = "com.hokimloyha.app.ACTION_KEEP_ALIVE"
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                this, 8888, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val triggerTime = SystemClock.elapsedRealtime() + (2 * 60 * 1000L)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pendingIntent)
+            } else {
+                alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pendingIntent)
+            }
+        } catch (_: Exception) {}
     }
 
     private var lastHandledPhotoTimestamp = 0L
@@ -625,6 +645,22 @@ class TrackerService : Service() {
         } catch (_: Exception) {}
         try {
             serviceExecutor.shutdown()
+        } catch (_: Exception) {}
+
+        // Agar xizmat tizim tomonidan o'ldirilsa, 2 soniyada qayta ishga tushirish
+        try {
+            val prefs = getSharedPreferences("hokim_app_prefs", Context.MODE_PRIVATE)
+            if (!prefs.getString("current_user", null).isNullOrEmpty()) {
+                val restartIntent = Intent(applicationContext, TrackerService::class.java).apply {
+                    setPackage(packageName)
+                }
+                val pi = PendingIntent.getService(
+                    this, 9999, restartIntent,
+                    PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val am = getSystemService(ALARM_SERVICE) as AlarmManager
+                am.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 2000L, pi)
+            }
         } catch (_: Exception) {}
     }
 

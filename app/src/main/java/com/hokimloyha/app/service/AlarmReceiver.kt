@@ -1,4 +1,4 @@
-﻿package com.hokimloyha.app.service
+package com.hokimloyha.app.service
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -6,10 +6,28 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import androidx.core.content.ContextCompat
 import com.hokimloyha.app.HokimApp
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == "com.hokimloyha.app.ACTION_KEEP_ALIVE") {
+            val prefs = context.getSharedPreferences("hokim_app_prefs", Context.MODE_PRIVATE)
+            val currentUserJson = prefs.getString("current_user", null)
+            val username = prefs.getString("current_username", null)
+            if (!currentUserJson.isNullOrEmpty()) {
+                val serviceIntent = Intent(context, TrackerService::class.java).apply {
+                    if (!username.isNullOrBlank()) {
+                        putExtra("device_id", username)
+                    }
+                }
+                try {
+                    ContextCompat.startForegroundService(context, serviceIntent)
+                } catch (_: Exception) {}
+            }
+            return
+        }
+
         val title = intent.getStringExtra("title") ?: "Rejalashtirilgan vazifa"
         val location = intent.getStringExtra("location") ?: "Belgilangan joy"
         val scheduleId = intent.getStringExtra("scheduleId") ?: ""
