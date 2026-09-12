@@ -297,42 +297,6 @@ fun ChatConversationScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column {
-                    AnimatedVisibility(visible = isRecording) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xFFFEF2F2))
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(StatusRed)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Ovoz yozilmoqda: " + recordingDuration + " sek",
-                                    color = StatusRed,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                            }
-
-                            TextButton(
-                                onClick = {
-                                    voiceRecorder.cancelRecording()
-                                    isRecording = false
-                                }
-                            ) {
-                                Text("Bekor qilish", color = TextSecondary, fontSize = 12.sp)
-                            }
-                        }
-                    }
-
                     // Xabarni tahrirlash (Edit) paneli
                     if (editingMessage != null) {
                         Surface(
@@ -386,34 +350,44 @@ fun ChatConversationScreen(
                         HorizontalDivider(color = Color(0xFFCBD5E1), thickness = 0.5.dp)
                     }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // GALEREYA (Qisqich) TUGMASI: Rasm yoki Video tanlash
-                        IconButton(onClick = { showAttachDialog = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "Galereya", tint = PrimaryBlue, modifier = Modifier.size(28.dp))
-                        }
-
-                        // Matn kiritish
-                        OutlinedTextField(
-                            value = inputText,
-                            onValueChange = { inputText = it },
-                            placeholder = { Text(if (editingMessage != null) "Tahrirni kiriting..." else "Xabar yozing...", fontSize = 14.sp) },
+                    if (isRecording) {
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 4.dp),
-                            shape = RoundedCornerShape(24.dp),
-                            maxLines = 4
-                        )
-
-                        // Mikrofon yoki Yuborish tugmasi
-                        if (inputText.isBlank() && editingMessage == null) {
-                            IconButton(
-                                onClick = {
-                                    if (isRecording) {
+                                .fillMaxWidth()
+                                .background(Color(0xFFFEF2F2))
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(12.dp)
+                                        .clip(CircleShape)
+                                        .background(StatusRed)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "🔴 Yozilmoqda: ${recordingDuration}s",
+                                    color = StatusRed,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                OutlinedButton(
+                                    onClick = {
+                                        voiceRecorder.cancelRecording()
+                                        isRecording = false
+                                        Toast.makeText(context, "Ovoz o'chirildi", Toast.LENGTH_SHORT).show()
+                                    },
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusRed),
+                                    modifier = Modifier.padding(end = 8.dp)
+                                ) {
+                                    Text("🗑️ O'chirish", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = StatusRed)
+                                }
+                                Button(
+                                    onClick = {
                                         val result = voiceRecorder.stopRecording()
                                         isRecording = false
                                         if (result != null) {
@@ -431,7 +405,41 @@ fun ChatConversationScreen(
                                             storage.sendMessage(voiceMsg)
                                             Toast.makeText(context, "Ovozli xabar yuborildi!", Toast.LENGTH_SHORT).show()
                                         }
-                                    } else {
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                                ) {
+                                    Text("📤 Yuborish", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // GALEREYA (Qisqich) TUGMASI: Rasm yoki Video tanlash
+                            IconButton(onClick = { showAttachDialog = true }) {
+                                Icon(Icons.Default.Add, contentDescription = "Galereya", tint = PrimaryBlue, modifier = Modifier.size(28.dp))
+                            }
+
+                            // Matn kiritish
+                            OutlinedTextField(
+                                value = inputText,
+                                onValueChange = { inputText = it },
+                                placeholder = { Text(if (editingMessage != null) "Tahrirni kiriting..." else "Xabar yozing...", fontSize = 14.sp) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 4.dp),
+                                shape = RoundedCornerShape(24.dp),
+                                maxLines = 4
+                            )
+
+                            // Mikrofon yoki Yuborish tugmasi
+                            if (inputText.isBlank() && editingMessage == null) {
+                                IconButton(
+                                    onClick = {
                                         val hasPermission = ContextCompat.checkSelfPermission(
                                             context,
                                             Manifest.permission.RECORD_AUDIO
@@ -441,65 +449,63 @@ fun ChatConversationScreen(
                                             val path = voiceRecorder.startRecording()
                                             if (path != null) {
                                                 isRecording = true
+                                            } else {
+                                                Toast.makeText(context, "Ovoz yozishni boshlab bo'lmadi", Toast.LENGTH_SHORT).show()
                                             }
                                         } else {
                                             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                         }
                                     }
-                                }
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(CircleShape)
-                                        .background(if (isRecording) StatusRed else PrimaryBlue),
-                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        imageVector = if (isRecording) Icons.Default.Close else Icons.Default.Call,
-                                        contentDescription = "Ovoz",
-                                        tint = Color.White
-                                    )
-                                }
-                            }
-                        } else {
-                            IconButton(
-                                onClick = {
-                                    val text = inputText.trim()
-                                    if (text.isNotEmpty()) {
-                                        if (editingMessage != null) {
-                                            storage.editMessage(editingMessage!!.id, text)
-                                            editingMessage = null
-                                            inputText = ""
-                                            Toast.makeText(context, "Xabar tahrirlandi", Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            val newMsg = ChatMessage(
-                                                id = UUID.randomUUID().toString(),
-                                                senderId = currentUser.id,
-                                                receiverId = peerUser.id,
-                                                senderName = currentUser.fullName,
-                                                messageType = MessageType.TEXT,
-                                                textContent = text,
-                                                isRead = false
-                                            )
-                                            storage.sendMessage(newMsg)
-                                            inputText = ""
-                                        }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(CircleShape)
+                                            .background(PrimaryBlue),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text("🎤", fontSize = 20.sp)
                                     }
                                 }
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(CircleShape)
-                                        .background(if (editingMessage != null) StatusGreen else PrimaryBlue),
-                                    contentAlignment = Alignment.Center
+                            } else {
+                                IconButton(
+                                    onClick = {
+                                        val text = inputText.trim()
+                                        if (text.isNotEmpty()) {
+                                            if (editingMessage != null) {
+                                                storage.editMessage(editingMessage!!.id, text)
+                                                editingMessage = null
+                                                inputText = ""
+                                                Toast.makeText(context, "Xabar tahrirlandi", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                val newMsg = ChatMessage(
+                                                    id = UUID.randomUUID().toString(),
+                                                    senderId = currentUser.id,
+                                                    receiverId = peerUser.id,
+                                                    senderName = currentUser.fullName,
+                                                    messageType = MessageType.TEXT,
+                                                    textContent = text,
+                                                    isRead = false
+                                                )
+                                                storage.sendMessage(newMsg)
+                                                inputText = ""
+                                            }
+                                        }
+                                    }
                                 ) {
-                                    Icon(
-                                        imageVector = if (editingMessage != null) Icons.Default.Check else Icons.Default.Send,
-                                        contentDescription = if (editingMessage != null) "Tahrirni saqlash" else "Yuborish",
-                                        tint = Color.White
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(CircleShape)
+                                            .background(if (editingMessage != null) StatusGreen else PrimaryBlue),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (editingMessage != null) Icons.Default.Check else Icons.Default.Send,
+                                            contentDescription = if (editingMessage != null) "Tahrirni saqlash" else "Yuborish",
+                                            tint = Color.White
+                                        )
+                                    }
                                 }
                             }
                         }

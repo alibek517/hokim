@@ -413,15 +413,48 @@ function openTaskSeenModal(taskId) {
   const previewEl = document.getElementById('seen-voice-preview');
   if (previewEl) { previewEl.style.display = 'none'; previewEl.src = ''; }
   const btnEl = document.getElementById('seen-voice-btn');
-  if (btnEl) btnEl.innerText = "🎤 Ovoz yozish";
+  if (btnEl) {
+    btnEl.innerText = "🎤 Ovoz yozish";
+    btnEl.className = "btn btn-outline";
+  }
+  const delBtn = document.getElementById('seen-voice-del-btn');
+  if (delBtn) delBtn.style.display = 'none';
 
   document.getElementById('task-seen-modal').classList.add('active');
+}
+
+function deleteSeenVoiceRecording() {
+  if (seenRecordingTimer) clearInterval(seenRecordingTimer);
+  if (seenMediaRecorder && seenMediaRecorder.state !== 'inactive') {
+    seenMediaRecorder.stop();
+  }
+  seenVoiceBase64 = null;
+  seenVoiceDuration = 0;
+  seenAudioChunks = [];
+
+  const btn = document.getElementById('seen-voice-btn');
+  const statusEl = document.getElementById('seen-voice-status');
+  const preview = document.getElementById('seen-voice-preview');
+  const delBtn = document.getElementById('seen-voice-del-btn');
+
+  if (btn) {
+    btn.innerText = "🎤 Ovoz yozish";
+    btn.className = "btn btn-outline";
+  }
+  if (statusEl) statusEl.innerText = "Ovoz yozilmagan";
+  if (preview) {
+    preview.style.display = 'none';
+    preview.src = '';
+  }
+  if (delBtn) delBtn.style.display = 'none';
+  showToast("Ovoz o'chirildi");
 }
 
 async function toggleSeenVoiceRecording() {
   const btn = document.getElementById('seen-voice-btn');
   const statusEl = document.getElementById('seen-voice-status');
   const preview = document.getElementById('seen-voice-preview');
+  const delBtn = document.getElementById('seen-voice-del-btn');
 
   if (seenMediaRecorder && seenMediaRecorder.state === 'recording') {
     // Stop recording
@@ -430,6 +463,7 @@ async function toggleSeenVoiceRecording() {
     btn.innerText = "🎤 Qayta yozish";
     btn.classList.remove('btn-red');
     btn.classList.add('btn-outline');
+    if (delBtn) delBtn.style.display = 'inline-flex';
     return;
   }
 
@@ -455,6 +489,7 @@ async function toggleSeenVoiceRecording() {
           preview.style.display = 'block';
         }
         if (statusEl) statusEl.innerText = `✅ Yozildi (${seenRecordingSeconds}s)`;
+        if (delBtn) delBtn.style.display = 'inline-flex';
       };
       stream.getTracks().forEach(t => t.stop());
     };
@@ -465,6 +500,7 @@ async function toggleSeenVoiceRecording() {
     btn.innerText = "⏹️ To'xtatish";
     btn.classList.remove('btn-outline');
     btn.classList.add('btn-red');
+    if (delBtn) delBtn.style.display = 'inline-flex';
 
     seenRecordingTimer = setInterval(() => {
       seenRecordingSeconds++;

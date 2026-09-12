@@ -1133,6 +1133,42 @@ class AppStorage(private val context: Context) {
         }
     }
 
+    fun updateTaskVoice(taskId: String, voicePath: String, voiceDurSec: Int) {
+        var base64Voice: String? = null
+        try {
+            val vf = File(voicePath)
+            if (vf.exists()) {
+                val bytes = vf.readBytes()
+                base64Voice = Base64.encodeToString(bytes, Base64.NO_WRAP)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        val updated = _tasks.value.map { task ->
+            if (task.id == taskId) {
+                task.copy(
+                    voicePath = voicePath,
+                    voiceBase64 = base64Voice ?: task.voiceBase64,
+                    voiceDurationSec = voiceDurSec
+                )
+            } else task
+        }
+        _tasks.value = updated
+        saveTasksLocally(updated)
+
+        val updates = HashMap<String, Any>()
+        if (!base64Voice.isNullOrBlank()) {
+            updates["voiceBase64"] = base64Voice
+        }
+        updates["voiceDurationSec"] = voiceDurSec
+        tasksRef?.child(taskId)?.updateChildren(updates)
+        if (!base64Voice.isNullOrBlank()) {
+            sendRestFallback("tasks/" + taskId + "/voiceBase64", base64Voice)
+        }
+        sendRestFallback("tasks/" + taskId + "/voiceDurationSec", voiceDurSec)
+    }
+
     fun restoreTaskVoiceBase64(taskId: String, base64Str: String): String? {
         return restoreVoiceAudioBase64("voice_task_${taskId}.m4a", base64Str)
     }

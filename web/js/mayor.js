@@ -870,13 +870,11 @@ async function startTaskVoiceMessage(taskId, workerId, workerName, taskTitle) {
     const container = document.getElementById(`task-voice-box-${taskId}`);
     if (container) {
       container.innerHTML = `
-        <div class="task-voice-recording-active">
-          <span class="recording-dot"></span>
-          <span id="task-rec-time-${taskId}" style="font-size: 11px; font-weight: 700; color: #EF4444;">0:00</span>
-          <button class="voice-ctrl-btn voice-cancel-btn" onclick="cancelTaskVoiceMessage()" title="Bekor qilish">✕</button>
-          <button class="voice-ctrl-btn voice-send-btn" onclick="sendTaskVoiceMessage('${taskId}', '${workerId}', '${escapeHtml(workerName)}', '${escapeHtml(taskTitle)}')" title="Xodim chatiga yuborish">
-            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-          </button>
+        <div class="task-voice-recording-active" style="display: flex; align-items: center; gap: 6px; background: #FEF2F2; padding: 4px 8px; border-radius: 20px; border: 1px solid #FECACA;">
+          <span class="recording-dot" style="display: inline-block; width: 8px; height: 8px; background: #EF4444; border-radius: 50%;"></span>
+          <span id="task-rec-time-${taskId}" style="font-size: 11px; font-weight: 700; color: #EF4444;">🔴 0s</span>
+          <button class="btn btn-outline" onclick="cancelTaskVoiceMessage()" style="color: #EF4444; border-color: #EF4444; padding: 2px 6px; font-size: 10px; width: auto;" title="Bekor qilish va o'chirish">🗑️ O'chirish</button>
+          <button class="btn btn-primary" onclick="sendTaskVoiceMessage('${taskId}', '${workerId}', '${escapeHtml(workerName)}', '${escapeHtml(taskTitle)}')" style="padding: 2px 8px; font-size: 10px; width: auto;" title="Xodimga yuborish">📤 Yuborish</button>
         </div>
       `;
     }
@@ -884,10 +882,8 @@ async function startTaskVoiceMessage(taskId, workerId, workerName, taskTitle) {
     const startTime = Date.now();
     const timerId = setInterval(() => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      const min = Math.floor(elapsed / 60);
-      const sec = elapsed % 60;
       const el = document.getElementById(`task-rec-time-${taskId}`);
-      if (el) el.innerText = `${min}:${sec < 10 ? '0' : ''}${sec}`;
+      if (el) el.innerText = `🔴 ${elapsed}s`;
     }, 1000);
 
     mediaRecorder.start();
@@ -900,7 +896,8 @@ async function startTaskVoiceMessage(taskId, workerId, workerName, taskTitle) {
       mediaRecorder,
       stream,
       timerId,
-      audioChunks
+      audioChunks,
+      startTime
     };
   } catch (err) {
     console.error("Audio recording error:", err);
@@ -920,6 +917,8 @@ function cancelTaskVoiceMessage() {
     stream.getTracks().forEach(t => t.stop());
   }
 
+  showToast("Ovoz o'chirildi");
+
   const container = document.getElementById(`task-voice-box-${taskId}`);
   if (container) {
     container.innerHTML = `
@@ -933,7 +932,7 @@ function cancelTaskVoiceMessage() {
 
 async function sendTaskVoiceMessage(taskId, workerId, workerName, taskTitle) {
   if (!currentTaskRecording) return;
-  const { mediaRecorder, stream, timerId, audioChunks } = currentTaskRecording;
+  const { mediaRecorder, stream, timerId, audioChunks, startTime } = currentTaskRecording;
 
   clearInterval(timerId);
   showToast("Ovozli xabar yuborilmoqda...");
@@ -941,6 +940,7 @@ async function sendTaskVoiceMessage(taskId, workerId, workerName, taskTitle) {
   mediaRecorder.onstop = async () => {
     try {
       const audioBlob = new Blob(audioChunks, { type: 'audio/mp4' });
+      const durationSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
       const reader = new FileReader();
       reader.onload = async () => {
         const base64 = reader.result.split(',')[1];
@@ -951,12 +951,20 @@ async function sendTaskVoiceMessage(taskId, workerId, workerName, taskTitle) {
           senderName: window.store.currentUser.fullName || window.store.currentUser.firstName,
           messageType: 'VOICE',
           mediaBase64: base64,
+          audioDurationSec: durationSec,
           textContent: `🎤 Topshiriq: "${taskTitle}"`,
           timestamp: Date.now(),
           isRead: false
         };
         await window.dbApi.sendMessage(msg);
-        showToast(`✅ Ovozli xabar ${workerName} ga yuborildi!`);
+
+        // Topshiriq kartochkasiga ham ovozni biriktiramiz
+        if (taskId && window.dbApi.updateTaskVoice) {
+          await window.dbApi.updateTaskVoice(taskId, base64, durationSec);
+        }
+
+        showToast(`✅ Ovozli xabar biriktirildi va ${workerName} ga yuborildi!`);
+        renderMayorTasks();
       };
       reader.readAsDataURL(audioBlob);
     } catch (e) {

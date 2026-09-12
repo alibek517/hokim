@@ -687,6 +687,7 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                                         pendingRecordTask = null
                                                         if (result != null) {
                                                             val (path, durSec) = result
+                                                            // 1. Chat orqali xodimga yuborish
                                                             val voiceMsg = ChatMessage(
                                                                 id = UUID.randomUUID().toString(),
                                                                 senderId = currentUser.id,
@@ -699,7 +700,13 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                                                 isRead = false
                                                             )
                                                             storage.sendMessage(voiceMsg)
+
+                                                            // 2. Topshiriqning o'ziga ham ovozni saqlash
+                                                            storage.updateTaskVoice(task.id, path, durSec)
+
                                                             Toast.makeText(context, "${task.assignedWorkerName} ga ovozli topshiriq yuborildi!", Toast.LENGTH_SHORT).show()
+                                                        } else {
+                                                            Toast.makeText(context, "Ovoz yozilmadi yoki juda qisqa bo'ldi. Qaytadan gapiring.", Toast.LENGTH_SHORT).show()
                                                         }
                                                     },
                                                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),

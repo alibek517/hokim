@@ -169,6 +169,28 @@ const dbApi = {
     }
   },
 
+  async updateTaskVoice(taskId, voiceBase64, voiceDurationSec) {
+    const updates = {
+      voiceBase64: voiceBase64,
+      voiceDurationSec: voiceDurationSec || 0
+    };
+    // Update local store
+    const localTask = (window.store.tasks || []).find(t => t.id === taskId);
+    if (localTask) {
+      localTask.voiceBase64 = voiceBase64;
+      localTask.voiceDurationSec = voiceDurationSec || 0;
+    }
+    if (database) {
+      await database.ref('tasks/' + taskId).update(updates);
+    } else {
+      await fetch(FIREBASE_DB_URL + '/tasks/' + taskId + '.json', {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  },
+
   async createTask(task) {
     const id = task.id || ('task_' + Date.now());
     task.id = id;

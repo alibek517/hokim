@@ -233,50 +233,121 @@ function handleVideoPicked(e) {
   e.target.value = '';
 }
 
-async function toggleVoiceRecording() {
-  const btn = document.getElementById('mic-btn');
-  if (isRecording) {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-    }
-    isRecording = false;
-    btn.classList.remove('recording');
-  } else {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioChunks = [];
-      mediaRecorder = new MediaRecorder(stream);
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/mp4' });
-        const reader = new FileReader();
-        reader.onload = async () => {
-          const base64 = reader.result.split(',')[1];
-          const msg = {
-            id: 'msg_voice_' + Date.now(),
-            senderId: window.store.currentUser.id,
-            receiverId: activeChatPeer.id,
-            senderName: window.store.currentUser.fullName || window.store.currentUser.firstName,
-            messageType: 'VOICE',
-            mediaBase64: base64,
-            audioDurationSec: Math.round(audioBlob.size / 3000) || 3,
-            timestamp: Date.now(),
-            isRead: false
-          };
-          await window.dbApi.sendMessage(msg);
-          showToast('Ovozli xabar yuborildi!');
-        };
-        reader.readAsDataURL(audioBlob);
-        stream.getTracks().forEach(t => t.stop());
-      };
-      mediaRecorder.start();
-      isRecording = true;
-      btn.classList.add('recording');
-      showToast("Ovoz yozilmoqda... To'xtatish uchun yana bosing");
-    } catch (err) {
-      alert("Mikrofondan foydalanishga ruxsat berilmadi.");
-    }
+function openAttachChoiceModal() {
+  const modal = document.getElementById('attach-choice-modal');
+  if (modal) modal.classList.add('active');
+}
+
+let chatVoiceStream = null;
+let chatVoiceRecorder = null;
+let chatVoiceChunks = [];
+let chatVoiceTimerId = null;
+let chatVoiceStartTime = 0;
+
+async function startChatVoiceRecording() {
+  if (!activeChatPeer || !window.store.currentUser) return;
+  try {
+    chatVoiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    chatVoiceChunks = [];
+    chatVoiceRecorder = new MediaRecorder(chatVoiceStream);
+
+    chatVoiceRecorder.ondataavailable = e => {
+      if (e.data.size > 0) chatVoiceChunks.push(e.data);
+    };
+
+    chatVoiceStartTime = Date.now();
+
+    const normalBar = document.getElementById('chat-normal-input-bar');
+    const recBar = document.getElementById('chat-recording-bar');
+    const timerEl = document.getElementById('chat-recording-timer');
+
+    if (normalBar) normalBar.style.display = 'none';
+    if (recBar) recBar.style.display = 'flex';
+    if (timerEl) timerEl.innerText = '🔴 Yozilmoqda: 0s';
+
+    chatVoiceTimerId = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - chatVoiceStartTime) / 1000);
+      if (timerEl) timerEl.innerText = `🔴 Yozilmoqda: ${elapsed}s`;
+    }, 1000);
+
+    chatVoiceRecorder.start();
+  } catch (err) {
+    console.error("Mic error:", err);
+    alert("Mikrofondan foydalanishga ruxsat berilmadi: " + err.message);
   }
+}
+
+function cancelChatVoiceRecording() {
+  if (chatVoiceTimerId) clearInterval(chatVoiceTimerId);
+  if (chatVoiceRecorder && chatVoiceRecorder.state !== 'inactive') {
+    chatVoiceRecorder.stop();
+  }
+  if (chatVoiceStream) {
+    chatVoiceStream.getTracks().forEach(t => t.stop());
+    chatVoiceStream = null;
+  }
+  chatVoiceChunks = [];
+
+  const normalBar = document.getElementById('chat-normal-input-bar');
+  const recBar = document.getElementById('chat-recording-bar');
+  if (normalBar) normalBar.style.display = 'flex';
+  if (recBar) recBar.style.display = 'none';
+
+  showToast("Ovoz o'chirildi");
+}
+
+async function sendChatVoiceRecording() {
+  if (!chatVoiceRecorder || !activeChatPeer || !window.store.currentUser) return;
+
+  if (chatVoiceTimerId) clearInterval(chatVoiceTimerId);
+  const durationSec = Math.max(1, Math.round((Date.now() - chatVoiceStartTime) / 1000));
+  showToast("Ovozli xabar yuborilmoqda...");
+
+  chatVoiceRecorder.onstop = async () => {
+    try {
+      const audioBlob = new Blob(chatVoiceChunks, { type: 'audio/mp4' });
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result.split(',')[1];
+        const msg = {
+          id: 'msg_voice_' + Date.now(),
+          senderId: window.store.currentUser.id,
+          receiverId: activeChatPeer.id,
+          senderName: window.store.currentUser.fullName || window.store.currentUser.firstName,
+          messageType: 'VOICE',
+          mediaBase64: base64,
+          audioDurationSec: durationSec,
+          timestamp: Date.now(),
+          isRead: false
+        };
+        await window.dbApi.sendMessage(msg);
+        showToast('Ovozli xabar yuborildi!');
+      };
+      reader.readAsDataURL(audioBlob);
+    } catch (e) {
+      console.error("Chat voice send error:", e);
+      alert("Ovoz yuborishda xatolik yuz berdi");
+    } finally {
+      if (chatVoiceStream) {
+        chatVoiceStream.getTracks().forEach(t => t.stop());
+        chatVoiceStream = null;
+      }
+    }
+  };
+
+  if (chatVoiceRecorder.state !== 'inactive') {
+    chatVoiceRecorder.stop();
+  }
+
+  const normalBar = document.getElementById('chat-normal-input-bar');
+  const recBar = document.getElementById('chat-recording-bar');
+  if (normalBar) normalBar.style.display = 'flex';
+  if (recBar) recBar.style.display = 'none';
+}
+
+// Legacy alias for compatibility
+function toggleVoiceRecording() {
+  startChatVoiceRecording();
 }
 
 let currentPlayingAudio = null;

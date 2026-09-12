@@ -173,25 +173,40 @@
       </div>
 
       <!-- Input Bar -->
-      <div class="chat-input-bar">
-        <!-- Attachment (+) Button -->
-        <button class="icon-btn" style="color: var(--primary-blue); background: none;" onclick="document.getElementById('img-input').click()" title="Rasm yuborish">
-          <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-        </button>
-        <input type="file" id="img-input" accept="image/*" style="display: none;" onchange="handleImagePicked(event)">
-        <input type="file" id="vid-input" accept="video/*" style="display: none;" onchange="handleVideoPicked(event)">
+      <div class="chat-input-bar" id="chat-input-bar">
+        <!-- Normal Input State -->
+        <div id="chat-normal-input-bar" style="display: flex; align-items: center; width: 100%; gap: 6px;">
+          <!-- Attachment (+) Button -->
+          <button class="icon-btn" style="color: var(--primary-blue); background: none;" onclick="openAttachChoiceModal()" title="Rasm yoki Video yuborish">
+            <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          </button>
+          <input type="file" id="img-input" accept="image/*" style="display: none;" onchange="handleImagePicked(event)">
+          <input type="file" id="vid-input" accept="video/*" style="display: none;" onchange="handleVideoPicked(event)">
 
-        <textarea id="chat-text-input" class="chat-input" placeholder="Xabar yozing..." rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendChatMessage();}"></textarea>
+          <textarea id="chat-text-input" class="chat-input" placeholder="Xabar yozing..." rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendChatMessage();}"></textarea>
 
-        <!-- Mic Button (Voice Recording) -->
-        <button id="mic-btn" class="icon-btn" style="color: var(--primary-blue); background: none;" onclick="toggleVoiceRecording()" title="Ovoz yozish">
-          <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
-        </button>
+          <!-- Mic Button (Voice Recording) -->
+          <button id="mic-btn" class="icon-btn" style="color: var(--primary-blue); background: none;" onclick="startChatVoiceRecording()" title="Ovoz yozish">
+            <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+          </button>
 
-        <!-- Send Button -->
-        <button class="chat-send-btn" onclick="sendChatMessage()" title="Yuborish">
-          <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-        </button>
+          <!-- Send Button -->
+          <button class="chat-send-btn" onclick="sendChatMessage()" title="Yuborish">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+
+        <!-- Active Voice Recording Bar (Identical to APK!) -->
+        <div id="chat-recording-bar" style="display: none; width: 100%; align-items: center; justify-content: space-between; background: #FEF2F2; padding: 6px 12px; border-radius: 24px; border: 1px solid #FECACA;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="recording-dot" style="display: inline-block; width: 10px; height: 10px; background: #EF4444; border-radius: 50%;"></span>
+            <span id="chat-recording-timer" style="color: #EF4444; font-weight: 700; font-size: 13px;">🔴 Yozilmoqda: 0s</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button class="btn btn-outline" style="color: #EF4444; border-color: #EF4444; padding: 4px 12px; font-size: 12px; width: auto;" onclick="cancelChatVoiceRecording()">🗑️ O'chirish</button>
+            <button class="btn btn-primary" style="padding: 4px 14px; font-size: 12px; width: auto;" onclick="sendChatVoiceRecording()">📤 Yuborish</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -369,6 +384,9 @@
             <button id="seen-voice-btn" class="btn btn-outline" style="width: auto; padding: 8px 14px; font-size: 12px;" onclick="toggleSeenVoiceRecording()">
               🎤 Ovoz yozish
             </button>
+            <button id="seen-voice-del-btn" class="btn btn-outline" style="display: none; width: auto; padding: 8px 14px; font-size: 12px; color: var(--status-red); border-color: var(--status-red);" onclick="deleteSeenVoiceRecording()">
+              🗑️ O'chirish
+            </button>
             <span id="seen-voice-status" style="font-size: 12px; color: var(--text-secondary);">Ovoz yozilmagan</span>
           </div>
           <audio id="seen-voice-preview" controls style="display: none; width: 100%; height: 36px; margin-top: 8px;"></audio>
@@ -377,6 +395,24 @@
         <div style="display: flex; gap: 10px; margin-top: 8px;">
           <button class="btn btn-outline" style="flex: 1;" onclick="closeModal('task-seen-modal')">Bekor qilish</button>
           <button class="btn btn-primary" style="flex: 2;" onclick="confirmTaskSeen()">✅ Tasdiqlash va Yuborish</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attachment Choice Modal (Photo or Video) -->
+    <div id="attach-choice-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('attach-choice-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title">📎 Fayl tanlash</div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('attach-choice-modal')">✕</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+          <button class="btn btn-outline" style="justify-content: flex-start; padding: 14px; font-size: 15px;" onclick="closeModal('attach-choice-modal'); document.getElementById('img-input').click();">
+            🖼️ <strong>Rasm yuborish</strong> (Galereyadan fotosurat)
+          </button>
+          <button class="btn btn-outline" style="justify-content: flex-start; padding: 14px; font-size: 15px;" onclick="closeModal('attach-choice-modal'); document.getElementById('vid-input').click();">
+            🎥 <strong>Video yuborish</strong> (Galereyadan video fayl)
+          </button>
         </div>
       </div>
     </div>
