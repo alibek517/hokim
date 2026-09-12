@@ -100,7 +100,9 @@ class ScreenRecordService : Service() {
     private fun startScreenRecording(resultCode: Int, data: Intent) {
         try {
             val mpManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-            mediaProjection = mpManager.getMediaProjection(resultCode, data)
+            if (mediaProjection == null) {
+                mediaProjection = mpManager.getMediaProjection(resultCode, data)
+            }
 
             val wm = getSystemService(WINDOW_SERVICE) as WindowManager
             val metrics = DisplayMetrics()

