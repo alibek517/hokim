@@ -10,6 +10,7 @@
         html, body {
             width: 100%;
             height: 100%;
+            min-height: 100%;
             margin: 0;
             padding: 0;
             background-color: #F8FAFC;
@@ -17,8 +18,14 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
         #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
             width: 100%;
             height: 100%;
+            min-height: 240px;
             background-color: #E2E8F0;
         }
         .pulse-marker {
@@ -62,37 +69,52 @@
         var map = null;
         var marker = null;
         var pendingCoords = null;
+        var customIcon = null;
 
-        // Zamonaviy SVG pin (tashqi rasm fayllariga bog'liq emas)
-        var customIcon = L.divIcon({
-            className: 'pulse-marker',
-            html: '<div class="pulse-wave"></div>' +
-                  '<svg class="pulse-pin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-                  '<path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" fill="#DC2626"/>' +
-                  '<circle cx="12" cy="9" r="3.5" fill="#FFFFFF"/>' +
-                  '</svg>',
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -32]
-        });
+        /*DEFAULT_COORDS*/
+
+        function createCustomIcon() {
+            if (typeof L === 'undefined') return null;
+            return L.divIcon({
+                className: 'pulse-marker',
+                html: '<div class="pulse-wave"></div>' +
+                      '<svg class="pulse-pin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+                      '<path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" fill="#DC2626"/>' +
+                      '<circle cx="12" cy="9" r="3.5" fill="#FFFFFF"/>' +
+                      '</svg>',
+                iconSize: [32, 32],
+                iconAnchor: [16, 32],
+                popupAnchor: [0, -32]
+            });
+        }
 
         function initMap() {
+            if (map) return;
             try {
-                var startCoords = pendingCoords ? pendingCoords : [41.8456, 60.3912]; // Gurlan tuman markazi
+                if (typeof L === 'undefined') {
+                    console.warn('Leaflet L is not ready, waiting...');
+                    setTimeout(initMap, 100);
+                    return;
+                }
+
+                customIcon = createCustomIcon();
+                var startCoords = pendingCoords ? pendingCoords : [41.8456, 60.3912];
 
                 map = L.map('map', {
                     zoomControl: true,
                     attributionControl: false
                 }).setView(startCoords, 16);
 
-                // 1. Google Maps standart qatlami (O'zbekistonda juda tez va ishonchli ishlaydi)
-                var googleStandard = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+                // 1. Google Standart qatlami (O'zbekiston hududi uchun tez va aniq)
+                var googleStandard = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&hl=uz&x={x}&y={y}&z={z}', {
+                    subdomains: ['0', '1', '2', '3'],
                     maxZoom: 20,
                     attribution: 'Google'
                 });
 
                 // 2. Google Hybrid (Sun'iy yo'ldosh + yo'llar)
-                var googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                var googleHybrid = L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&hl=uz&x={x}&y={y}&z={z}', {
+                    subdomains: ['0', '1', '2', '3'],
                     maxZoom: 20,
                     attribution: 'Google Satellite'
                 });
@@ -109,14 +131,13 @@
                     attribution: 'CARTO'
                 });
 
-                // Google standart qatlamini faollashtirish
                 googleStandard.addTo(map);
 
                 var baseMaps = {
                     "Google Standart": googleStandard,
-                    "Sun'iy yo'ldosh (Google)": googleHybrid,
+                    "Sun'iy yo'ldosh": googleHybrid,
                     "OpenStreetMap": osmLayer,
-                    "CARTO": cartoLayer
+                    "CARTO Voyager": cartoLayer
                 };
                 L.control.layers(baseMaps).addTo(map);
 
@@ -131,7 +152,7 @@
 
                 forceResize();
             } catch (e) {
-                console.error("Map init error:", e);
+                console.error('Map init error:', e);
             }
         }
 
@@ -140,28 +161,42 @@
             map.invalidateSize();
             setTimeout(function() { if (map) map.invalidateSize(); }, 100);
             setTimeout(function() { if (map) map.invalidateSize(); }, 300);
-            setTimeout(function() { if (map) map.invalidateSize(); }, 800);
-            setTimeout(function() { if (map) map.invalidateSize(); }, 1500);
+            setTimeout(function() { if (map) map.invalidateSize(); }, 600);
+            setTimeout(function() { if (map) map.invalidateSize(); }, 1200);
+            setTimeout(function() { if (map) map.invalidateSize(); }, 2500);
         }
 
         function updateLocation(lat, lon) {
-            var latNum = parseFloat(lat);
-            var lonNum = parseFloat(lon);
-            if (isNaN(latNum) || isNaN(lonNum)) return;
+            try {
+                var latNum = parseFloat(lat);
+                var lonNum = parseFloat(lon);
+                if (isNaN(latNum) || isNaN(lonNum)) return;
 
-            var coords = [latNum, lonNum];
-            if (map && marker) {
-                map.setView(coords, 17, { animate: true });
-                marker.setLatLng(coords);
-                marker.openPopup();
-                map.invalidateSize();
-            } else {
-                pendingCoords = coords;
+                var coords = [latNum, lonNum];
+                if (map && marker) {
+                    map.setView(coords, 17, { animate: true });
+                    marker.setLatLng(coords);
+                    marker.openPopup();
+                    map.invalidateSize();
+                } else {
+                    pendingCoords = coords;
+                    if (!map) initMap();
+                }
+            } catch(e) {
+                console.error('updateLocation error:', e);
             }
         }
 
         window.addEventListener('resize', forceResize);
-        window.onload = initMap;
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initMap);
+        } else {
+            initMap();
+        }
+        window.addEventListener('load', function() {
+            initMap();
+            forceResize();
+        });
     </script>
 </head>
 <body>

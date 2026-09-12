@@ -16,6 +16,7 @@ import android.webkit.WebView
 import android.webkit.WebSettings
 import android.webkit.WebViewClient
 import android.webkit.WebChromeClient
+import android.webkit.ConsoleMessage
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
@@ -630,6 +631,15 @@ fun BigAdminScreen(
                                         ) {
                                             Icon(Icons.Default.Share, contentDescription = "Tashqi xarita", tint = PrimaryBlue, modifier = Modifier.size(16.dp))
                                         }
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        IconButton(
+                                            onClick = {
+                                                mapWebViewInstance?.evaluateJavascript("forceResize(); updateLocation('$currentLat', '$currentLon')", null)
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(Icons.Default.Refresh, contentDescription = "Xaritani yangilash", tint = PrimaryBlue, modifier = Modifier.size(16.dp))
+                                        }
                                     }
                                 }
                             }
@@ -642,24 +652,27 @@ fun BigAdminScreen(
                                         setBackgroundColor(android.graphics.Color.parseColor("#F8FAFC"))
                                         settings.javaScriptEnabled = true
                                         settings.domStorageEnabled = true
+                                        settings.databaseEnabled = true
                                         settings.allowFileAccess = true
                                         settings.allowContentAccess = true
-                                        @Suppress("DEPRECATION")
-                                        settings.allowFileAccessFromFileURLs = true
-                                        @Suppress("DEPRECATION")
-                                        settings.allowUniversalAccessFromFileURLs = true
                                         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                                        settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36"
                                         webViewClient = object : WebViewClient() {
                                             override fun onPageFinished(view: WebView?, url: String?) {
                                                 super.onPageFinished(view, url)
                                                 if (currentLat.isNotBlank() && currentLon.isNotBlank()) {
                                                     view?.evaluateJavascript("updateLocation('$currentLat', '$currentLon')", null)
                                                 }
+                                                view?.evaluateJavascript("forceResize()", null)
                                             }
                                         }
-                                        webChromeClient = WebChromeClient()
-                                        loadUrl("file:///android_asset/map.html")
+                                        webChromeClient = object : WebChromeClient() {
+                                            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                                                Log.d("MapWebView", "${consoleMessage?.message()} -- line ${consoleMessage?.lineNumber()}")
+                                                return super.onConsoleMessage(consoleMessage)
+                                            }
+                                        }
+                                        val htmlContent = com.hokimloyha.app.util.MapHtmlProvider.getHtml(ctx, currentLat, currentLon)
+                                        loadDataWithBaseURL("https://hokimloyha.app/", htmlContent, "text/html", "UTF-8", null)
                                         mapWebViewInstance = this
                                     }
                                 },
