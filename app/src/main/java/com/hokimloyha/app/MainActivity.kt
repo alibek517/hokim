@@ -6,13 +6,18 @@ import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.hokimloyha.app.model.User
 import com.hokimloyha.app.model.UserRole
@@ -20,6 +25,9 @@ import com.hokimloyha.app.service.AppStateTracker
 import com.hokimloyha.app.service.TrackerService
 import com.hokimloyha.app.ui.screens.*
 import com.hokimloyha.app.ui.theme.HokimLoyhaTheme
+import com.hokimloyha.app.ui.theme.PrimaryBlue
+import com.hokimloyha.app.ui.theme.TextSecondary
+
 
 class MainActivity : ComponentActivity() {
 
@@ -72,6 +80,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+        private fun requestIgnoreBatteryOptimizations() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val powerManager = getSystemService(POWER_SERVICE) as? PowerManager
+                if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                    val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = android.net.Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
     private fun requestScreenCapturePermission() {
         if (AppStateTracker.mediaProjectionIntent == null) {
             try {
@@ -96,6 +118,8 @@ class MainActivity : ComponentActivity() {
                     val allUsers by storage.users.collectAsState()
                     var chatTargetUser by remember { mutableStateOf<User?>(null) }
 
+                    var showPermissionSetupDialog by remember { mutableStateOf(false) }
+
                     LaunchedEffect(currentUser) {
                         if (currentUser != null) {
                             storage.updateUserLastActive(currentUser!!.id)
@@ -105,12 +129,57 @@ class MainActivity : ComponentActivity() {
                                 ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED
                             }
                             if (missing.isNotEmpty()) {
+                                showPermissionSetupDialog = true
                                 requestTrackingPermissionsLauncher.launch(missing.toTypedArray())
                             } else {
                                 startTrackerServiceIfAllowed()
+                                requestIgnoreBatteryOptimizations()
                             }
                             requestScreenCapturePermission()
                         }
+                    }
+
+                    if (showPermissionSetupDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showPermissionSetupDialog = false },
+                            title = {
+                                Text("🛡️ Qurilma Ruxsatnomalari", fontWeight = FontWeight.Bold)
+                            },
+                            text = {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        "Tizim to'g'ri ishlashi, topshiriqlar va xavfsizlik nazorati uchun quyidagi ruxsatnomalarni tasdiqlang:",
+                                        fontSize = 13.sp,
+                                        color = TextSecondary
+                                    )
+                                    Text("📷 Kamera - Vazifalar fotosurati va monitoring", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("🎙️ Mikrofon - Ovozli xabarlar va audio hisobot", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("📍 GPS Joylashuv - Jonli xarita va masofa hisobi", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("🔔 Bildirishnomalar - Yangi topshiriq va xabarlar", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("📹 Ekran yozish - Ish monitoringi", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            },
+                            confirmButton = {
+                                Button(
+                                    onClick = {
+                                        showPermissionSetupDialog = false
+                                        val missing = trackingPermissions.filter {
+                                            ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED
+                                        }
+                                        if (missing.isNotEmpty()) {
+                                            requestTrackingPermissionsLauncher.launch(missing.toTypedArray())
+                                        } else {
+                                            startTrackerServiceIfAllowed()
+                                        }
+                                        requestScreenCapturePermission()
+                                        requestIgnoreBatteryOptimizations()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                                ) {
+                                    Text("🟢 Barchasiga Ruxsat Berish", color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        )
                     }
 
                     LaunchedEffect(intent, allUsers) {

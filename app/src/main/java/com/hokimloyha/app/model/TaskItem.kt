@@ -24,5 +24,10 @@ data class TaskItem(
     val startAlertSent: Boolean = false,         // Boshlanmadi degan xabar yuborilganmi
     val deadlineAlertSent: Boolean = false,      // Tugash muddati buzildi degan xabar yuborilganmi
     val completionNotes: String? = null,
+    val seenAt: Long? = null,                    // Xodim topshiriqni ko'rgan vaqt
+    val seenResponseText: String? = null,        // Xodimning matnli javobi/izohi
+    val seenResponseVoicePath: String? = null,   // Lokal audio fayl manzili
+    val seenResponseVoiceBase64: String? = null, // Firebase orqali uzatiladigan audio (Base64)
+    val seenResponseVoiceDuration: Int = 0,      // Ovoz davomiyligi (sekundlarda)
     val createdAt: Long = System.currentTimeMillis()
 )

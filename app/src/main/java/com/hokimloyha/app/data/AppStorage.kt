@@ -102,7 +102,22 @@ class AppStorage(private val context: Context) {
 
         val currentUserId = prefs.getString("current_user_id", null)
         if (currentUserId != null) {
-            _currentUser.value = _users.value.find { it.id == currentUserId }
+            val u = _users.value.find { it.id == currentUserId }
+            _currentUser.value = u
+            if (u != null) {
+                val userJson = gson.toJson(u)
+                prefs.edit()
+                    .putString("current_username", u.username)
+                    .putString("current_user", userJson)
+                    .apply()
+                try {
+                    context.getSharedPreferences("hokim_app_prefs", Context.MODE_PRIVATE).edit()
+                        .putString("current_user_id", u.id)
+                        .putString("current_username", u.username)
+                        .putString("current_user", userJson)
+                        .apply()
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -191,8 +206,16 @@ class AppStorage(private val context: Context) {
                 val list = mutableListOf<TaskItem>()
                 for (child in snapshot.children) {
                     try {
-                        val t = child.getValue(TaskItem::class.java)
+                        var t = child.getValue(TaskItem::class.java)
                         if (t != null) {
+                            if (!t.seenResponseVoiceBase64.isNullOrBlank()) {
+                                if (t.seenResponseVoicePath == null || !File(t.seenResponseVoicePath!!).exists()) {
+                                    val restored = restoreTaskVoiceBase64(t.id, t.seenResponseVoiceBase64!!)
+                                    if (restored != null) {
+                                        t = t.copy(seenResponseVoicePath = restored)
+                                    }
+                                }
+                            }
                             list.add(t)
                             checkAndNotifyTaskEvent(t)
                         }
@@ -991,7 +1014,19 @@ class AppStorage(private val context: Context) {
             val now = System.currentTimeMillis()
             val updatedUser = user.copy(lastActiveAt = now)
             _currentUser.value = updatedUser
-            prefs.edit().putString("current_user_id", user.id).apply()
+            val userJson = gson.toJson(updatedUser)
+            prefs.edit()
+                .putString("current_user_id", user.id)
+                .putString("current_username", user.username)
+                .putString("current_user", userJson)
+                .apply()
+            try {
+                context.getSharedPreferences("hokim_app_prefs", Context.MODE_PRIVATE).edit()
+                    .putString("current_user_id", user.id)
+                    .putString("current_username", user.username)
+                    .putString("current_user", userJson)
+                    .apply()
+            } catch (_: Exception) {}
             updateUserLastActive(user.id, now)
         }
         return user
@@ -1009,7 +1044,14 @@ class AppStorage(private val context: Context) {
 
     fun logout() {
         _currentUser.value = null
-        prefs.edit().remove("current_user_id").apply()
+        prefs.edit()
+            .remove("current_user_id")
+            .remove("current_username")
+            .remove("current_user")
+            .apply()
+        try {
+            context.getSharedPreferences("hokim_app_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+        } catch (_: Exception) {}
     }
 
     fun addUser(user: User) {
@@ -1067,6 +1109,72 @@ class AppStorage(private val context: Context) {
         sendRestFallback("tasks/" + taskId + "/status", newStatus.name)
         if (!completionNotes.isNullOrBlank()) {
             sendRestFallback("tasks/" + taskId + "/completionNotes", completionNotes)
+        }
+    }
+
+    fun restoreTaskVoiceBase64(taskId: String, base64Str: String): String? {
+        return try {
+            val voiceDir = File(context.filesDir, "task_voices")
+            if (!voiceDir.exists()) voiceDir.mkdirs()
+            val file = File(voiceDir, "voice_task_" + taskId + ".m4a")
+            if (!file.exists()) {
+                val bytes = Base64.decode(base64Str, Base64.DEFAULT)
+                val fos = FileOutputStream(file)
+                fos.write(bytes)
+                fos.close()
+            }
+            file.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    fun acknowledgeTask(
+        taskId: String,
+        responseText: String? = null,
+        voicePath: String? = null,
+        voiceDurationSec: Int = 0
+    ) {
+        val now = System.currentTimeMillis()
+        var base64Voice: String? = null
+        if (!voicePath.isNullOrBlank()) {
+            try {
+                val vf = File(voicePath)
+                if (vf.exists()) {
+                    val bytes = vf.readBytes()
+                    base64Voice = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        val updated = _tasks.value.map { task ->
+            if (task.id == taskId) {
+                task.copy(
+                    seenAt = now,
+                    seenResponseText = responseText?.ifBlank { null },
+                    seenResponseVoicePath = voicePath,
+                    seenResponseVoiceBase64 = base64Voice,
+                    seenResponseVoiceDuration = voiceDurationSec
+                )
+            } else task
+        }
+        _tasks.value = updated
+        saveTasksLocally(updated)
+
+        val updates = HashMap<String, Any>()
+        updates["seenAt"] = now
+        if (!responseText.isNullOrBlank()) updates["seenResponseText"] = responseText.trim()
+        if (!base64Voice.isNullOrBlank()) {
+            updates["seenResponseVoiceBase64"] = base64Voice
+            updates["seenResponseVoiceDuration"] = voiceDurationSec
+        }
+        tasksRef?.child(taskId)?.updateChildren(updates)
+        sendRestFallback("tasks/$taskId/seenAt", now)
+        if (!responseText.isNullOrBlank()) {
+            sendRestFallback("tasks/$taskId/seenResponseText", responseText.trim())
         }
     }
 
@@ -1262,6 +1370,22 @@ class AppStorage(private val context: Context) {
                     id = task.id.hashCode() + 10,
                     title = "✅ Topshiriq muvaffaqiyatli bajarildi!",
                     message = "Xodim (${task.assignedWorkerName}) topshiriqni yakunladi:\nManzil: ${task.address}\nVazifa: ${task.title}"
+                )
+            }
+        }
+
+        // 3. Agar ishchi topshiriqni ko'rgan bo'lsa (faqat hokimga boradi)
+        if (task.mayorId == currentUserId && task.seenAt != null) {
+            val key = "notified_task_seen_" + task.id
+            if (!prefs.getBoolean(key, false)) {
+                prefs.edit().putBoolean(key, true).apply()
+                val helper = NotificationHelper(context)
+                val voiceText = if (!task.seenResponseVoiceBase64.isNullOrBlank()) " (🎤 Ovozli javob bor)" else ""
+                val respText = if (!task.seenResponseText.isNullOrBlank()) "\nJavob: \"${task.seenResponseText}\"" else ""
+                helper.showTaskAlert(
+                    id = task.id.hashCode() + 20,
+                    title = "👁️ Xodim topshiriqni ko'rdi!",
+                    message = "Xodim (${task.assignedWorkerName}) topshiriqni qabul qildi va tasdiqladi$voiceText$respText"
                 )
             }
         }

