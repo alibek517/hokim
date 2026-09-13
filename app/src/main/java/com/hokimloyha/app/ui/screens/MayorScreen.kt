@@ -2,6 +2,12 @@ package com.hokimloyha.app.ui.screens
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.Intent
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -61,6 +67,7 @@ fun MayorScreen(
     onLogout: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    var showAiJarvisDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var lastBackPressTime by remember { mutableStateOf(0L) }
 
@@ -109,7 +116,22 @@ fun MayorScreen(
                         }
                     }
 
-                    Row {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // AI Jarvis Button (Faqat Hokim uchun)
+                        IconButton(onClick = { showAiJarvisDialog = true }) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFF6366F1))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text("✨", fontSize = 12.sp)
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("AI", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                            }
+                        }
+
                         IconButton(onClick = {
                             TaskDeadlineWorker.checkDeadlines(context, storage)
                             Toast.makeText(context, "Muddatlar tekshirildi!", Toast.LENGTH_SHORT).show()
@@ -167,6 +189,17 @@ fun MayorScreen(
             }
         }
     }
+
+    if (showAiJarvisDialog) {
+        AiJarvisDialog(
+            storage = storage,
+            currentUser = currentUser,
+            onDismiss = { showAiJarvisDialog = false },
+            onSwitchTab = { tab ->
+                selectedTab = tab
+            }
+        )
+    }
 }
 
 @Composable
@@ -176,9 +209,20 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
     val mayorSchedules = schedules.filter { it.mayorId == currentUser.id }
         .sortedBy { it.scheduledTime }
     var showAddDialog by remember { mutableStateOf(false) }
+    var scheduleSearchQuery by remember { mutableStateOf("") }
     val timeFormat = remember { SimpleDateFormat("HH:mm, dd-MMMM", Locale("uz")) }
     val voicePlayer = remember { VoicePlayer() }
     var playingVoiceKey by remember { mutableStateOf<String?>(null) }
+
+    val searchedSchedules = mayorSchedules.filter {
+        if (scheduleSearchQuery.isBlank()) true
+        else {
+            val q = scheduleSearchQuery.trim().lowercase()
+            it.title.lowercase().contains(q) ||
+            it.location.lowercase().contains(q) ||
+            (it.notes ?: "").lowercase().contains(q)
+        }
+    }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -249,13 +293,28 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            if (mayorSchedules.isEmpty()) {
+            OutlinedTextField(
+                value = scheduleSearchQuery,
+                onValueChange = { scheduleSearchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                placeholder = { Text("🔍 Rejalarni qidirish...", fontSize = 12.sp) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PrimaryBlue,
+                    unfocusedBorderColor = Color(0xFFCBD5E1)
+                )
+            )
+
+            if (searchedSchedules.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Hozircha rejalar kiritilmagan.", color = TextSecondary)
+                    Text("Rejalar topilmadi.", color = TextSecondary)
                 }
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(mayorSchedules) { schedule ->
+                    items(searchedSchedules) { schedule ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
@@ -755,7 +814,18 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
     )
 
     var showCreateTaskDialog by remember { mutableStateOf(false) }
-    val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()) }
+    var taskSearchQuery by remember { mutableStateOf("") }
+    val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
+
+    val searchedTasks = filteredTasks.filter {
+        if (taskSearchQuery.isBlank()) true
+        else {
+            val q = taskSearchQuery.trim().lowercase()
+            it.title.lowercase().contains(q) ||
+            it.assignedWorkerName.lowercase().contains(q) ||
+            it.description.lowercase().contains(q)
+        }
+    }
 
     val voiceRecorder = remember { VoiceRecorder(context) }
     var recordingTaskId by remember { mutableStateOf<String?>(null) }
@@ -792,6 +862,21 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
+            OutlinedTextField(
+                value = taskSearchQuery,
+                onValueChange = { taskSearchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                placeholder = { Text("🔍 Topshiriq yoki mas'ul xodimni qidirish...", fontSize = 12.sp) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PrimaryBlue,
+                    unfocusedBorderColor = Color(0xFFCBD5E1)
+                )
+            )
+
             ScrollableTabRow(
                 selectedTabIndex = selectedFilterIndex,
                 containerColor = Color.White,
@@ -809,9 +894,9 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (filteredTasks.isEmpty()) {
+            if (searchedTasks.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Topshiriqlar mavjud emas.", color = TextSecondary)
+                    Text("Topshiriqlar topilmadi.", color = TextSecondary)
                 }
             } else {
                 LazyColumn(
@@ -820,7 +905,7 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                         .padding(horizontal = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(filteredTasks) { task ->
+                    items(searchedTasks) { task ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
@@ -1339,7 +1424,7 @@ fun CreateTaskDialog(
     val endCal = remember { Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 2) } }
     var startDateMillis by remember { mutableStateOf(startCal.timeInMillis) }
     var endDateMillis by remember { mutableStateOf(endCal.timeInMillis) }
-    val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()) }
+    val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
     // Ovozli topshiriq yozish state
     val voiceRecorder = remember { VoiceRecorder(context) }
@@ -1572,20 +1657,16 @@ fun CreateTaskDialog(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     OutlinedButton(
                         onClick = {
-                            val c = Calendar.getInstance()
+                            val c = Calendar.getInstance().apply { timeInMillis = startDateMillis }
                             DatePickerDialog(context, { _, y, m, d ->
-                                c.set(y, m, d)
-                                TimePickerDialog(context, { _, h, min ->
-                                    c.set(Calendar.HOUR_OF_DAY, h)
-                                    c.set(Calendar.MINUTE, min)
-                                    startDateMillis = c.timeInMillis
-                                }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show()
+                                c.set(y, m, d, 0, 0, 0)
+                                startDateMillis = c.timeInMillis
                             }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
                         },
                         modifier = Modifier.weight(1f)
                     ) {
                         Column {
-                            Text("Boshlanish:", fontSize = 10.sp, color = TextSecondary)
+                            Text("Boshlanish sanasi:", fontSize = 10.sp, color = TextSecondary)
                             Text(dateFormat.format(Date(startDateMillis)), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
@@ -1594,20 +1675,16 @@ fun CreateTaskDialog(
 
                     OutlinedButton(
                         onClick = {
-                            val c = Calendar.getInstance()
+                            val c = Calendar.getInstance().apply { timeInMillis = endDateMillis }
                             DatePickerDialog(context, { _, y, m, d ->
-                                c.set(y, m, d)
-                                TimePickerDialog(context, { _, h, min ->
-                                    c.set(Calendar.HOUR_OF_DAY, h)
-                                    c.set(Calendar.MINUTE, min)
-                                    endDateMillis = c.timeInMillis
-                                }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show()
+                                c.set(y, m, d, 23, 59, 59)
+                                endDateMillis = c.timeInMillis
                             }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
                         },
                         modifier = Modifier.weight(1f)
                     ) {
                         Column {
-                            Text("Tugash:", fontSize = 10.sp, color = TextSecondary)
+                            Text("Tugash sanasi:", fontSize = 10.sp, color = TextSecondary)
                             Text(dateFormat.format(Date(endDateMillis)), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
@@ -1669,6 +1746,7 @@ fun MayorWorkersTab(
     val workers = users.filter { it.role == UserRole.WORKER && it.mayorId == currentUser.id }
     var showAddWorkerDialog by remember { mutableStateOf(false) }
     var sortByRating by remember { mutableStateOf(true) }
+    var workerSearchQuery by remember { mutableStateOf("") }
 
     val rankedWorkers = remember(workers, tasks) {
         RatingCalculator.calculateAllWorkerStats(workers, tasks)
@@ -1676,6 +1754,17 @@ fun MayorWorkersTab(
 
     val displayedWorkers = remember(rankedWorkers, sortByRating) {
         if (sortByRating) rankedWorkers else rankedWorkers.sortedBy { it.first.fullName }
+    }
+
+    val searchedWorkers = remember(displayedWorkers, workerSearchQuery) {
+        if (workerSearchQuery.isBlank()) displayedWorkers
+        else {
+            val q = workerSearchQuery.trim().lowercase()
+            displayedWorkers.filter { (w, _) ->
+                w.fullName.lowercase().contains(q) ||
+                (w.position ?: "").lowercase().contains(q)
+            }
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -1786,16 +1875,31 @@ fun MayorWorkersTab(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (workers.isEmpty()) {
+            OutlinedTextField(
+                value = workerSearchQuery,
+                onValueChange = { workerSearchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                placeholder = { Text("🔍 Xodimlarni qidirish (ism, lavozim)...", fontSize = 12.sp) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PrimaryBlue,
+                    unfocusedBorderColor = Color(0xFFCBD5E1)
+                )
+            )
+
+            if (searchedWorkers.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Xodimlar mavjud emas. '+' orqali ishchi qo'shing.", color = TextSecondary)
+                    Text("Xodimlar topilmadi.", color = TextSecondary)
                 }
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(displayedWorkers) { (worker, stats) ->
+                    items(searchedWorkers) { (worker, stats) ->
                         val rankIcon = when (stats.rank) {
                             1 -> "🥇"
                             2 -> "🥈"
@@ -2231,4 +2335,390 @@ fun MayorChatsTab(
             }
         }
     }
+}
+
+data class AiTaskDraft(
+    val title: String = "",
+    val worker: User? = null,
+    val startDate: Long = System.currentTimeMillis(),
+    val endDate: Long = System.currentTimeMillis() + 48 * 3600 * 1000L
+)
+
+@Composable
+fun AiJarvisDialog(
+    storage: AppStorage,
+    currentUser: User,
+    onDismiss: () -> Unit,
+    onSwitchTab: (Int) -> Unit
+) {
+    val context = LocalContext.current
+    val users by storage.users.collectAsState()
+    val workers = users.filter { it.role == UserRole.WORKER && it.mayorId == currentUser.id }
+
+    var inputText by remember { mutableStateOf("") }
+    var isListening by remember { mutableStateOf(false) }
+    var aiState by remember { mutableStateOf("IDLE") }
+    var draftTask by remember { mutableStateOf(AiTaskDraft()) }
+
+    val conversationHistory = remember {
+        mutableStateListOf(
+            "JARVIS" to "Assalomu alaykum, hurmatli Hokim! Men sizning sun'iy intellekt yordamchingizman. Topshiriq biriktirish, rejalarni ochish yoki xodimlarni saralash bo'yicha buyruq berishingiz mumkin."
+        )
+    }
+
+    var tts: TextToSpeech? by remember { mutableStateOf(null) }
+    LaunchedEffect(Unit) {
+        tts = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                tts?.language = Locale("uz")
+            }
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            tts?.stop()
+            tts?.shutdown()
+        }
+    }
+
+    fun speak(text: String) {
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "AI_JARVIS_UTT")
+    }
+
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        isListening = false
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            if (!spoken.isNullOrBlank()) {
+                inputText = spoken
+            }
+        }
+    }
+
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uz-UZ")
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "Hokim buyrug'ini ayting...")
+            }
+            try {
+                isListening = true
+                speechLauncher.launch(intent)
+            } catch (e: Exception) {
+                isListening = false
+                Toast.makeText(context, "Ovozli qidiruv mavjud emas", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Mikrofon ruxsati berilmadi", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun handleCommand(rawCmd: String) {
+        val cmd = rawCmd.trim()
+        if (cmd.isBlank()) return
+        conversationHistory.add("USER" to cmd)
+        inputText = ""
+
+        val lower = cmd.lowercase()
+
+        // 1. Tasdiqlash bosqichi
+        if (aiState == "CONFIRMING") {
+            val confirmWords = listOf("ha", "xa", "ok", "yaxshi", "tasdiqlayman", "tasdiqla", "yes", "bo'ldi", "boldi", "to'g'ri", "saqla")
+            val isConfirm = confirmWords.any { lower == it || lower.startsWith("$it ") || lower.endsWith(" $it") }
+
+            if (isConfirm) {
+                draftTask.worker?.let { w ->
+                    val newTask = TaskItem(
+                        id = UUID.randomUUID().toString(),
+                        title = draftTask.title,
+                        description = "",
+                        address = "",
+                        mayorId = currentUser.id,
+                        assignedWorkerId = w.id,
+                        assignedWorkerName = w.fullName,
+                        startDate = draftTask.startDate,
+                        endDate = draftTask.endDate,
+                        status = TaskStatus.PENDING_RED
+                    )
+                    storage.addTask(newTask)
+                    aiState = "IDLE"
+                    val reply = "${w.fullName} ga topshiriq muvaffaqiyatli biriktirildi va saqlandi!"
+                    conversationHistory.add("JARVIS" to reply)
+                    speak(reply)
+                    Toast.makeText(context, reply, Toast.LENGTH_SHORT).show()
+                }
+                return
+            } else if (lower.contains("yo'q") || lower.contains("yoq") || lower.contains("bekor")) {
+                aiState = "IDLE"
+                val reply = "Topshiriq bekor qilindi."
+                conversationHistory.add("JARVIS" to reply)
+                speak(reply)
+                return
+            } else if (lower.contains("xatosi") || lower.contains("duzot") || lower.contains("tuzat") || lower.contains("emas") || lower.contains("o'rniga")) {
+                val otherWorker = workers.firstOrNull { w ->
+                    val f = w.firstName.lowercase()
+                    val l = w.lastName.lowercase()
+                    (f.length > 2 && lower.contains(f)) || (l.length > 2 && lower.contains(l))
+                }
+                if (otherWorker != null) {
+                    draftTask = draftTask.copy(worker = otherWorker)
+                }
+                val reply = "Tuzatildi. Mas'ul: ${draftTask.worker?.fullName ?: "xodim"}. Topshiriqni saqlash va biriktirishni tasdiqlaysizmi?"
+                conversationHistory.add("JARVIS" to reply)
+                speak(reply)
+                return
+            }
+        }
+
+        // 2. Navigatsiya
+        if (lower.contains("reja") || lower.contains("rejalar")) {
+            onSwitchTab(1)
+            val reply = "Rejalar bo'limi ochildi."
+            conversationHistory.add("JARVIS" to reply)
+            speak(reply)
+            return
+        }
+        if (lower.contains("ishchi") || lower.contains("xodim") || lower.contains("reyting")) {
+            onSwitchTab(2)
+            val reply = "Xodimlar va ularning reytingi sahifasiga o'tdik."
+            conversationHistory.add("JARVIS" to reply)
+            speak(reply)
+            return
+        }
+        if (lower.contains("chat") || lower.contains("xabar") || lower.contains("yozish")) {
+            onSwitchTab(3)
+            val reply = "Chatlar bo'limi ochildi."
+            conversationHistory.add("JARVIS" to reply)
+            speak(reply)
+            return
+        }
+        if (lower.contains("topshiriq") && (lower.contains("och") || lower.contains("o't") || lower.contains("ko'rsat"))) {
+            onSwitchTab(0)
+            val reply = "Topshiriqlar bo'limi ochildi."
+            conversationHistory.add("JARVIS" to reply)
+            speak(reply)
+            return
+        }
+
+        // 3. Yangi topshiriq yaratish ("ish ber", "topshiriq ber", "vazifa", "ayt")
+        val isCreate = lower.contains("ish ber") || lower.contains("topshiriq") || lower.contains("vazifa") || lower.contains("biriktir")
+        val detectedWorker = workers.firstOrNull { w ->
+            val f = w.firstName.lowercase()
+            val l = w.lastName.lowercase()
+            (f.length > 2 && lower.contains(f)) || (l.length > 2 && lower.contains(l))
+        }
+
+        if (isCreate || detectedWorker != null) {
+            val assigned = detectedWorker ?: workers.firstOrNull()
+            if (assigned == null) {
+                val reply = "Biriktirish uchun xodimlar topilmadi. Avval xodim qo'shing."
+                conversationHistory.add("JARVIS" to reply)
+                speak(reply)
+                return
+            }
+
+            var cleanTitle = cmd
+                .replace(Regex("(?i)valiga|alisherga|karimga|boburga|jamshidga|xodimga"), "")
+                .replace(Regex("(?i)ish ber|topshiriq ber|yangi topshiriq|vazifa ber|biriktir|qilsin|etsin|tekshirsin|bajarilsin"), "")
+                .replace(Regex("(?i)\\d{1,2}[-–\\s]*(sentabr|sentyabr|oktabr|oktyabr|noyabr|dekabr|yanvar|fevral|mart|aprel|may|iyun|iyul|avgust)[gacha]*"), "")
+                .replace(Regex("(?i)bugun|ertaga|indin|gacha"), "")
+                .trim()
+
+            if (cleanTitle.length < 3) cleanTitle = "Topshiriq ijrosini ta'minlash"
+            cleanTitle = cleanTitle.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+
+            val now = System.currentTimeMillis()
+            val end = now + 48 * 3600 * 1000L
+            val df = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+
+            draftTask = AiTaskDraft(
+                title = cleanTitle,
+                worker = assigned,
+                startDate = now,
+                endDate = end
+            )
+            aiState = "CONFIRMING"
+
+            val promptSpeech = "${assigned.fullName} ga \"${cleanTitle}\" topshirig'i tayyorlandi. Boshlanish sanasi: ${df.format(Date(now))}, tugash muddati: ${df.format(Date(end))}. Bu ishchi reytingiga ta'sir qiladi. Topshiriqni saqlash va biriktirishni tasdiqlaysizmi?"
+            conversationHistory.add("JARVIS" to promptSpeech)
+            speak(promptSpeech)
+            return
+        }
+
+        val fallback = "Kechirasiz, buyrug'ingizni tushunmadim. Masalan: 'Alisherga topshiriq ber', 'Rejalarga o't' deb ayting."
+        conversationHistory.add("JARVIS" to fallback)
+        speak(fallback)
+    }
+
+    LaunchedEffect(inputText) {
+        if (inputText.isNotBlank()) {
+            handleCommand(inputText)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("✨", fontSize = 18.sp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Jarvis AI Yordamchi", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NavyDark)
+                }
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isListening) Color(0xFFEFF6FF) else Color(0xFFF1F5F9)
+                ) {
+                    Text(
+                        if (isListening) "🎤 Tinglanmoqda..." else "Kutilmoqda",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        fontSize = 11.sp,
+                        color = if (isListening) PrimaryBlue else TextSecondary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 380.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF0F172A),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    LazyColumn(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(conversationHistory) { (role, msg) ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = if (role == "USER") Arrangement.End else Arrangement.Start
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (role == "USER") Color(0xFF334155) else Color(0xFF312E81),
+                                    border = if (role == "JARVIS") androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6366F1)) else null,
+                                    modifier = Modifier.widthIn(max = 240.dp)
+                                ) {
+                                    Text(
+                                        text = msg,
+                                        color = if (role == "USER") Color.White else Color(0xFFEDE9FE),
+                                        fontSize = 12.sp,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    IconButton(
+                        onClick = {
+                            val hasPerm = ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.RECORD_AUDIO
+                            ) == PackageManager.PERMISSION_GRANTED
+                            if (hasPerm) {
+                                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uz-UZ")
+                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Hokim buyrug'ini ayting...")
+                                }
+                                try {
+                                    isListening = true
+                                    speechLauncher.launch(intent)
+                                } catch (e: Exception) {
+                                    isListening = false
+                                    Toast.makeText(context, "Ovozli qidiruv mavjud emas", Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            }
+                        },
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(if (isListening) Color(0xFFEF4444) else Color(0xFF6366F1))
+                    ) {
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = "Mikrofon",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf("Rejalarga o't", "Topshiriqlar", "Kechikkanlar", "Xodimlar").forEach { chip ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFF1F5F9),
+                            modifier = Modifier.clickable { handleCommand(chip) }
+                        ) {
+                            Text(chip, fontSize = 10.sp, color = NavyDark, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                        }
+                    }
+                }
+
+                var typedCmd by remember { mutableStateOf("") }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = typedCmd,
+                        onValueChange = { typedCmd = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Buyruq yozing...", fontSize = 12.sp) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Button(
+                        onClick = {
+                            if (typedCmd.isNotBlank()) {
+                                handleCommand(typedCmd)
+                                typedCmd = ""
+                            }
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1))
+                    ) {
+                        Text("Yuborish", fontSize = 11.sp, color = Color.White)
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Yopish")
+            }
+        }
+    )
 }

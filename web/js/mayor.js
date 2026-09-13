@@ -1,6 +1,24 @@
 // IJRO Mayor (Hokim) Module
 let mayorCurrentTab = 0; // 0: Topshiriqlar (Default), 1: Rejalar, 2: Ishchilar, 3: Chatlar
 let taskFilterIndex = 0; // 0: Barchasi, 1: Boshlanmagan, 2: Jarayonda, 3: Bajarildi, 4: Tekshirildi
+let mayorTaskSearchQuery = '';
+let mayorScheduleSearchQuery = '';
+let mayorWorkerSearchQuery = '';
+
+function onMayorTaskSearch(val) {
+  mayorTaskSearchQuery = val;
+  renderMayorTasks();
+}
+
+function onMayorScheduleSearch(val) {
+  mayorScheduleSearchQuery = val;
+  renderMayorSchedules();
+}
+
+function onMayorWorkerSearch(val) {
+  mayorWorkerSearchQuery = val;
+  renderMayorWorkers();
+}
 
 function initMayorView() {
   const mayor = window.store.currentUser;
@@ -55,6 +73,15 @@ function renderMayorTasks() {
   else if (taskFilterIndex === 3) tasks = tasks.filter(t => t.status === 'COMPLETED_GREEN');
   else if (taskFilterIndex === 4) tasks = tasks.filter(t => t.status === 'INSPECTED_BLUE');
 
+  if (mayorTaskSearchQuery && mayorTaskSearchQuery.trim()) {
+    const q = mayorTaskSearchQuery.trim().toLowerCase();
+    tasks = tasks.filter(t =>
+      (t.title && t.title.toLowerCase().includes(q)) ||
+      (t.assignedWorkerName && t.assignedWorkerName.toLowerCase().includes(q)) ||
+      (t.description && t.description.toLowerCase().includes(q))
+    );
+  }
+
   // URRENCY SORTING:
   // Active tasks (Red and Yellow) first, completed later.
   // Within active tasks, sorted by endDate ascending (least time remaining / overdue at the top)!
@@ -66,6 +93,9 @@ function renderMayorTasks() {
   });
 
   const filterTabsHtml = `
+    <div class="search-bar-container">
+      <input type="text" class="search-input-pill" placeholder="🔍 Topshiriq yoki mas'ul xodimni qidirish..." oninput="onMayorTaskSearch(this.value)" value="${escapeHtml(mayorTaskSearchQuery)}">
+    </div>
     <div class="filter-tabs-wrapper">
       <span class="filter-tab ${taskFilterIndex === 0 ? 'active' : ''}" onclick="setTaskFilter(0)">Barchasi</span>
       <span class="filter-tab ${taskFilterIndex === 1 ? 'active' : ''}" onclick="setTaskFilter(1)">Boshlanmagan (🔴)</span>
@@ -78,7 +108,7 @@ function renderMayorTasks() {
   if (tasks.length === 0) {
     container.innerHTML = filterTabsHtml + `
       <div class="main-content" style="align-items: center; justify-content: center; color: #94A3B8;">
-        Topshiriqlar mavjud emas. Yangi topshiriq qo'shish uchun (+) tugmasini bosing.
+        Topshiriqlar topilmadi. Yangi topshiriq qo'shish uchun (+) tugmasini bosing.
       </div>
     `;
     return;
@@ -112,8 +142,8 @@ function renderMayorTasks() {
       }
     }
 
-    const dateFormatted = new Date(task.endDate || Date.now()).toLocaleString([], {
-      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    const dateFormatted = new Date(task.endDate || Date.now()).toLocaleDateString([], {
+      day: '2-digit', month: '2-digit', year: 'numeric'
     });
 
     // Worker Completion Note
@@ -237,19 +267,34 @@ function renderMayorSchedules() {
   const mayor = window.store.currentUser;
   if (!container || !mayor) return;
 
-  const schedules = window.store.schedules.filter(s => s.mayorId === mayor.id)
+  let schedules = window.store.schedules.filter(s => s.mayorId === mayor.id)
     .sort((a, b) => (a.scheduledTime || 0) - (b.scheduledTime || 0));
 
+  if (mayorScheduleSearchQuery && mayorScheduleSearchQuery.trim()) {
+    const q = mayorScheduleSearchQuery.trim().toLowerCase();
+    schedules = schedules.filter(s =>
+      (s.title && s.title.toLowerCase().includes(q)) ||
+      (s.location && s.location.toLowerCase().includes(q)) ||
+      (s.notes && s.notes.toLowerCase().includes(q))
+    );
+  }
+
+  const searchHeader = `
+    <div class="search-bar-container">
+      <input type="text" class="search-input-pill" placeholder="🔍 Rejalarni qidirish..." oninput="onMayorScheduleSearch(this.value)" value="${escapeHtml(mayorScheduleSearchQuery)}">
+    </div>
+  `;
+
   if (schedules.length === 0) {
-    container.innerHTML = `
+    container.innerHTML = searchHeader + `
       <div class="main-content" style="align-items: center; justify-content: center; color: #94A3B8;">
-        Hozircha rejalar kiritilmagan. Yangi reja qo'shish uchun (+) tugmasini bosing.
+        Rejalar topilmadi. Yangi reja qo'shish uchun (+) tugmasini bosing.
       </div>
     `;
     return;
   }
 
-  let html = '<div class="main-content">';
+  let html = searchHeader + '<div class="main-content">';
   schedules.forEach(s => {
     const timeFormatted = new Date(s.scheduledTime || Date.now()).toLocaleString([], {
       day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
@@ -451,8 +496,22 @@ async function renderMayorWorkers() {
     }
   }
 
+  if (mayorWorkerSearchQuery && mayorWorkerSearchQuery.trim()) {
+    const q = mayorWorkerSearchQuery.trim().toLowerCase();
+    rawWorkers = rawWorkers.filter(w =>
+      ((w.fullName || (w.firstName + ' ' + w.lastName))).toLowerCase().includes(q) ||
+      ((w.position || '')).toLowerCase().includes(q)
+    );
+  }
+
+  const searchHeader = `
+    <div class="search-bar-container">
+      <input type="text" class="search-input-pill" placeholder="🔍 Xodimlarni qidirish (ism, lavozim)..." oninput="onMayorWorkerSearch(this.value)" value="${escapeHtml(mayorWorkerSearchQuery)}">
+    </div>
+  `;
+
   if (rawWorkers.length === 0) {
-    container.innerHTML = `
+    container.innerHTML = searchHeader + `
       <div class="main-content" style="align-items: center; justify-content: center; color: #94A3B8;">
         Xodimlar topilmadi. Yangi xodim qo'shish uchun (+) tugmasini bosing.
       </div>
@@ -479,7 +538,7 @@ async function renderMayorWorkers() {
     item.stats.rank = idx + 1;
   });
 
-  let html = '<div class="main-content">';
+  let html = searchHeader + '<div class="main-content">';
 
   // Header Rating Card
   html += `
@@ -687,8 +746,8 @@ function openCreateTaskModal() {
   const later = new Date(now.getTime() + 48 * 3600 * 1000);
   const startInput = document.getElementById('new-task-start');
   const endInput = document.getElementById('new-task-end');
-  if (startInput) startInput.value = now.toISOString().slice(0, 16);
-  if (endInput) endInput.value = later.toISOString().slice(0, 16);
+  if (startInput) startInput.value = now.toISOString().slice(0, 10);
+  if (endInput) endInput.value = later.toISOString().slice(0, 10);
 
   // Reset voice modal state
   deleteTaskModalVoice();
@@ -827,8 +886,10 @@ async function saveNewTask() {
   const mayor = window.store.currentUser;
   let title = document.getElementById('new-task-title').value.trim();
   const workerId = document.getElementById('new-task-worker').value;
-  const startDate = new Date(document.getElementById('new-task-start').value).getTime();
-  const endDate = new Date(document.getElementById('new-task-end').value).getTime();
+  const startVal = document.getElementById('new-task-start').value;
+  const endVal = document.getElementById('new-task-end').value;
+  const startDate = startVal ? new Date(startVal + 'T00:00:00').getTime() : Date.now();
+  const endDate = endVal ? new Date(endVal + 'T23:59:59').getTime() : (Date.now() + 48 * 3600 * 1000);
 
   // Agar yozilayotgan bo'lsa to'xtatamiz
   if (taskModalVoiceState.isRecording) {
@@ -1257,3 +1318,68 @@ async function sendTaskVoiceMessage(taskId) {
   }
   currentTaskRecording = null;
 }
+
+// AI Helper Functions for Jarvis integration
+window.mayorAiHelpers = {
+  openTaskModalWithData: (data) => {
+    openCreateTaskModal();
+    if (data.title) {
+      const el = document.getElementById('new-task-title');
+      if (el) el.value = data.title;
+    }
+    if (data.workerId) {
+      const el = document.getElementById('new-task-worker');
+      if (el) el.value = data.workerId;
+    }
+    if (data.startDate) {
+      const el = document.getElementById('new-task-start');
+      if (el) el.value = data.startDate;
+    }
+    if (data.endDate) {
+      const el = document.getElementById('new-task-end');
+      if (el) el.value = data.endDate;
+    }
+  },
+  updateTaskFields: (data) => {
+    if (data.title !== undefined) {
+      const el = document.getElementById('new-task-title');
+      if (el) el.value = data.title;
+    }
+    if (data.workerId !== undefined) {
+      const el = document.getElementById('new-task-worker');
+      if (el) el.value = data.workerId;
+    }
+    if (data.startDate !== undefined) {
+      const el = document.getElementById('new-task-start');
+      if (el) el.value = data.startDate;
+    }
+    if (data.endDate !== undefined) {
+      const el = document.getElementById('new-task-end');
+      if (el) el.value = data.endDate;
+    }
+  },
+  saveCurrentTask: async () => {
+    await saveNewTask();
+  },
+  closeTaskModal: () => {
+    closeModal('create-task-modal');
+  },
+  switchToTab: (tabIdx) => {
+    switchMayorTab(tabIdx);
+  },
+  filterTasksByStatus: (statusIdx) => {
+    setTaskFilter(statusIdx);
+  },
+  searchTasks: (q) => {
+    mayorTaskSearchQuery = q;
+    renderMayorTasks();
+  },
+  searchSchedules: (q) => {
+    mayorScheduleSearchQuery = q;
+    renderMayorSchedules();
+  },
+  searchWorkers: (q) => {
+    mayorWorkerSearchQuery = q;
+    renderMayorWorkers();
+  }
+};

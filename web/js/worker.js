@@ -271,8 +271,8 @@ function renderWorkerTasks() {
       }
     }
 
-    const dateFormatted = new Date(task.endDate || Date.now()).toLocaleString([], {
-      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    const dateFormatted = new Date(task.endDate || Date.now()).toLocaleDateString([], {
+      day: '2-digit', month: '2-digit', year: 'numeric'
     });
 
     // 0. Seen status / confirmation
