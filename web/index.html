@@ -469,10 +469,11 @@
         <div class="ai-modal-header">
           <div class="ai-modal-title">
             <span class="ai-sparkle-icon">✨</span>
-            <span>Jarvis AI Yordamchi</span>
+            <span>O'zbek AI Yordamchisi</span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span id="ai-status-badge" class="ai-status-badge ai-status-idle">Kutilmoqda</span>
+            <button id="ai-voice-toggle-btn" class="icon-btn" style="color: #60A5FA; background: #1E293B; width: 32px; height: 32px;" onclick="toggleAiVoiceOutput()" title="Ovozni yoqish/o'chirish">🔊</button>
             <button class="icon-btn" style="color: #94A3B8; background: #1E293B; width: 32px; height: 32px;" onclick="closeAiAssistantModal()">✕</button>
           </div>
         </div>
@@ -512,19 +513,19 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="js/firebase-config.js?v=20260913_8"></script>
-  <script src="js/chat.js?v=20260913_8"></script>
-  <script src="js/mayor.js?v=20260913_8"></script>
-  <script src="js/ai-assistant.js?v=20260913_8"></script>
-  <script src="js/worker.js?v=20260913_8"></script>
-  <script src="js/admin.js?v=20260913_8"></script>
-  <script src="js/app.js?v=20260913_8"></script>
+  <script src="js/firebase-config.js?v=20260913_9"></script>
+  <script src="js/chat.js?v=20260913_9"></script>
+  <script src="js/mayor.js?v=20260913_9"></script>
+  <script src="js/ai-assistant.js?v=20260913_9"></script>
+  <script src="js/worker.js?v=20260913_9"></script>
+  <script src="js/admin.js?v=20260913_9"></script>
+  <script src="js/app.js?v=20260913_9"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=20260913_8')
+        navigator.serviceWorker.register('./sw.js?v=20260913_9')
           .then(reg => {
             reg.update();
           })

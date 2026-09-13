@@ -111,43 +111,80 @@
     }
   };
 
-  // Text-to-Speech (Ovoz bilan gapirish)
+  let isVoiceEnabled = true;
+
+  // Toggle Voice Output
+  window.toggleAiVoiceOutput = function() {
+    isVoiceEnabled = !isVoiceEnabled;
+    const btn = document.getElementById('ai-voice-toggle-btn');
+    if (btn) {
+      btn.innerText = isVoiceEnabled ? '🔊' : '🔇';
+      btn.style.color = isVoiceEnabled ? '#60A5FA' : '#94A3B8';
+      btn.title = isVoiceEnabled ? "Ovoz yoqilgan (o'chirish uchun bosing)" : "Ovoz o'chirilgan (yoqish uchun bosing)";
+    }
+    if (!isVoiceEnabled && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      isSpeaking = false;
+    }
+  };
+
+  // Text-to-Speech (Ovoz bilan gapirish - faqat o'zbek/turkiy tabiiy ohang, ruscha mutlaqo yo'q)
   function speakText(text, callback) {
-    if (!('speechSynthesis' in window)) {
+    if (!isVoiceEnabled || !('speechSynthesis' in window)) {
       if (callback) callback();
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'uz-UZ';
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
 
-    const voices = window.speechSynthesis.getVoices();
-    const uzVoice = voices.find(v => v.lang.startsWith('uz')) ||
-                    voices.find(v => v.lang.startsWith('tr')) ||
-                    voices.find(v => v.lang.startsWith('ru'));
-    if (uzVoice) utterance.voice = uzVoice;
+      const voices = window.speechSynthesis.getVoices();
+      // 1. O'zbek tili ovozini qidirish
+      let selectedVoice = voices.find(v => v.lang && (v.lang.toLowerCase().startsWith('uz') || (v.name && v.name.toLowerCase().includes('uzbek'))));
+      
+      // 2. Turkiy ohangli ovoz (uzbek lotin fonetikasiga 95% mos tushadi)
+      if (!selectedVoice) {
+        selectedVoice = voices.find(v => v.lang && (v.lang.toLowerCase().startsWith('tr') || (v.name && v.name.toLowerCase().includes('turkish'))));
+      }
+      
+      // 3. Ozarbayjon yoki qozoq ovozlari
+      if (!selectedVoice) {
+        selectedVoice = voices.find(v => v.lang && (v.lang.toLowerCase().startsWith('az') || v.lang.toLowerCase().startsWith('kk')));
+      }
 
-    utterance.onstart = () => {
-      isSpeaking = true;
-      updateAiStatus('speaking', '🔊 Gapirmoqda...');
-    };
+      // RUSCHA (ru) OVOZNI QAT'IYAN TAQIQLAYMIZ!
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        utterance.lang = selectedVoice.lang;
+      } else {
+        utterance.lang = 'uz-UZ';
+      }
 
-    utterance.onend = () => {
-      isSpeaking = false;
-      updateAiStatus(isListening ? 'listening' : 'idle', isListening ? '🎤 Eshitmoqda...' : 'Kutilmoqda');
+      utterance.onstart = () => {
+        isSpeaking = true;
+        updateAiStatus('speaking', '🔊 Gapirmoqda...');
+      };
+
+      utterance.onend = () => {
+        isSpeaking = false;
+        updateAiStatus(isListening ? 'listening' : 'idle', isListening ? '🎤 Eshitmoqda...' : 'Kutilmoqda');
+        if (callback) callback();
+      };
+
+      utterance.onerror = () => {
+        isSpeaking = false;
+        updateAiStatus('idle', 'Kutilmoqda');
+        if (callback) callback();
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn("speakText error:", e);
       if (callback) callback();
-    };
-
-    utterance.onerror = () => {
-      isSpeaking = false;
-      updateAiStatus('idle', 'Kutilmoqda');
-      if (callback) callback();
-    };
-
-    window.speechSynthesis.speak(utterance);
+    }
   }
 
   // UI Updates in Transcript
@@ -243,24 +280,31 @@
     return null;
   }
 
-  // Core NLP Intent Engine (supporting Uzbek & Xorazm dialect)
+  // Core NLP Intent Engine (supporting Uzbek & Xorazm dialect + common admin terms)
   function analyzeIntent(rawText) {
     const text = rawText.toLowerCase().trim();
 
     // 1. Tasdiqlash javoblari (Confirmation)
-    const confirmWords = ['ha', 'xa', 'ok', 'yaxshi', 'tasdiqlayman', 'tasdiqla', 'yes', 'bo\'ldi', 'boldi', 'to\'g\'ri', 'tugat', 'saqla', 'yubor', 'albatta'];
-    if (confirmWords.some(w => text === w || text.startsWith(w + ' ') || text.endsWith(' ' + w))) {
+    const confirmWords = [
+      'ha', 'xa', 'albatta', 'bo\'ldi', 'boldi', 'to\'g\'ri', 'tasdiqlayman', 'tasdiqla',
+      'saqla', 'saqlab qo\'y', 'saqlansin', 'yubor', 'tamom', 'tayyor', 'yaxshi',
+      'ok', 'yes', 'shunday', 'etdim', 'yetadi', 'da', 'podtverjdayu', 'davay', 'ladno', 'bajarilsin'
+    ];
+    if (confirmWords.some(w => text === w || text.startsWith(w + ' ') || text.endsWith(' ' + w) || text.includes(' ' + w + ' '))) {
       return { intent: 'CONFIRM' };
     }
 
     // 2. Bekor qilish (Cancel)
-    const cancelWords = ['yo\'q', 'yoq', 'kerakmas', 'bekor', 'bekor qil', 'to\'xtat', 'o\'chir', 'kerak emas'];
-    if (cancelWords.some(w => text === w || text.startsWith(w + ' '))) {
+    const cancelWords = [
+      'yo\'q', 'yoq', 'kerakmas', 'kerak emas', 'bekor', 'bekor qil', 'to\'xtat',
+      'o\'chir', 'tashla', 'tashlab ket', 'net', 'otmena'
+    ];
+    if (cancelWords.some(w => text === w || text.startsWith(w + ' ') || text.includes(' ' + w))) {
       return { intent: 'CANCEL' };
     }
 
     // 3. Xatolikni tuzatish (Correction / Xorazm "duzot")
-    if (text.includes('xatosi bor') || text.includes('duzot') || text.includes('tuzat') || text.includes('o\'zgartir') || text.includes('emas') || text.includes('o\'rniga')) {
+    if (text.includes('xatosi bor') || text.includes('duzot') || text.includes('tuzat') || text.includes('o\'zgartir') || text.includes('emas') || text.includes('o\'rniga') || text.includes('almashtir')) {
       const worker = findWorkerInSpeech(text);
       const hasDate = text.includes('sentabr') || text.includes('sentyabr') || text.includes('oktabr') || text.includes('oktyabr') || text.includes('noyabr') || text.includes('dekabr') || text.includes('ertaga') || text.includes('bugun');
       return {
@@ -271,16 +315,16 @@
     }
 
     // 4. Sahifalarga o'tish (Navigation)
-    if (text.includes('reja') || text.includes('rejalar') || text.includes('rejani och')) {
+    if (text.includes('reja') || text.includes('rejalar') || text.includes('rejalani') || text.includes('rejani') || text.includes('plan')) {
       return { intent: 'NAVIGATE', tab: 1, message: "Rejalar bo'limi ochildi." };
     }
-    if (text.includes('ishchi') || text.includes('xodim') || text.includes('reyting') || text.includes('xodimlarni')) {
+    if (text.includes('ishchi') || text.includes('xodim') || text.includes('reyting') || text.includes('ishchilani') || text.includes('xodimlani') || text.includes('sotrudnik')) {
       return { intent: 'NAVIGATE', tab: 2, message: "Xodimlar va ularning reytingi sahifasiga o'tdik." };
     }
-    if (text.includes('chat') || text.includes('yozishm') || text.includes('xabarlar')) {
+    if (text.includes('chat') || text.includes('yozishm') || text.includes('xabar') || text.includes('xabarlar') || text.includes('chatlar')) {
       return { intent: 'NAVIGATE', tab: 3, message: "Chatlar bo'limi ochildi." };
     }
-    if (text.includes('topshiriq') && (text.includes('ko\'rsat') || text.includes('och') || text.includes('o\'t'))) {
+    if ((text.includes('topshiriq') || text.includes('vazifa') || text.includes('ishlar') || text.includes('zadaniya')) && (text.includes('ko\'rsat') || text.includes('och') || text.includes('o\'t') || text.includes('chiqar'))) {
       return { intent: 'NAVIGATE', tab: 0, message: "Topshiriqlar bo'limi ochildi." };
     }
 
@@ -288,27 +332,27 @@
     if (text.includes('qizil') || text.includes('boshlanmagan')) {
       return { intent: 'FILTER_STATUS', statusIdx: 1, message: "Boshlanmagan topshiriqlar saralandi." };
     }
-    if (text.includes('sariq') || text.includes('jarayonda')) {
+    if (text.includes('sariq') || text.includes('jarayonda') || text.includes('ishlanmoqda')) {
       return { intent: 'FILTER_STATUS', statusIdx: 2, message: "Jarayondagi topshiriqlar saralandi." };
     }
-    if (text.includes('yashil') || text.includes('bajarilgan') || text.includes('tugatilgan')) {
+    if (text.includes('yashil') || text.includes('bajarilgan') || text.includes('tugatilgan') || text.includes('bitgan')) {
       return { intent: 'FILTER_STATUS', statusIdx: 3, message: "Bajarilgan topshiriqlar saralandi." };
     }
-    if (text.includes('ko\'k') || text.includes('tekshirilgan')) {
+    if (text.includes('ko\'k') || text.includes('tekshirilgan') || text.includes('tasdiqlangan')) {
       return { intent: 'FILTER_STATUS', statusIdx: 4, message: "Tekshirilgan topshiriqlar saralandi." };
     }
     if (text.includes('kechikkan') || text.includes('muddati o\'tgan')) {
       return { intent: 'FILTER_STATUS', statusIdx: 1, message: "Kechikkan va boshlanmagan topshiriqlar ko'rsatilmoqda." };
     }
 
-    // 6. Yangi topshiriq yaratish (Xorazm "ish ber", "topshiriq ber", "vazifa yukla", "ayt")
-    const isCreateCommand = text.includes('ish ber') || text.includes('topshiriq') || text.includes('vazifa') || text.includes('yangi ish') || text.includes('biriktir');
+    // 6. Yangi topshiriq yaratish (Xorazm "ish ber", "topshiriq ber", "vazifa yukla", "ayt", "qilsin", "etsin")
+    const isCreateCommand = text.includes('ish ber') || text.includes('topshiriq') || text.includes('vazifa') || text.includes('yangi ish') || text.includes('biriktir') || text.includes('zadaniya') || text.includes('sozdat') || text.includes('naznachit') || text.includes('buyur');
     const detectedWorker = findWorkerInSpeech(text);
 
     if (isCreateCommand || detectedWorker) {
       let cleanTitle = text
         .replace(/valiga|alisherga|karimga|boburga|jamshidga|xodimga/gi, '')
-        .replace(/ish ber|topshiriq ber|yangi topshiriq|vazifa ber|biriktir|qilsin|etsin|tekshirsin|bajarilsin/gi, '')
+        .replace(/ish ber|topshiriq ber|yangi topshiriq|vazifa ber|biriktir|qilsin|etsin|tekshirsin|bajarilsin|zadaniya|naznachit|sozdat/gi, '')
         .replace(/\d{1,2}[-–\s]*(sentabr|sentyabr|oktabr|oktyabr|noyabr|dekabr|yanvar|fevral|mart|aprel|may|iyun|iyul|avgust)[gacha]*/gi, '')
         .replace(/bugun|ertaga|indin|gacha/gi, '')
         .trim();

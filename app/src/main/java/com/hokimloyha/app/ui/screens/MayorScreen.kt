@@ -2370,7 +2370,15 @@ fun AiJarvisDialog(
     LaunchedEffect(Unit) {
         tts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale("uz")
+                val uzLocale = Locale("uz", "UZ")
+                val res = tts?.setLanguage(uzLocale)
+                if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    val trLocale = Locale("tr", "TR")
+                    val trRes = tts?.setLanguage(trLocale)
+                    if (trRes == TextToSpeech.LANG_MISSING_DATA || trRes == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        tts?.setLanguage(Locale.ENGLISH)
+                    }
+                }
             }
         }
     }
@@ -2404,7 +2412,9 @@ fun AiJarvisDialog(
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uz-UZ")
-                putExtra(RecognizerIntent.EXTRA_PROMPT, "Hokim buyrug'ini ayting...")
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "uz-UZ")
+                putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "O'zbek tilida buyruq bering...")
             }
             try {
                 isListening = true
@@ -2428,7 +2438,11 @@ fun AiJarvisDialog(
 
         // 1. Tasdiqlash bosqichi
         if (aiState == "CONFIRMING") {
-            val confirmWords = listOf("ha", "xa", "ok", "yaxshi", "tasdiqlayman", "tasdiqla", "yes", "bo'ldi", "boldi", "to'g'ri", "saqla")
+            val confirmWords = listOf(
+                "ha", "xa", "albatta", "bo'ldi", "boldi", "to'g'ri", "tasdiqlayman", "tasdiqla",
+                "saqla", "saqlab qo'y", "saqlansin", "yubor", "tamom", "tayyor", "yaxshi",
+                "ok", "yes", "shunday", "etdim", "yetadi", "da", "podtverjdayu", "davay", "ladno", "bajarilsin"
+            )
             val isConfirm = confirmWords.any { lower == it || lower.startsWith("$it ") || lower.endsWith(" $it") }
 
             if (isConfirm) {
@@ -2572,7 +2586,7 @@ fun AiJarvisDialog(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("✨", fontSize = 18.sp)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Jarvis AI Yordamchi", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NavyDark)
+                    Text("O'zbek AI Yordamchisi", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NavyDark)
                 }
                 Surface(
                     shape = RoundedCornerShape(10.dp),
