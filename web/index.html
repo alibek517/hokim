@@ -2,7 +2,21 @@
 <html lang="uz">
 <head>
   <meta charset="UTF-8">
-  <base href="/web/">
+  <script>
+    (function() {
+      var p = window.location.pathname;
+      var base = document.createElement('base');
+      if (window.location.protocol === 'file:') {
+        // Local file - relative base
+      } else if (p === '/web' || p.startsWith('/web/')) {
+        base.href = '/web/';
+        document.head.appendChild(base);
+      } else {
+        base.href = '/';
+        document.head.appendChild(base);
+      }
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>IJRO - Tezkor Boshqaruv va Nazorat</title>
 
@@ -16,7 +30,7 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0F172A">
 
-  <link rel="stylesheet" href="css/style.css?v=20260913_11">
+  <link rel="stylesheet" href="css/style.css?v=20260913_13">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -116,108 +130,79 @@
       </div>
     </div>
 
-    <!-- 3. WORKER (XODIM) SCREEN -->
+    <!-- 3. WORKER SCREEN -->
     <div id="worker-screen" class="screen">
       <div class="top-bar">
         <div class="top-bar-left">
-          <div class="user-avatar" id="worker-avatar">X</div>
+          <div class="user-avatar" id="worker-avatar">I</div>
           <div class="user-info">
-            <div class="user-name" id="worker-header-name">Xodim Ismi</div>
-            <div class="user-role" id="worker-header-pos">Mas'ul Xodim</div>
+            <div class="user-name" id="worker-header-name">Mas'ul Xodim</div>
+            <div class="user-role" id="worker-header-pos">Vazifalar Paneli</div>
           </div>
         </div>
         <div class="top-bar-actions">
-          <button class="icon-btn" onclick="openWorkerChatWithMayor()" title="Hokim bilan Chat" style="background: rgba(37,99,235,0.4);">
-            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
-          </button>
           <button class="icon-btn" onclick="handleLogout()" title="Chiqish">
             <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
           </button>
         </div>
       </div>
-
-      <div class="main-content">
-        <!-- Summary Stats Card -->
-        <div class="task-card" style="flex-direction: row; padding: 14px;" id="worker-stats-box"></div>
-        
-        <div style="font-weight: 700; font-size: 15px; color: var(--navy-dark); margin-top: 6px;">
-          Menga Biriktirilgan Vazifalar
-        </div>
-        
-        <div id="worker-tasks-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
-      </div>
+      <div id="worker-task-list" class="task-list"></div>
     </div>
 
     <!-- 4. BIG ADMIN SCREEN -->
     <div id="admin-screen" class="screen">
       <div class="top-bar">
         <div class="top-bar-left">
-          <div class="user-avatar" style="background: #D4AF37;">A</div>
+          <div class="user-avatar" id="admin-avatar">A</div>
           <div class="user-info">
-            <div class="user-name">Bosh Administrator</div>
-            <div class="user-role">Tizim Boshqaruvi</div>
+            <div class="user-name" id="admin-header-name">Big Admin</div>
+            <div class="user-role">Kuzatuv va Boshqaruv Markazi</div>
           </div>
         </div>
         <div class="top-bar-actions">
-          <button class="icon-btn" onclick="handleLogout()">
+          <button class="icon-btn" onclick="handleLogout()" title="Chiqish">
             <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
           </button>
         </div>
       </div>
-      <div class="main-content" id="admin-content"></div>
+      <div id="admin-map" style="width: 100%; height: 260px; min-height: 260px; z-index: 1;"></div>
+      <div id="admin-device-list" class="task-list" style="flex: 1; min-height: 0;"></div>
     </div>
 
-    <!-- 5. CHAT SCREEN (FULLSCREEN) -->
-    <div id="chat-screen" class="screen chat-screen">
-      <!-- Chat Header -->
-      <div class="chat-header">
-        <button class="icon-btn" onclick="closeChat()">
-          <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-        </button>
-        <div style="flex: 1;">
-          <div style="font-weight: 700; font-size: 15px; line-height: 1.2;" id="chat-peer-name">Suhbatdosh</div>
-          <div style="font-size: 11px; color: #94A3B8;" id="chat-peer-role">Xodim</div>
+    <!-- 5. CHAT SCREEN -->
+    <div id="chat-screen" class="screen">
+      <div class="top-bar">
+        <div class="top-bar-left">
+          <button class="icon-btn" onclick="goBackFromChat()" style="margin-right: 4px;">
+            <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          </button>
+          <div class="user-avatar" id="chat-avatar" style="width: 36px; height: 36px; font-size: 14px;">?</div>
+          <div class="user-info">
+            <div class="user-name" id="chat-header-name" style="font-size: 15px;">Foydalanuvchi</div>
+            <div class="user-role" id="chat-header-status" style="color: #10B981; font-size: 11px;">online</div>
+          </div>
         </div>
       </div>
-
-      <!-- Messages Stream -->
-      <div class="chat-messages-container" id="chat-messages-container"></div>
-
-      <!-- Edit Preview Bar (Shown when editing) -->
-      <div class="edit-bar" id="edit-preview-bar">
-        <div style="color: var(--primary-blue); font-size: 16px;">✏️</div>
-        <div class="edit-bar-info">
-          <div class="edit-bar-title">Xabarni tahrirlash</div>
-          <div class="edit-bar-text" id="edit-preview-text">...</div>
-        </div>
-        <button class="icon-btn" onclick="cancelEditing()" style="color: #64748B;">✕</button>
-      </div>
-
-      <!-- Input Bar -->
-      <div class="chat-input-bar" id="chat-input-bar">
-        <!-- Normal Input State -->
-        <div id="chat-normal-input-bar" style="display: flex; align-items: center; width: 100%; gap: 6px;">
-          <!-- Attachment (+) Button -->
-          <button class="icon-btn" style="color: var(--primary-blue); background: none;" onclick="openAttachChoiceModal()" title="Rasm yoki Video yuborish">
-            <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      <div id="chat-messages-container" class="chat-messages"></div>
+      <div class="chat-input-bar">
+        <div class="chat-input-wrapper">
+          <button class="chat-attach-btn" onclick="openAttachChoiceModal()" title="Fayl biriktirish">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
           </button>
           <input type="file" id="img-input" accept="image/*" style="display: none;" onchange="handleImagePicked(event)">
           <input type="file" id="vid-input" accept="video/*" style="display: none;" onchange="handleVideoPicked(event)">
 
           <textarea id="chat-text-input" class="chat-input" placeholder="Xabar yozing..." rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendChatMessage();}"></textarea>
 
-          <!-- Mic Button (Voice Recording) -->
           <button id="mic-btn" class="icon-btn" style="color: var(--primary-blue); background: none;" onclick="startChatVoiceRecording()" title="Ovoz yozish">
             <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
           </button>
 
-          <!-- Send Button -->
           <button class="chat-send-btn" onclick="sendChatMessage()" title="Yuborish">
             <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           </button>
         </div>
 
-        <!-- Active Voice Recording Bar (Identical to APK!) -->
         <div id="chat-recording-bar" style="display: none; width: 100%; align-items: center; justify-content: space-between; background: #FEF2F2; padding: 6px 12px; border-radius: 24px; border: 1px solid #FECACA;">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="recording-dot" style="display: inline-block; width: 10px; height: 10px; background: #EF4444; border-radius: 50%;"></span>
@@ -275,12 +260,12 @@
             <input type="date" id="new-task-start" class="form-input">
           </div>
           <div class="form-group">
-            <label class="form-label">Tugash sanasi</label>
+            <label class="form-label">Tugash muddati</label>
             <input type="date" id="new-task-end" class="form-input">
           </div>
         </div>
         <button class="btn btn-primary" onclick="saveNewTask()" style="margin-top: 8px;">
-          Topshiriqni Saqlash va Biriktirish
+          Topshiriqni Saqlash
         </button>
       </div>
     </div>
@@ -289,29 +274,29 @@
     <div id="create-schedule-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('create-schedule-modal')">
       <div class="modal-sheet">
         <div class="modal-header">
-          <div class="modal-title">🗓️ Yangi Reja Kiritish</div>
+          <div class="modal-title">📅 Yangi Reja / Uchrashuv Qo'shish</div>
           <button class="icon-btn" style="color: #64748B;" onclick="closeModal('create-schedule-modal')">✕</button>
         </div>
         <div class="form-group">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <label class="form-label" style="margin-bottom: 0;">Reja *</label>
-            <span style="font-size: 11px; color: #64748B;">Matn yoki ovoz orqali</span>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label class="form-label" style="margin-bottom: 0;">Reja nomi (Matn yoki Ovoz) *</label>
+            <button type="button" class="btn-voice-toggle" id="btn-toggle-sched-voice" onclick="toggleSchedCreationVoiceMode()">
+              🎤 Ovoz yozish
+            </button>
           </div>
-          <textarea id="new-schedule-title" class="form-input" rows="3" placeholder="Reja, manzil va eslatmalarni yozing... (yoki quyida ovoz yozing)"></textarea>
-
-          <!-- Ovoz yozish paneli (ko'p ovoz yozish va tekshirish) -->
-          <div style="margin-top: 8px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 10px; padding: 8px 12px;">
-              <button type="button" id="btn-schedule-record" class="btn" onclick="toggleScheduleVoiceRecording()" style="background: #EF4444; color: white; padding: 6px 14px; font-size: 13px; font-weight: bold; border-radius: 20px; display: flex; align-items: center; gap: 6px;">
-                <span id="schedule-rec-dot" style="width: 8px; height: 8px; border-radius: 50%; background: white;"></span>
-                <span id="schedule-rec-btn-text">🎤 Ovoz yozish (gols)</span>
+          <input type="text" id="new-schedule-title" class="form-input" placeholder="Masalan: Deputatlar bilan uchrashuv">
+          <div id="new-sched-voice-container" style="display: none; margin-top: 6px;">
+            <div id="new-sched-voice-recorder" style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 10px; padding: 8px 12px;">
+              <button type="button" id="btn-sched-modal-record" class="btn" onclick="toggleSchedModalRecording()" style="background: #EF4444; color: white; padding: 6px 14px; font-size: 13px; font-weight: bold; border-radius: 20px; display: flex; align-items: center; gap: 6px;">
+                <span id="sched-modal-rec-dot" style="width: 8px; height: 8px; border-radius: 50%; background: white;"></span>
+                <span id="sched-modal-rec-btn-text">Ovoz yozishni boshlash</span>
               </button>
-              <span id="schedule-rec-timer" style="font-weight: bold; font-size: 13px; color: #EF4444; display: none;">00:00</span>
-              <span id="schedule-voice-count" style="font-size: 12px; color: #64748B; font-weight: 500;">0 ta ovoz</span>
+              <span id="sched-modal-rec-timer" style="font-weight: bold; font-size: 13px; color: #EF4444; display: none;">00:00</span>
             </div>
-
-            <!-- Yozib olingan ovozlar ro'yxati (tekshirish / eshitish / o'chirish) -->
-            <div id="schedule-voices-container" style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;"></div>
+            <div id="new-sched-voice-preview" style="display: none; align-items: center; gap: 8px; margin-top: 6px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px; padding: 6px 10px;">
+              <audio id="sched-modal-audio-player" controls style="flex: 1; height: 32px;"></audio>
+              <button type="button" onclick="deleteSchedModalVoice()" style="background: #FEE2E2; color: #EF4444; border: none; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: bold; cursor: pointer;">O'chirish</button>
+            </div>
           </div>
         </div>
         <div class="form-group">
@@ -374,24 +359,24 @@
           <textarea id="complete-task-note" class="form-textarea" rows="4" placeholder="Masalan: Chuqurlar to'liq tekislanib yangi asfalt qoplamasi yotqizildi, obodonlashtirildi va topshirishga tayyor holga keltirildi..."></textarea>
         </div>
 
-        <div style="display: flex; gap: 10px;">
+        <div style="display: flex; gap: 10px; margin-top: 14px;">
           <button class="btn btn-outline" style="flex: 1;" onclick="closeModal('worker-complete-modal')">Bekor qilish</button>
-          <button class="btn btn-green" style="flex: 2;" onclick="confirmWorkerComplete()">Tugatdim va Yuborish</button>
+          <button class="btn btn-primary" style="flex: 2; background: var(--status-green);" onclick="confirmCompleteTask()">Topshiriqni topshirish</button>
         </div>
       </div>
     </div>
 
-        <!-- Task Seen Modal (Worker Confirms Task with Voice or Text) -->
+    <!-- Worker Task Seen/Acceptance Modal -->
     <div id="task-seen-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('task-seen-modal')">
       <div class="modal-sheet">
         <div class="modal-header">
-          <div class="modal-title">👁️ Topshiriqni ko'rdim deb tasdiqlash</div>
+          <div class="modal-title" style="color: var(--primary-blue);">👀 Topshiriqni Qabul Qilish</div>
           <button class="icon-btn" style="color: #64748B;" onclick="closeModal('task-seen-modal')">✕</button>
         </div>
-
-        <div style="background: var(--slate-bg); padding: 12px; border-radius: 10px; margin-bottom: 12px;">
-          <div id="seen-task-title" style="font-weight: 700; color: var(--navy-dark); font-size: 14px;">Vazifa</div>
-          <div id="seen-task-address" style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">📍 Manzil</div>
+        
+        <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; margin-bottom: 12px;">
+          <div style="font-weight: 700; font-size: 14px; color: var(--text-main);" id="seen-modal-task-title">Vazifa</div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;" id="seen-modal-task-dates">Muddat: -</div>
         </div>
 
         <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">
@@ -510,19 +495,19 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="js/firebase-config.js?v=20260913_11"></script>
-  <script src="js/chat.js?v=20260913_11"></script>
-  <script src="js/mayor.js?v=20260913_11"></script>
-  <script src="js/ai-assistant.js?v=20260913_11"></script>
-  <script src="js/worker.js?v=20260913_11"></script>
-  <script src="js/admin.js?v=20260913_11"></script>
-  <script src="js/app.js?v=20260913_11"></script>
+  <script src="js/firebase-config.js?v=20260913_13"></script>
+  <script src="js/chat.js?v=20260913_13"></script>
+  <script src="js/mayor.js?v=20260913_13"></script>
+  <script src="js/ai-assistant.js?v=20260913_13"></script>
+  <script src="js/worker.js?v=20260913_13"></script>
+  <script src="js/admin.js?v=20260913_13"></script>
+  <script src="js/app.js?v=20260913_13"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=20260913_11')
+        navigator.serviceWorker.register('./sw.js?v=20260913_13')
           .then(reg => {
             reg.update();
           })

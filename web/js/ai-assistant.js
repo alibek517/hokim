@@ -294,9 +294,10 @@
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
     const displaySize = 320;
-    canvas.width = displaySize * dpr;
-    canvas.height = displaySize * dpr;
-    ctx.scale(dpr, dpr);
+    canvas.width = Math.round(displaySize * dpr);
+    canvas.height = Math.round(displaySize * dpr);
+    canvas.style.width = displaySize + 'px';
+    canvas.style.height = displaySize + 'px';
 
     const cx = displaySize / 2;
     const cy = displaySize / 2;
@@ -312,6 +313,8 @@
     ];
 
     function render(time) {
+      if (!time) time = performance.now();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, displaySize, displaySize);
 
       // Morph cycle: 9 seconds total (3s per stage)

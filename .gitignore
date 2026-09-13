@@ -9,3 +9,4 @@ app/build/
 *.apk
 *.aab
 *.hprof__pycache__/
+*.hprof
