@@ -454,18 +454,18 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="js/firebase-config.js?v=20260913_3"></script>
-  <script src="js/chat.js?v=20260913_3"></script>
-  <script src="js/mayor.js?v=20260913_3"></script>
-  <script src="js/worker.js?v=20260913_3"></script>
-  <script src="js/admin.js?v=20260913_3"></script>
-  <script src="js/app.js?v=20260913_3"></script>
+  <script src="js/firebase-config.js?v=20260913_4"></script>
+  <script src="js/chat.js?v=20260913_4"></script>
+  <script src="js/mayor.js?v=20260913_4"></script>
+  <script src="js/worker.js?v=20260913_4"></script>
+  <script src="js/admin.js?v=20260913_4"></script>
+  <script src="js/app.js?v=20260913_4"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=20260913_3')
+        navigator.serviceWorker.register('./sw.js?v=20260913_4')
           .then(reg => {
             reg.update();
           })

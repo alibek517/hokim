@@ -152,7 +152,7 @@ function renderMayorTasks() {
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin: 4px 0;">
           <div class="task-title" style="flex: 1;">${escapeHtml(task.title || '')}</div>
           <div class="task-voice-box" id="task-voice-box-${task.id}">
-            <button class="icon-voice-action-btn" onclick="startTaskVoiceMessage('${task.id}', '${task.assignedWorkerId}', '${escapeHtml(task.assignedWorkerName || 'Xodim')}', '${escapeHtml(task.title || '')}')" title="Xodimga ovozli xabar yuborish">
+            <button class="icon-voice-action-btn" onclick="startTaskVoiceMessage('${task.id}')" title="Xodimga ovozli xabar yuborish">
               <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
             </button>
           </div>
@@ -894,7 +894,14 @@ window.onStoreChange('users', () => {
 // Topshiriq bo'yicha tezkor ovozli xabar yuborish (Mayor -> Worker Chat)
 let currentTaskRecording = null;
 
-async function startTaskVoiceMessage(taskId, workerId, workerName, taskTitle) {
+async function startTaskVoiceMessage(taskId) {
+  const task = (window.store.tasks || []).find(t => t.id === taskId);
+  if (!task) return;
+
+  const workerId = task.assignedWorkerId;
+  const workerName = task.assignedWorkerName || 'Xodim';
+  const taskTitle = task.title || '';
+
   if (!workerId || workerId === 'undefined' || workerId === 'null') {
     alert("Bu topshiriqqa mas'ul xodim biriktirilmagan!");
     return;
@@ -921,7 +928,7 @@ async function startTaskVoiceMessage(taskId, workerId, workerName, taskTitle) {
           <span class="recording-dot" style="display: inline-block; width: 8px; height: 8px; background: #EF4444; border-radius: 50%;"></span>
           <span id="task-rec-time-${taskId}" style="font-size: 11px; font-weight: 700; color: #EF4444;">🔴 0s</span>
           <button class="btn btn-outline" onclick="cancelTaskVoiceMessage()" style="color: #EF4444; border-color: #EF4444; padding: 2px 6px; font-size: 10px; width: auto;" title="Bekor qilish va o'chirish">🗑️ O'chirish</button>
-          <button class="btn btn-primary" onclick="sendTaskVoiceMessage('${taskId}', '${workerId}', '${escapeHtml(workerName)}', '${escapeHtml(taskTitle)}')" style="padding: 2px 8px; font-size: 10px; width: auto;" title="Xodimga yuborish">📤 Yuborish</button>
+          <button class="btn btn-primary" onclick="sendTaskVoiceMessage('${taskId}')" style="padding: 2px 8px; font-size: 10px; width: auto;" title="Xodimga yuborish">📤 Yuborish</button>
         </div>
       `;
     }
@@ -954,7 +961,7 @@ async function startTaskVoiceMessage(taskId, workerId, workerName, taskTitle) {
 
 function cancelTaskVoiceMessage() {
   if (!currentTaskRecording) return;
-  const { taskId, mediaRecorder, stream, timerId, workerId, workerName, taskTitle } = currentTaskRecording;
+  const { taskId, mediaRecorder, stream, timerId } = currentTaskRecording;
 
   clearInterval(timerId);
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
@@ -969,7 +976,7 @@ function cancelTaskVoiceMessage() {
   const container = document.getElementById(`task-voice-box-${taskId}`);
   if (container) {
     container.innerHTML = `
-      <button class="icon-voice-action-btn" onclick="startTaskVoiceMessage('${taskId}', '${workerId}', '${escapeHtml(workerName)}', '${escapeHtml(taskTitle)}')" title="Xodimga ovozli xabar yuborish">
+      <button class="icon-voice-action-btn" onclick="startTaskVoiceMessage('${taskId}')" title="Xodimga ovozli xabar yuborish">
         <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
       </button>
     `;
@@ -977,9 +984,9 @@ function cancelTaskVoiceMessage() {
   currentTaskRecording = null;
 }
 
-async function sendTaskVoiceMessage(taskId, workerId, workerName, taskTitle) {
+async function sendTaskVoiceMessage(taskId) {
   if (!currentTaskRecording) return;
-  const { mediaRecorder, stream, timerId, audioChunks, startTime } = currentTaskRecording;
+  const { workerId, workerName, taskTitle, mediaRecorder, stream, timerId, audioChunks, startTime } = currentTaskRecording;
 
   clearInterval(timerId);
   showToast("Ovozli xabar yuborilmoqda...");
@@ -1029,7 +1036,7 @@ async function sendTaskVoiceMessage(taskId, workerId, workerName, taskTitle) {
   const container = document.getElementById(`task-voice-box-${taskId}`);
   if (container) {
     container.innerHTML = `
-      <button class="icon-voice-action-btn" onclick="startTaskVoiceMessage('${taskId}', '${workerId}', '${escapeHtml(workerName)}', '${escapeHtml(taskTitle)}')" title="Xodimga ovozli xabar yuborish">
+      <button class="icon-voice-action-btn" onclick="startTaskVoiceMessage('${taskId}')" title="Xodimga ovozli xabar yuborish">
         <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
       </button>
     `;
