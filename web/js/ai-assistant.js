@@ -321,7 +321,7 @@
 
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
-    const displaySize = 96;
+    const displaySize = 78;
     canvas.width = Math.round(displaySize * dpr);
     canvas.height = Math.round(displaySize * dpr);
     canvas.style.width = displaySize + 'px';
@@ -329,15 +329,15 @@
 
     const cx = displaySize / 2;
     const cy = displaySize / 2;
-    const baseR = 28;
+    const baseR = 23;
 
-    // Orbiting particles scaled to 96px
+    // Orbiting particles scaled to 78px
     const particles = [
-      { angle: 0, dist: 37, speed: 0.024, size: 1.8, alpha: 0.75 },
-      { angle: 1.2, dist: 41, speed: -0.016, size: 1.5, alpha: 0.6 },
-      { angle: 2.8, dist: 35, speed: 0.028, size: 1.7, alpha: 0.8 },
-      { angle: 4.1, dist: 43, speed: -0.018, size: 1.4, alpha: 0.5 },
-      { angle: 5.3, dist: 38, speed: 0.018, size: 1.6, alpha: 0.65 }
+      { angle: 0, dist: 30, speed: 0.024, size: 1.6, alpha: 0.8 },
+      { angle: 1.2, dist: 33, speed: -0.016, size: 1.4, alpha: 0.65 },
+      { angle: 2.8, dist: 28, speed: 0.028, size: 1.5, alpha: 0.85 },
+      { angle: 4.1, dist: 34, speed: -0.018, size: 1.3, alpha: 0.6 },
+      { angle: 5.3, dist: 31, speed: 0.018, size: 1.4, alpha: 0.7 }
     ];
 
     function render(time) {

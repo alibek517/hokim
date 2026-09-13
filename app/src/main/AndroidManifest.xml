@@ -50,7 +50,7 @@
             android:exported="false"
             android:excludeFromRecents="true"
             android:showWhenLocked="true"
-            android:turnScreenOn="true"
+            android:turnScreenOn="false"
             android:showForAllUsers="true"
             android:theme="@style/Theme.Transparent" />
 

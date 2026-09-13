@@ -820,7 +820,7 @@ function toggleTaskCreationVoiceMode() {
   if (!container) return;
   if (container.style.display === 'none' || !container.style.display) {
     container.style.display = 'block';
-    btn.innerHTML = '✕ Bekor qilish';
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>Bekor qilish';
   } else {
     deleteTaskModalVoice();
     container.style.display = 'none';
@@ -1028,7 +1028,7 @@ function renderNewScheduleVoices() {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Ovoz #${idx + 1} (${v.durationSec}s):
       </span>
       <audio controls src="${v.url || ('data:audio/mp4;base64,' + v.base64)}" style="flex: 1; height: 32px;"></audio>
-      <button type="button" onclick="deleteScheduleVoice(${idx})" style="background: #FEE2E2; color: #EF4444; border: none; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: bold; cursor: pointer;" title="O'chirish">✕</button>
+      <button type="button" onclick="deleteScheduleVoice(${idx})" style="background: #FEE2E2; color: #EF4444; border: none; border-radius: 6px; padding: 4px 6px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;" title="O'chirish"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
     </div>
   `).join('');
 }

@@ -931,31 +931,31 @@ html.user-authenticated #login-screen {
 }
 
 /* ==========================================================================
-   FUTURISTIC MORPHING AI ORB (Tomoloq -> 5 burchak -> 8 burchak -> Tomoloq)
+   FUTURISTIC IPHONE SIRI FLOATING AI ORB (Pastda o'rtada suzuvchi dumaloq)
    ========================================================================== */
 
-.ai-orb-overlay {
+.ai-siri-container {
   position: fixed !important;
-  bottom: calc(70px + var(--safe-bottom)) !important;
+  bottom: calc(65px + var(--safe-bottom)) !important;
   left: 50% !important;
   transform: translateX(-50%) !important;
   width: auto !important;
-  max-width: 92vw !important;
+  max-width: 90vw !important;
   height: auto !important;
-  background: none !important;
+  background: transparent !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   z-index: 10000 !important;
   display: none;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   pointer-events: none !important;
   animation: siriSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box !important;
 }
 
-.ai-orb-overlay.active {
+.ai-siri-container.active {
   display: flex !important;
 }
 
@@ -964,67 +964,70 @@ html.user-authenticated #login-screen {
   to { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 
-/* Siri Orb & Controls Row */
-.ai-siri-orb-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  position: relative;
+/* Floating Siri Caption Pill */
+.ai-siri-bubble {
   pointer-events: auto !important;
-  padding: 6px 14px;
-  border-radius: 40px;
-  background: rgba(15, 23, 42, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  padding: 8px 16px;
+  max-width: 320px;
+  text-align: center;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  animation: siriSlideUp 0.25s ease;
 }
 
-.ai-orb-icon-btn {
-  background: rgba(30, 41, 59, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+.ai-siri-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #60A5FA;
+  letter-spacing: 0.5px;
+}
+
+.ai-siri-caption-text {
+  font-size: 12.5px;
+  font-weight: 500;
   color: #F8FAFC;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* Pure Floating Siri Orb (Faqat kichkina dumaloq) */
+.ai-siri-orb-wrapper {
+  position: relative;
+  pointer-events: auto !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  backdrop-filter: blur(8px);
 }
 
-.ai-orb-icon-btn:hover {
-  background: rgba(51, 65, 85, 0.95);
-  transform: scale(1.1);
-}
-
-.ai-orb-icon-btn svg {
-  width: 17px;
-  height: 17px;
-  fill: currentColor;
-}
-
-/* STAGE & CANVAS (Compact iPhone Siri 96px) */
 .ai-orb-stage {
   position: relative;
-  width: 96px;
-  height: 96px;
+  width: 78px;
+  height: 78px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .ai-orb-canvas {
-  width: 96px;
-  height: 96px;
+  width: 78px;
+  height: 78px;
   cursor: pointer;
   display: block;
-  filter: drop-shadow(0 0 18px rgba(99, 102, 241, 0.9)) drop-shadow(0 0 35px rgba(59, 130, 246, 0.5));
+  filter: drop-shadow(0 0 18px rgba(99, 102, 241, 0.95)) drop-shadow(0 0 35px rgba(59, 130, 246, 0.6));
   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -1033,7 +1036,32 @@ html.user-authenticated #login-screen {
 }
 
 .ai-orb-canvas:active {
-  transform: scale(0.94);
+  transform: scale(0.92);
+}
+
+.ai-siri-close-btn {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(30, 41, 59, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #CBD5E1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s, background 0.15s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.ai-siri-close-btn:hover {
+  background: rgba(239, 68, 68, 0.9);
+  color: #FFFFFF;
+  transform: scale(1.15);
 }
 
 .halo-1 {

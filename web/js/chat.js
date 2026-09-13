@@ -86,7 +86,9 @@ function renderChatMessages() {
       contentHtml = '<div>' + escapeHtml(m.textContent || '') + '</div>';
     }
 
-    const ticksHtml = isMe ? ('<span class="ticks ' + (isRead ? 'read' : '') + '">' + (isRead ? '✓✓' : '✓') + '</span>') : '';
+    const singleTickSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -1px;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+    const doubleTickSvg = '<svg width="15" height="13" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -1px;"><path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"/></svg>';
+    const ticksHtml = isMe ? ('<span class="ticks ' + (isRead ? 'read' : '') + '">' + (isRead ? doubleTickSvg : singleTickSvg) + '</span>') : '';
     const editedHtml = isEdited ? '<span class="msg-edited-tag">tahrirlandi</span>' : '';
 
     html += '<div class="message-bubble ' + (isMe ? 'msg-outgoing' : 'msg-incoming') + '" onclick="onMessageClicked(\'' + m.id + '\')">' +
