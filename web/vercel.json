@@ -1,4 +1,39 @@
 {
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/web/assets/(.*)",
+      "destination": "/assets/$1"
+    },
+    {
+      "source": "/web/css/(.*)",
+      "destination": "/css/$1"
+    },
+    {
+      "source": "/web/js/(.*)",
+      "destination": "/js/$1"
+    },
+    {
+      "source": "/web/manifest.json",
+      "destination": "/manifest.json"
+    },
+    {
+      "source": "/web/sw.js",
+      "destination": "/sw.js"
+    },
+    {
+      "source": "/web/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
