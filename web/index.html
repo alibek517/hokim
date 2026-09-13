@@ -689,25 +689,10 @@
       <video id="full-video-element" controls style="width: 100%; max-height: 100%; outline: none;" playsinline></video>
     </div>
 
-    <!-- iPhone Siri Floating Orb (Pastda o'rtada suzuvchi iPhone Siri shari) -->
-    <div id="ai-assistant-modal" class="ai-siri-container">
-      <!-- Live Floating Caption Bubble (Siri nutq pufagi) -->
-      <div id="ai-siri-bubble" class="ai-siri-bubble">
-        <div id="ai-orb-status-badge" class="ai-siri-status">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
-          <span id="ai-status-text">Eshitmoqda...</span>
-        </div>
-        <div id="ai-orb-caption" class="ai-siri-caption-text">Assalomu alaykum, hurmatli Hokim! Buyrug'ingizni ayting...</div>
-      </div>
-
-      <!-- Compact Siri Orb (Faqat kichkina dumaloq harakatlanuvchi shar) -->
-      <div class="ai-siri-orb-wrapper">
-        <div class="ai-orb-stage" onclick="toggleAiVoiceListening()" title="Ovozni to'xtatish yoki yoqish uchun sharga bosing">
-          <canvas id="ai-orb-canvas" width="160" height="160" class="ai-orb-canvas"></canvas>
-        </div>
-        <button class="ai-siri-close-btn" onclick="closeAiAssistantModal()" title="Yopish">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
+    <!-- iPhone Siri Floating Orb (Faqatgina eng pastki markazda aylanuvchi shar, ortiqcha detallarsiz) -->
+    <div id="ai-assistant-modal" class="ai-siri-container" onclick="toggleAiVoiceListening()" title="Ovozni to'xtatish yoki yoqish uchun sharga bosing">
+      <div class="ai-orb-stage">
+        <canvas id="ai-orb-canvas" width="160" height="160" class="ai-orb-canvas"></canvas>
       </div>
     </div>
 
@@ -717,19 +702,19 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="js/firebase-config.js?v=20260913_16"></script>
-  <script src="js/chat.js?v=20260913_16"></script>
-  <script src="js/mayor.js?v=20260913_16"></script>
-  <script src="js/ai-assistant.js?v=20260913_16"></script>
-  <script src="js/worker.js?v=20260913_16"></script>
-  <script src="js/admin.js?v=20260913_16"></script>
-  <script src="js/app.js?v=20260913_16"></script>
+  <script src="js/firebase-config.js?v=20260913_17"></script>
+  <script src="js/chat.js?v=20260913_17"></script>
+  <script src="js/mayor.js?v=20260913_17"></script>
+  <script src="js/ai-assistant.js?v=20260913_17"></script>
+  <script src="js/worker.js?v=20260913_17"></script>
+  <script src="js/admin.js?v=20260913_17"></script>
+  <script src="js/app.js?v=20260913_17"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=20260913_16')
+        navigator.serviceWorker.register('./sw.js?v=20260913_17')
           .then(reg => {
             reg.update();
           })

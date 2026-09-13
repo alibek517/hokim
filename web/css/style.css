@@ -934,25 +934,29 @@ html.user-authenticated #login-screen {
    FUTURISTIC IPHONE SIRI FLOATING AI ORB (Pastda o'rtada suzuvchi dumaloq)
    ========================================================================== */
 
+/* ==========================================================================
+   FUTURISTIC IPHONE SIRI FLOATING AI ORB (Faqatgina eng pastda o'rtada suzuvchi dumaloq)
+   ========================================================================== */
+
 .ai-siri-container {
   position: fixed !important;
-  bottom: calc(65px + var(--safe-bottom)) !important;
+  bottom: calc(12px + var(--safe-bottom)) !important;
   left: 50% !important;
   transform: translateX(-50%) !important;
-  width: auto !important;
-  max-width: 90vw !important;
-  height: auto !important;
+  width: 78px !important;
+  height: 78px !important;
   background: transparent !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
   z-index: 10000 !important;
   display: none;
-  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  pointer-events: none !important;
-  animation: siriSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-  box-sizing: border-box !important;
+  justify-content: center;
+  pointer-events: auto !important;
+  cursor: pointer;
+  animation: siriSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ai-siri-container.active {
@@ -962,52 +966,6 @@ html.user-authenticated #login-screen {
 @keyframes siriSlideUp {
   from { opacity: 0; transform: translate(-50%, 25px) scale(0.9); }
   to { opacity: 1; transform: translate(-50%, 0) scale(1); }
-}
-
-/* Floating Siri Caption Pill */
-.ai-siri-bubble {
-  pointer-events: auto !important;
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 18px;
-  padding: 8px 16px;
-  max-width: 320px;
-  text-align: center;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  animation: siriSlideUp 0.25s ease;
-}
-
-.ai-siri-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #60A5FA;
-  letter-spacing: 0.5px;
-}
-
-.ai-siri-caption-text {
-  font-size: 12.5px;
-  font-weight: 500;
-  color: #F8FAFC;
-  line-height: 1.4;
-  word-break: break-word;
-}
-
-/* Pure Floating Siri Orb (Faqat kichkina dumaloq) */
-.ai-siri-orb-wrapper {
-  position: relative;
-  pointer-events: auto !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .ai-orb-stage {
@@ -1037,31 +995,6 @@ html.user-authenticated #login-screen {
 
 .ai-orb-canvas:active {
   transform: scale(0.92);
-}
-
-.ai-siri-close-btn {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: rgba(30, 41, 59, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #CBD5E1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-  transition: transform 0.15s, background 0.15s;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
-
-.ai-siri-close-btn:hover {
-  background: rgba(239, 68, 68, 0.9);
-  color: #FFFFFF;
-  transform: scale(1.15);
 }
 
 .halo-1 {

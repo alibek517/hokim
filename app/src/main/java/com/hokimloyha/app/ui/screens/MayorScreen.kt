@@ -221,7 +221,7 @@ fun MayorScreen(
             },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 76.dp)
+                .padding(bottom = 12.dp)
         )
     }
 }
@@ -3331,133 +3331,73 @@ fun AiJarvisFloatingOrb(
         }
     }
 
-    Column(
+    // Apple Siri Style Pure Floating Morphing Orb (Faqatgina harakatlanuvchi shar, ortiqcha detallarsiz)
+    Box(
         modifier = modifier
-            .widthIn(max = 340.dp)
-            .padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .size(76.dp),
+        contentAlignment = Alignment.Center
     ) {
-        // Sleek translucent Siri caption capsule
-        Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = Color(0xF20F172A),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x33FFFFFF)),
-            shadowElevation = 12.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isListening) Icons.Default.Phone else Icons.Default.Star,
-                            contentDescription = null,
-                            tint = if (isListening) Color(0xFF60A5FA) else Color(0xFFA78BFA),
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Text(
-                            text = if (isListening) "Tinglanmoqda..." else if (isSpeaking) "Javob berilmoqda..." else "O'zbek AI Siri",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isListening) Color(0xFF60A5FA) else Color(0xFFE2E8F0)
-                        )
-                    }
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(22.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Yopish",
-                            tint = Color(0xFF94A3B8),
-                            modifier = Modifier.size(13.dp)
-                        )
+        // Outer glow halo 1
+        Box(
+            modifier = Modifier
+                .size(76.dp)
+                .scale(scale * 1.05f)
+                .clip(CircleShape)
+                .background(Color(0x336366F1))
+        )
+        // Outer glow halo 2
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .scale(scale)
+                .clip(CircleShape)
+                .background(Color(0x443B82F6))
+        )
+
+        // Core Morphing Orb (Tomoloq -> 5 burchak -> 8 burchak -> Tomoloq)
+        Box(
+            modifier = Modifier
+                .size(54.dp)
+                .scale(scale)
+                .rotate(rotation)
+                .clip(RoundedCornerShape(percent = cornerRadiusPercent.toInt()))
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Color.White,
+                            Color(0xFFBFDBFE),
+                            Color(0xFF6366F1),
+                            Color(0xFF3B82F6),
+                            Color(0xFF1E1B4B)
+                        ),
+                        center = Offset(36f, 20f),
+                        radius = 70f
+                    )
+                )
+                .clickable {
+                    val hasPerm = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (hasPerm) {
+                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uz-UZ")
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "uz-UZ")
+                            putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
+                            putExtra(RecognizerIntent.EXTRA_PROMPT, "O'zbek tilida buyruq bering...")
+                        }
+                        try {
+                            isListening = true
+                            speechLauncher.launch(intent)
+                        } catch (e: Exception) {
+                            isListening = false
+                            Toast.makeText(context, "Ovozli qidiruv mavjud emas", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }
                 }
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = lastCaption,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White,
-                    lineHeight = 16.sp
-                )
-            }
-        }
-
-        // Apple Siri Style Floating Morphing Orb (Circle -> 5/8-corner -> Circle)
-        Box(
-            modifier = Modifier.size(76.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            // Outer glow halo
-            Box(
-                modifier = Modifier
-                    .size(76.dp)
-                    .scale(scale * 1.05f)
-                    .clip(CircleShape)
-                    .background(Color(0x336366F1))
-            )
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .scale(scale)
-                    .clip(CircleShape)
-                    .background(Color(0x443B82F6))
-            )
-
-            // Core Morphing Orb (Tomoloq -> 5 burchak -> 8 burchak -> Tomoloq)
-            Box(
-                modifier = Modifier
-                    .size(54.dp)
-                    .scale(scale)
-                    .rotate(rotation)
-                    .clip(RoundedCornerShape(percent = cornerRadiusPercent.toInt()))
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                Color.White,
-                                Color(0xFFBFDBFE),
-                                Color(0xFF6366F1),
-                                Color(0xFF3B82F6),
-                                Color(0xFF1E1B4B)
-                            ),
-                            center = Offset(36f, 20f),
-                            radius = 70f
-                        )
-                    )
-                    .clickable {
-                        val hasPerm = ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.RECORD_AUDIO
-                        ) == PackageManager.PERMISSION_GRANTED
-                        if (hasPerm) {
-                            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uz-UZ")
-                                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "uz-UZ")
-                                putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
-                                putExtra(RecognizerIntent.EXTRA_PROMPT, "O'zbek tilida buyruq bering...")
-                            }
-                            try {
-                                isListening = true
-                                speechLauncher.launch(intent)
-                            } catch (e: Exception) {
-                                isListening = false
-                                Toast.makeText(context, "Ovozli qidiruv mavjud emas", Toast.LENGTH_SHORT).show()
-                            }
-                        } else {
-                            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        }
-                    }
-            )
-        }
+        )
     }
 }
