@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hokimloyha.app.data.AppStorage
@@ -1108,109 +1109,129 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                     )
                                 }
 
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Birlashtirilgan ixcham Mas'ul va Ko'rildi footer paneli (Web bilan bir xil)
                                 Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(SlateBg)
-                                        .padding(8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Column {
-                                        Text("Mas'ul: " + task.assignedWorkerName, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = NavyDark)
-                                        Text("Boshlanish: " + dateFormat.format(Date(task.startDate)), fontSize = 11.sp, color = TextSecondary)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(SlateBg)
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            task.assignedWorkerName.ifBlank { "Biriktirilmagan" },
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = NavyDark,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
                                     }
-                                }
 
-                                // Xodim topshiriqni ko'rganligi / ko'rmaganligi haqida
-                                if (task.seenAt != null) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = Color(0xFFF0FDF4),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBBF7D0)),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Column(modifier = Modifier.padding(10.dp)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text("👁️", fontSize = 14.sp)
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    "Xodim ko'rdi: " + dateFormat.format(Date(task.seenAt)),
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Color(0xFF15803D)
-                                                )
-                                            }
-                                            if (!task.seenResponseText.isNullOrBlank()) {
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Text("💬 Xodim javobi: \"${task.seenResponseText}\"", fontSize = 12.sp, color = NavyDark)
-                                            }
-                                            if (!task.seenResponseVoiceBase64.isNullOrBlank() || !task.seenResponseVoicePath.isNullOrBlank()) {
-                                                Spacer(modifier = Modifier.height(6.dp))
-                                                val isPlayingThis = currentlyPlayingVoiceTaskId == task.id
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(8.dp))
-                                                        .background(PrimaryBlue.copy(alpha = 0.1f))
-                                                        .clickable {
-                                                            if (isPlayingThis) {
-                                                                voicePlayer.stop()
-                                                                currentlyPlayingVoiceTaskId = null
-                                                            } else {
-                                                                val p = task.seenResponseVoicePath ?: storage.restoreTaskVoiceBase64(task.id, task.seenResponseVoiceBase64 ?: "")
-                                                                if (p != null && File(p).exists()) {
-                                                                    currentlyPlayingVoiceTaskId = task.id
-                                                                    voicePlayer.play(p) {
-                                                                        currentlyPlayingVoiceTaskId = null
-                                                                    }
-                                                                } else {
-                                                                    Toast.makeText(context, "Ovoz yuklanmoqda...", Toast.LENGTH_SHORT).show()
-                                                                }
-                                                            }
-                                                        }
-                                                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = if (isPlayingThis) Icons.Default.Close else Icons.Default.PlayArrow,
-                                                        contentDescription = null,
-                                                        tint = PrimaryBlue,
-                                                        modifier = Modifier.size(20.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.width(6.dp))
-                                                    Text(
-                                                        if (isPlayingThis) "Tinglanmoqda..." else "🎤 Ovozli javob (${task.seenResponseVoiceDuration}s)",
-                                                        fontSize = 12.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = PrimaryBlue
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = Color(0xFFFFFBEB),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A)),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
+                                    if (task.seenAt != null) {
+                                        val seenTimeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
                                         Row(
-                                            modifier = Modifier.padding(8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(Color(0xFFDCFCE7))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
                                         ) {
-                                            Text("⚠️", fontSize = 14.sp)
-                                            Spacer(modifier = Modifier.width(6.dp))
                                             Text(
-                                                "Xodim hali ko'rmagan (Tasdiqlanmagan)",
+                                                "👁️ Ko'rildi: ${seenTimeFormat.format(Date(task.seenAt))}",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF15803D)
+                                            )
+                                        }
+                                    } else {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(Color(0xFFFEF3C7))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                "⚠️ Ko'rilmagan",
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = Color(0xFFB45309)
                                             )
+                                        }
+                                    }
+                                }
+
+                                if (!task.seenResponseText.isNullOrBlank() || !task.seenResponseVoiceBase64.isNullOrBlank() || !task.seenResponseVoicePath.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(Color(0xFFF0FDF4))
+                                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("💬 Xodim:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF15803D))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        if (!task.seenResponseText.isNullOrBlank()) {
+                                            Text(
+                                                "\"${task.seenResponseText}\"",
+                                                fontSize = 11.sp,
+                                                color = NavyDark,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f, fill = false)
+                                            )
+                                        }
+                                        if (!task.seenResponseVoiceBase64.isNullOrBlank() || !task.seenResponseVoicePath.isNullOrBlank()) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            val isPlayingThis = currentlyPlayingVoiceTaskId == task.id
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(Color(0xFFDCFCE7))
+                                                    .clickable {
+                                                        if (isPlayingThis) {
+                                                            voicePlayer.stop()
+                                                            currentlyPlayingVoiceTaskId = null
+                                                        } else {
+                                                            val p = task.seenResponseVoicePath ?: storage.restoreTaskVoiceBase64(task.id, task.seenResponseVoiceBase64 ?: "")
+                                                            if (p != null && File(p).exists()) {
+                                                                currentlyPlayingVoiceTaskId = task.id
+                                                                voicePlayer.play(p) {
+                                                                    currentlyPlayingVoiceTaskId = null
+                                                                }
+                                                            } else {
+                                                                Toast.makeText(context, "Ovoz yuklanmoqda...", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        }
+                                                    }
+                                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isPlayingThis) Icons.Default.Close else Icons.Default.PlayArrow,
+                                                    contentDescription = null,
+                                                    tint = Color(0xFF15803D),
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    if (isPlayingThis) "Tinglanmoqda" else "Ovozli javob",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF15803D)
+                                                )
+                                            }
                                         }
                                     }
                                 }
