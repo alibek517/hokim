@@ -3143,6 +3143,10 @@ fun AiJarvisFloatingOrb(
     fun handleCommand(rawCmd: String) {
         val cmd = rawCmd.trim()
         if (cmd.isBlank()) return
+
+        // Shovqin filtri: Faqat sonlardan iborat bo'lsa (masalan: 30224030224) e'tiborsiz qoldiriladi
+        if (cmd.matches(Regex("^\\d+$"))) return
+
         conversationHistory.add("USER" to cmd)
         inputText = ""
 
@@ -3151,6 +3155,7 @@ fun AiJarvisFloatingOrb(
         // 0. To'xtatish va o'zini o'zi yopish ("to'xta", "stop", "jim", "bas", "yetadi", "yopil", "chiq")
         val stopWords = listOf("to'xta", "toxta", "to'xtat", "toxtat", "jim bo'l", "jim bol", "jim", "bas", "yetadi", "yopil", "yop", "chiq", "stop", "xayr")
         if (stopWords.any { lower == it || lower.startsWith("$it ") || lower.endsWith(" $it") || lower.contains(" $it ") }) {
+            aiState = "IDLE"
             val reply = "Tushundim, to'xtadim."
             conversationHistory.add("JARVIS" to reply)
             speak(reply)
@@ -3158,7 +3163,7 @@ fun AiJarvisFloatingOrb(
             return
         }
 
-        // 1. Tasdiqlash bosqichi
+        // 1. Tasdiqlash bosqichi (CONFIRMING)
         if (aiState == "CONFIRMING") {
             val confirmWords = listOf(
                 "ha", "xa", "albatta", "bo'ldi", "boldi", "to'g'ri", "tasdiqlayman", "tasdiqla",
@@ -3189,13 +3194,13 @@ fun AiJarvisFloatingOrb(
                     Toast.makeText(context, reply, Toast.LENGTH_SHORT).show()
                 }
                 return
-            } else if (lower.contains("yo'q") || lower.contains("yoq") || lower.contains("bekor")) {
+            } else if (lower.contains("yo'q") || lower.contains("yoq") || lower.contains("bekor") || lower.contains("kerakmas")) {
                 aiState = "IDLE"
                 val reply = "Topshiriq bekor qilindi."
                 conversationHistory.add("JARVIS" to reply)
                 speak(reply)
                 return
-            } else if (lower.contains("xatosi") || lower.contains("duzot") || lower.contains("tuzat") || lower.contains("emas") || lower.contains("o'rniga")) {
+            } else if (lower.contains("xatosi") || lower.contains("duzot") || lower.contains("tuzat") || lower.contains("emas") || lower.contains("o'rniga") || lower.contains("o'zgartir") || lower.contains("xato")) {
                 val otherWorker = workers.firstOrNull { w ->
                     val f = w.firstName.lowercase()
                     val l = w.lastName.lowercase()
@@ -3211,38 +3216,84 @@ fun AiJarvisFloatingOrb(
             }
         }
 
-        // 2. Navigatsiya
-        if (lower.contains("reja") || lower.contains("rejalar")) {
-            onSwitchTab(1)
-            val reply = "Rejalar bo'limi ochildi."
-            conversationHistory.add("JARVIS" to reply)
-            speak(reply)
-            return
+        // 2. Ma'lumotlarni yig'ish bosqichi (DRAFTING)
+        if (aiState == "DRAFTING") {
+            if (lower.contains("yo'q") || lower.contains("yoq") || lower.contains("bekor") || lower.contains("kerakmas")) {
+                aiState = "IDLE"
+                val reply = "Topshiriq bekor qilindi."
+                conversationHistory.add("JARVIS" to reply)
+                speak(reply)
+                return
+            }
+
+            val worker = workers.firstOrNull { w ->
+                val f = w.firstName.lowercase()
+                val l = w.lastName.lowercase()
+                (f.length > 2 && lower.contains(f)) || (l.length > 2 && lower.contains(l))
+            }
+            if (worker != null) {
+                draftTask = draftTask.copy(worker = worker)
+            } else if (lower.contains("kirgizmay") || lower.contains("bo'ldi") || lower.contains("boldi") || lower.contains("kerakmas")) {
+                if (draftTask.worker == null && workers.isNotEmpty()) {
+                    draftTask = draftTask.copy(worker = workers.first())
+                }
+            }
+
+            if (draftTask.worker != null) {
+                aiState = "CONFIRMING"
+                val df = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+                val reply = "${draftTask.worker?.fullName} ga \"${draftTask.title}\" topshirig'i tayyorlandi. Muddati: ${df.format(Date(draftTask.endDate))}. Topshiriqni tasdiqlaysizmi?"
+                conversationHistory.add("JARVIS" to reply)
+                speak(reply)
+                return
+            } else {
+                val reply = "Topshiriq: \"${draftTask.title}\". Bu topshiriqni qaysi xodimga biriktiramiz?"
+                conversationHistory.add("JARVIS" to reply)
+                speak(reply)
+                return
+            }
         }
-        if (lower.contains("ishchi") || lower.contains("xodim") || lower.contains("reyting")) {
-            onSwitchTab(2)
-            val reply = "Xodimlar va ularning reytingi sahifasiga o'tdik."
-            conversationHistory.add("JARVIS" to reply)
-            speak(reply)
-            return
-        }
-        if (lower.contains("chat") || lower.contains("xabar") || lower.contains("yozish")) {
-            onSwitchTab(3)
-            val reply = "Chatlar bo'limi ochildi."
-            conversationHistory.add("JARVIS" to reply)
-            speak(reply)
-            return
-        }
-        if (lower.contains("topshiriq") && (lower.contains("och") || lower.contains("o't") || lower.contains("ko'rsat"))) {
+
+        // 3. Sahifalarga o'tish (Aniq navigatsiya)
+        // Tab 0: Topshiriqlar
+        if (Regex("\\b(?:1[- ]?(?:pej|sahifa)|birinchi\\s+(?:pej|sahifa|pejni)|topshiriqlar|bosh\\s+sahifa|asosiy|glavniy)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower) ||
+            (lower.contains("topshiriq") && (lower.contains("och") || lower.contains("o't") || lower.contains("ko'rsat")))) {
             onSwitchTab(0)
-            val reply = "Topshiriqlar bo'limi ochildi."
+            val reply = "1-sahifa: Topshiriqlar bo'limi ochildi."
             conversationHistory.add("JARVIS" to reply)
             speak(reply)
             return
         }
 
-        // 3. Yangi topshiriq yaratish ("ish ber", "topshiriq ber", "vazifa", "ayt")
-        val isCreate = lower.contains("ish ber") || lower.contains("topshiriq") || lower.contains("vazifa") || lower.contains("biriktir")
+        // Tab 1: Rejalar
+        if (Regex("\\b(?:2[- ]?(?:pej|sahifa)|ikkinchi\\s+(?:pej|sahifa|pejni)|reja|rejalar|rejani|rejalarni|plan)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower)) {
+            onSwitchTab(1)
+            val reply = "2-sahifa: Rejalar bo'limi ochildi."
+            conversationHistory.add("JARVIS" to reply)
+            speak(reply)
+            return
+        }
+
+        // Tab 2: Xodimlar va reyting
+        if (Regex("\\b(?:3[- ]?(?:pej|sahifa)|uchinchi\\s+(?:pej|sahifa|pejni)|xodim|xodimlar|xodimlarni|ishchi|ishchilar|ishchilarni|reyting|reytingni)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower)) {
+            onSwitchTab(2)
+            val reply = "3-sahifa: Xodimlar va ularning reytingi sahifasiga o'tdik."
+            conversationHistory.add("JARVIS" to reply)
+            speak(reply)
+            return
+        }
+
+        // Tab 3: Chatlar
+        if (Regex("\\b(?:4[- ]?(?:pej|sahifa)|to['ʻ`]?rtinchi\\s+(?:pej|sahifa|pejni)|chat|chatlar|chatlarni|xabar|xabarlar|xabarlarni)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower)) {
+            onSwitchTab(3)
+            val reply = "4-sahifa: Chatlar bo'limi ochildi."
+            conversationHistory.add("JARVIS" to reply)
+            speak(reply)
+            return
+        }
+
+        // 4. Yangi topshiriq yaratish ("ish ber", "topshiriq ber", "vazifa", "asfaltlash", "kerak")
+        val isCreate = lower.contains("ish ber") || lower.contains("topshiriq") || lower.contains("vazifa") || lower.contains("biriktir") || lower.contains("kerak") || lower.contains("asfaltlash") || lower.contains("tozalash") || lower.contains("yarat")
         val detectedWorker = workers.firstOrNull { w ->
             val f = w.firstName.lowercase()
             val l = w.lastName.lowercase()
@@ -3250,43 +3301,52 @@ fun AiJarvisFloatingOrb(
         }
 
         if (isCreate || detectedWorker != null) {
-            val assigned = detectedWorker ?: workers.firstOrNull()
-            if (assigned == null) {
-                val reply = "Biriktirish uchun xodimlar topilmadi. Avval xodim qo'shing."
-                conversationHistory.add("JARVIS" to reply)
-                speak(reply)
-                return
-            }
+            val now = System.currentTimeMillis()
+            val end = now + 48 * 3600 * 1000L
+            val df = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
 
             var cleanTitle = cmd
                 .replace(Regex("(?i)valiga|alisherga|karimga|boburga|jamshidga|xodimga"), "")
-                .replace(Regex("(?i)ish ber|topshiriq ber|yangi topshiriq|vazifa ber|biriktir|qilsin|etsin|tekshirsin|bajarilsin"), "")
+                .replace(Regex("(?i)ish ber|topshiriq ber|yangi topshiriq|vazifa ber|biriktir|qilsin|etsin|tekshirsin|bajarilsin|kerak|yarat"), "")
                 .replace(Regex("(?i)\\d{1,2}[-–\\s]*(sentabr|sentyabr|oktabr|oktyabr|noyabr|dekabr|yanvar|fevral|mart|aprel|may|iyun|iyul|avgust)[gacha]*"), "")
                 .replace(Regex("(?i)bugun|ertaga|indin|gacha"), "")
+                .replace(Regex("[,;:.!?]"), " ")
                 .trim()
 
             if (cleanTitle.length < 3) cleanTitle = "Topshiriq ijrosini ta'minlash"
             cleanTitle = cleanTitle.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
 
-            val now = System.currentTimeMillis()
-            val end = now + 48 * 3600 * 1000L
-            val df = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+            if (detectedWorker != null) {
+                draftTask = AiTaskDraft(
+                    title = cleanTitle,
+                    worker = detectedWorker,
+                    startDate = now,
+                    endDate = end
+                )
+                aiState = "CONFIRMING"
 
-            draftTask = AiTaskDraft(
-                title = cleanTitle,
-                worker = assigned,
-                startDate = now,
-                endDate = end
-            )
-            aiState = "CONFIRMING"
+                val promptSpeech = "${detectedWorker.fullName} ga \"${cleanTitle}\" topshirig'i tayyorlandi. Boshlanish sanasi: ${df.format(Date(now))}, tugash muddati: ${df.format(Date(end))}. Bu ishchi reytingiga ta'sir qiladi. Topshiriqni saqlash va biriktirishni tasdiqlaysizmi?"
+                conversationHistory.add("JARVIS" to promptSpeech)
+                speak(promptSpeech)
+                return
+            } else {
+                draftTask = AiTaskDraft(
+                    title = cleanTitle,
+                    worker = null,
+                    startDate = now,
+                    endDate = end
+                )
+                aiState = "DRAFTING"
 
-            val promptSpeech = "${assigned.fullName} ga \"${cleanTitle}\" topshirig'i tayyorlandi. Boshlanish sanasi: ${df.format(Date(now))}, tugash muddati: ${df.format(Date(end))}. Bu ishchi reytingiga ta'sir qiladi. Topshiriqni saqlash va biriktirishni tasdiqlaysizmi?"
-            conversationHistory.add("JARVIS" to promptSpeech)
-            speak(promptSpeech)
-            return
+                val promptSpeech = "Xo'p, tushunarli. Topshiriq: \"${cleanTitle}\". Bu topshiriqni qaysi xodimga biriktiramiz va muddati qachongacha?"
+                conversationHistory.add("JARVIS" to promptSpeech)
+                speak(promptSpeech)
+                return
+            }
         }
 
-        val fallback = "Kechirasiz, buyrug'ingizni tushunmadim. Masalan: 'Alisherga topshiriq ber', 'Rejalarga o't' deb ayting."
+        // Tushunarsiz buyruq (masalan: "videoni och") - hech qachon reja ochilmaydi yoki qidirilmaydi!
+        val fallback = "Kechirasiz, buyrug'ingizni tushunmadim. Masalan: '1-pejni och', 'Rejalarni och' yoki 'Yangi topshiriq yarat' deb ayting."
         conversationHistory.add("JARVIS" to fallback)
         speak(fallback)
     }

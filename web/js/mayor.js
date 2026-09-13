@@ -782,7 +782,7 @@ function openCreateTaskModal() {
 
   const select = document.getElementById('new-task-worker');
   if (select) {
-    select.innerHTML = workers.map(w => `<option value="${w.id}">${escapeHtml(w.fullName || (w.firstName + ' ' + w.lastName))}</option>`).join('');
+    select.innerHTML = '<option value="">-- Xodimni tanlang --</option>' + workers.map(w => `<option value="${w.id}">${escapeHtml(w.fullName || (w.firstName + ' ' + w.lastName))}</option>`).join('');
   }
 
   const now = new Date();
@@ -949,6 +949,11 @@ async function saveNewTask() {
 
   if (!title && hasVoice) {
     title = `Ovozli topshiriq (${taskModalVoiceState.voiceDurationSec}s)`;
+  }
+
+  if (!workerId) {
+    alert("Iltimos, topshiriq biriktiriladigan xodimni tanlang!");
+    return;
   }
 
   const worker = window.store.users.find(u => u.id === workerId);
@@ -1642,6 +1647,8 @@ window.mayorAiHelpers = {
   },
   searchTasks: (q) => {
     mayorTaskSearchQuery = q;
+    const input = document.getElementById('mayor-task-search-input');
+    if (input) input.value = q;
     renderMayorTasks();
   },
   searchSchedules: (q) => {
