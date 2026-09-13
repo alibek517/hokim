@@ -125,6 +125,16 @@
   };
 
   let activeAudioPlayer = null;
+  let cachedVoices = [];
+  function loadAvailableVoices() {
+    if ('speechSynthesis' in window) {
+      cachedVoices = window.speechSynthesis.getVoices() || [];
+    }
+  }
+  if ('speechSynthesis' in window) {
+    loadAvailableVoices();
+    window.speechSynthesis.onvoiceschanged = loadAvailableVoices;
+  }
 
   // Text-to-Speech (Faqat 100% Sof O'zbek tili - ruscha, inglizcha, turkcha butunlay taqiqlangan)
   function speakText(text, callback) {
@@ -156,14 +166,18 @@
     updateAiStatus('speaking', '🔊 Gapirmoqda...');
 
     // 1. Birinchi o'rinda Microsoft Neural O'zbekcha Ovoz (https://hokim.vercel.app/api/tts)
-    const ttsUrl = 'https://hokim.vercel.app/api/tts?text=' + encodeURIComponent(cleanText);
-    const audio = new Audio(ttsUrl);
+    const baseUrl = (window.location.protocol.startsWith('http') && window.location.hostname.includes('vercel.app'))
+      ? '/api/tts'
+      : 'https://hokim.vercel.app/api/tts';
+    const ttsUrl = baseUrl + '?text=' + encodeURIComponent(cleanText);
+    const audio = new Audio();
     activeAudioPlayer = audio;
 
     let fallbackTriggered = false;
     const triggerLocalFallback = () => {
       if (fallbackTriggered) return;
       fallbackTriggered = true;
+      if (activeAudioPlayer === audio) activeAudioPlayer = null;
       speakLocalUzbek(cleanText, callback);
     };
 
@@ -175,25 +189,34 @@
     };
 
     audio.onerror = (e) => {
-      console.warn("Neural TTS streaming offline, checking local voice...", e);
+      console.warn("Neural TTS server offline/rate-limited, fallback to browser speech...", e);
       triggerLocalFallback();
     };
 
-    // Agar 4 sekund ichida audio o'ynamasa, mahalliy fallback
+    // Agar 3 sekund ichida audio o'ynamasa, mahalliy fallback
     const fallbackTimer = setTimeout(() => {
       if (audio.paused && audio.currentTime === 0) {
         triggerLocalFallback();
       }
-    }, 4000);
+    }, 3000);
 
     audio.onplay = () => {
       clearTimeout(fallbackTimer);
     };
 
-    audio.play().catch((err) => {
-      console.warn("audio.play() failed:", err);
+    try {
+      audio.src = ttsUrl;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn("audio.play() stream error:", err);
+          triggerLocalFallback();
+        });
+      }
+    } catch (err) {
+      console.warn("Audio element setup error:", err);
       triggerLocalFallback();
-    });
+    }
   }
 
   // Mahalliy O'zbekcha Fallback (Faqat O'zbek tili, begona tillar QAT'IYAN TAQIQLANADI)
@@ -208,22 +231,20 @@
     try {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.92;
+      utterance.rate = 0.95;
       utterance.pitch = 1.0;
 
-      const voices = window.speechSynthesis.getVoices() || [];
+      const voices = cachedVoices.length > 0 ? cachedVoices : (window.speechSynthesis.getVoices() || []);
       // Qat'iy qoida: Faqat o'zbek tili ovozini topish (uz-UZ, Madina, Sardor, Uzbek)
       const uzVoice = voices.find(v => 
         (v.lang && (v.lang.toLowerCase().startsWith('uz') || v.lang.toLowerCase().includes('uzb'))) ||
         (v.name && (v.name.toLowerCase().includes('uzbek') || v.name.toLowerCase().includes('madina') || v.name.toLowerCase().includes('sardor')))
       );
 
-      // Agar o'zbekcha ovoz topilsa, o'rnatamiz. Begona tillar (ru, en, tr, kk, az) MUTLAQO o'rnatilmaydi!
       if (uzVoice) {
         utterance.voice = uzVoice;
         utterance.lang = uzVoice.lang || 'uz-UZ';
       } else {
-        // Agar tizimda umuman o'zbekcha ovoz bo'lmasa, begona tillarda gapirmaydi
         utterance.lang = 'uz-UZ';
       }
 
@@ -544,9 +565,92 @@
     return null;
   }
 
+  // Gemini AI Cloud Integration
+  async function callGeminiAssistant(rawText) {
+    const apiKey = window.GEMINI_API_KEY || localStorage.getItem('ijro_gemini_api_key');
+    if (!apiKey) return null;
+
+    const workers = (window.store && window.store.users || []).filter(u => u.role === 'WORKER').map(u => ({
+      id: u.id,
+      name: u.fullName || (u.firstName + ' ' + u.lastName),
+      position: u.position || 'Mutaxassis'
+    }));
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    const systemPrompt = `Siz "IJRO" davlat boshqaruv tizimida tuman/shahar Hokimining shaxsiy sun'iy intellekt yordamchisisiz.
+Hokim sizga o'zbek tilida (shu jumladan Xorazm shevasida: "ish ber", "et", "duzot", "ayt", "qilsin") buyruq yoki savol beradi.
+Siz faqat va faqat 100% adabiy, hurmatli o'zbek tilida javob berasiz. Ruscha, inglizcha yoki boshqa begona tillar qat'iyan taqiqlangan!
+Bugungi sana: ${todayStr}.
+Tizimdagi xodimlar ro'yxati: ${JSON.stringify(workers)}.
+
+Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qaytaring (hech qanday markdown \`\`\`json tegisiz, toza JSON formatida):
+{
+  "intent": "CREATE_TASK" | "FILTER_STATUS" | "NAVIGATE" | "CONFIRM" | "CANCEL" | "GREETING" | "SEARCH" | "CHAT",
+  "speechReply": "Hokimga aytiladigan o'zbekcha qisqa, madaniyatli va aniq ovozli javob",
+  "task": {
+    "title": "Topshiriq nomi",
+    "workerId": "xodim IDsi",
+    "workerName": "Xodim ismi",
+    "startDate": "${todayStr}",
+    "endDate": "YYYY-MM-DD"
+  },
+  "statusIdx": 1,
+  "tab": 0,
+  "query": "qidiruv matni"
+}`;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+    const body = {
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: systemPrompt },
+            { text: `Hokimning gapi: "${rawText}"` }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: "application/json"
+      }
+    };
+
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!resp.ok) {
+        console.warn("Gemini API status error:", resp.status);
+        return null;
+      }
+      const data = await resp.json();
+      const contentText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!contentText) return null;
+      const cleanJson = contentText.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
+      return JSON.parse(cleanJson);
+    } catch (e) {
+      console.warn("Gemini API call failed, fallback to local NLP:", e);
+      return null;
+    }
+  }
+
   // Core NLP Intent Engine (supporting Uzbek & Xorazm dialect + common admin terms)
   function analyzeIntent(rawText) {
     const text = rawText.toLowerCase().trim();
+
+    // 0. Salomlashish va hol-ahvol (Greeting)
+    const greetings = ['salom', 'assalomu alaykum', 'assalom', 'qandaysiz', 'qalaysiz', 'charchamang', 'hormang', 'salomatmisiz', 'privet', 'hello'];
+    if (greetings.some(g => text === g || text.startsWith(g + ' ') || text.endsWith(' ' + g) || text === g + '!' || text === g + '?')) {
+      return {
+        intent: 'GREETING',
+        message: "Assalomu alaykum, hurmatli Hokim! Sizga qanday yordam bera olaman?"
+      };
+    }
 
     // 1. Tasdiqlash javoblari (Confirmation)
     const confirmWords = [
@@ -609,7 +713,21 @@
       return { intent: 'FILTER_STATUS', statusIdx: 1, message: "Kechikkan va boshlanmagan topshiriqlar ko'rsatilmoqda." };
     }
 
-    // 6. Yangi topshiriq yaratish (Xorazm "ish ber", "topshiriq ber", "vazifa yukla", "ayt", "qilsin", "etsin")
+    // 6. Minnatdorchilik va umumiy savollar
+    if (text.includes('rahmat') || text.includes('barakalla') || text.includes('balli') || text.includes('tashakkur')) {
+      return {
+        intent: 'GREETING',
+        message: "Arzimaydi, hurmatli Hokim! Sizga xizmat qilishdan doim mamnunman."
+      };
+    }
+    if (text.includes('kimsan') || text.includes('nima qila olasan') || text.includes('yordam ber')) {
+      return {
+        intent: 'GREETING',
+        message: "Men sizning shaxsiy sun'iy intellekt yordamchingizman. Topshiriq biriktirish, saralash yoki xodimlar reytingini ko'rsatishim mumkin."
+      };
+    }
+
+    // 7. Yangi topshiriq yaratish (Xorazm "ish ber", "topshiriq ber", "vazifa yukla", "ayt", "qilsin", "etsin")
     const isCreateCommand = text.includes('ish ber') || text.includes('topshiriq') || text.includes('vazifa') || text.includes('yangi ish') || text.includes('biriktir') || text.includes('zadaniya') || text.includes('sozdat') || text.includes('naznachit') || text.includes('buyur');
     const detectedWorker = findWorkerInSpeech(text);
 
@@ -695,7 +813,100 @@
       }
     }
 
+    // 1. Agar Gemini API kaliti o'rnatilgan bo'lsa, avvalo Gemini AI orqali aqlli tahlil
+    try {
+      const geminiResult = await callGeminiAssistant(userSpeech);
+      if (geminiResult) {
+        if (geminiResult.intent === 'NAVIGATE') {
+          if (window.mayorAiHelpers && window.mayorAiHelpers.switchToTab) {
+            window.mayorAiHelpers.switchToTab(geminiResult.tab ?? 0);
+          }
+          const msg = geminiResult.speechReply || "Kerakli sahifa ochildi.";
+          appendAiMessage('jarvis', msg);
+          speakText(msg);
+          return;
+        }
+
+        if (geminiResult.intent === 'FILTER_STATUS') {
+          if (window.mayorAiHelpers) {
+            window.mayorAiHelpers.switchToTab(0);
+            window.mayorAiHelpers.filterTasksByStatus(geminiResult.statusIdx ?? 1);
+          }
+          const msg = geminiResult.speechReply || "Topshiriqlar saralandi.";
+          appendAiMessage('jarvis', msg);
+          speakText(msg);
+          return;
+        }
+
+        if (geminiResult.intent === 'CREATE_TASK' && geminiResult.task) {
+          let worker = (window.store.users || []).find(u => u.id === geminiResult.task.workerId);
+          if (!worker && geminiResult.task.workerName) {
+            worker = findWorkerInSpeech(geminiResult.task.workerName);
+          }
+          const workers = (window.store.users || []).filter(u => u.role === 'WORKER');
+          if (!worker && workers.length > 0) worker = workers[0];
+
+          if (!worker) {
+            const reply = "Tizimda biriktirish uchun birorta ham xodim topilmadi.";
+            appendAiMessage('jarvis', reply);
+            speakText(reply);
+            return;
+          }
+
+          draftTask = {
+            title: geminiResult.task.title || "Topshiriq",
+            workerId: worker.id,
+            workerName: worker.fullName || (worker.firstName + ' ' + worker.lastName),
+            startDate: geminiResult.task.startDate || new Date().toISOString().slice(0, 10),
+            endDate: geminiResult.task.endDate || new Date(Date.now() + 48*3600*1000).toISOString().slice(0, 10)
+          };
+
+          if (window.mayorAiHelpers && window.mayorAiHelpers.openTaskModalWithData) {
+            window.mayorAiHelpers.switchToTab(0);
+            window.mayorAiHelpers.openTaskModalWithData({
+              title: draftTask.title,
+              workerId: draftTask.workerId,
+              startDate: draftTask.startDate,
+              endDate: draftTask.endDate
+            });
+          }
+
+          aiState = 'CONFIRMING_TASK';
+          const promptSpeech = geminiResult.speechReply || `${draftTask.workerName} ga "${draftTask.title}" topshirig'i tayyorlandi. Boshlanish sanasi ${draftTask.startDate}, tugash muddati ${draftTask.endDate}. Bu ishchi reytingiga ta'sir qiladi. Topshiriqni saqlash va biriktirishni tasdiqlaysizmi?`;
+          appendAiMessage('jarvis', promptSpeech);
+          speakText(promptSpeech);
+          return;
+        }
+
+        if (geminiResult.intent === 'GREETING' || geminiResult.intent === 'CHAT') {
+          const reply = geminiResult.speechReply || "Assalomu alaykum, hurmatli Hokim! Sizga qanday yordam bera olaman?";
+          appendAiMessage('jarvis', reply);
+          speakText(reply);
+          return;
+        }
+
+        if (geminiResult.intent === 'SEARCH') {
+          if (window.mayorAiHelpers) {
+            window.mayorAiHelpers.searchTasks(geminiResult.query || userSpeech);
+          }
+          const reply = geminiResult.speechReply || `"${geminiResult.query || userSpeech}" bo'yicha qidiruv natijalari ko'rsatilmoqda.`;
+          appendAiMessage('jarvis', reply);
+          speakText(reply);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("Gemini intent dispatch error:", e);
+    }
+
+    // 2. Mahalliy O'zbekcha Intent Engine Fallback
     const action = analyzeIntent(userSpeech);
+
+    if (action.intent === 'GREETING') {
+      appendAiMessage('jarvis', action.message);
+      speakText(action.message);
+      return;
+    }
 
     if (action.intent === 'NAVIGATE') {
       if (window.mayorAiHelpers && window.mayorAiHelpers.switchToTab) {
@@ -770,6 +981,28 @@
     appendAiMessage('jarvis', defaultReply);
     speakText(defaultReply);
   }
+
+  // Gemini API Key Helpers
+  window.setGeminiApiKey = function(key) {
+    const cleanKey = (key || '').trim();
+    if (cleanKey) {
+      localStorage.setItem('ijro_gemini_api_key', cleanKey);
+      window.GEMINI_API_KEY = cleanKey;
+      if (window.showToast) window.showToast("Gemini API kaliti saqlandi!");
+    } else {
+      localStorage.removeItem('ijro_gemini_api_key');
+      window.GEMINI_API_KEY = '';
+      if (window.showToast) window.showToast("Gemini API kaliti o'chirildi.");
+    }
+  };
+
+  window.promptGeminiApiKey = function() {
+    const current = localStorage.getItem('ijro_gemini_api_key') || window.GEMINI_API_KEY || '';
+    const key = prompt("Google Gemini API Kalitini kiriting (AI bilan aqlli tahlil va muloqot uchun):", current);
+    if (key !== null) {
+      window.setGeminiApiKey(key);
+    }
+  };
 
   // Modal open / close handlers
   window.toggleAiAssistantModal = function() {

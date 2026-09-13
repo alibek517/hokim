@@ -565,6 +565,7 @@
           <span class="ai-brand-text">O'zbek AI Yordamchisi</span>
         </div>
         <div class="ai-orb-actions">
+          <button class="ai-orb-icon-btn" onclick="promptGeminiApiKey()" title="Gemini API Kaliti">🔑</button>
           <button id="ai-voice-toggle-btn" class="ai-orb-icon-btn" onclick="toggleAiVoiceOutput()" title="Ovozni yoqish/o'chirish">🔊</button>
           <button class="ai-orb-icon-btn" onclick="closeAiAssistantModal()" title="Yopish">✕</button>
         </div>
@@ -589,19 +590,19 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="js/firebase-config.js?v=20260913_14"></script>
-  <script src="js/chat.js?v=20260913_14"></script>
-  <script src="js/mayor.js?v=20260913_14"></script>
-  <script src="js/ai-assistant.js?v=20260913_14"></script>
-  <script src="js/worker.js?v=20260913_14"></script>
-  <script src="js/admin.js?v=20260913_14"></script>
-  <script src="js/app.js?v=20260913_14"></script>
+  <script src="js/firebase-config.js?v=20260913_15"></script>
+  <script src="js/chat.js?v=20260913_15"></script>
+  <script src="js/mayor.js?v=20260913_15"></script>
+  <script src="js/ai-assistant.js?v=20260913_15"></script>
+  <script src="js/worker.js?v=20260913_15"></script>
+  <script src="js/admin.js?v=20260913_15"></script>
+  <script src="js/app.js?v=20260913_15"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=20260913_14')
+        navigator.serviceWorker.register('./sw.js?v=20260913_15')
           .then(reg => {
             reg.update();
           })
