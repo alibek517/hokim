@@ -57,12 +57,18 @@
 
       const text = (finalTranscript || interim).trim();
 
-      // Shovqin filtri: Tarmoq g'o'ng'illashi, dinamik aks-sadosi yoki sonlar (masalan: 30224030224)
-      if (/^\d+$/.test(text)) {
-        console.log("Acoustic noise digit string ignored:", text);
-        return;
+      // Shovqin va mikrofon g'o'ng'illashi filtri:
+      // Foydalanuvchi gapirmaganda akustik shovqin natijasida paydo bo'ladigan sonlar va vaqtlar (masalan: "30.00.24", "00.24.030.00", "30224030224", "00:24", "30.00")
+      if (aiState === 'IDLE') {
+        // Agar matnda birorta ham harf bo'lmasa (faqat raqam, nuqta, ikki nuqta, chiziqcha, bo'shliq bo'lsa)
+        if (!/[a-zA-Zа-яА-ЯўқғҳЎҚҒҲ]/.test(text) || /^[\d\s.:\-_/]+$/.test(text)) {
+          return;
+        }
       }
-      if (text.length < 2 && text.toLowerCase() !== 'ha') {
+
+      // Shovqin filtri 2: 2 tadan kam harfli shovqin
+      const lettersOnly = text.replace(/[^a-zA-Zа-яА-ЯўқғҳЎҚҒҲ]/g, '').toLowerCase();
+      if (lettersOnly.length < 2 && lettersOnly !== 'ha' && lettersOnly !== 'xa' && lettersOnly !== 'yo' && lettersOnly !== 'no') {
         return;
       }
 
@@ -682,7 +688,7 @@ Tizimdagi xodimlar ro'yxati: ${JSON.stringify(workers)}.
 
 Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qaytaring (hech qanday markdown \`\`\`json tegisiz, toza JSON formatida):
 {
-  "intent": "CREATE_TASK" | "FILTER_STATUS" | "NAVIGATE" | "CONFIRM" | "CANCEL" | "GREETING" | "SEARCH" | "CHAT",
+  "intent": "CREATE_TASK" | "FILTER_STATUS" | "NAVIGATE" | "CLEAR_SEARCH" | "CONFIRM" | "CANCEL" | "GREETING" | "SEARCH" | "CHAT",
   "speechReply": "Hokimga aytiladigan o'zbekcha qisqa, madaniyatli va aniq ovozli javob",
   "task": {
     "title": "Topshiriq nomi",
@@ -694,7 +700,13 @@ Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qa
   "statusIdx": 1,
   "tab": 0,
   "query": "qidiruv matni"
-}`;
+}
+
+MUHIM QOIDALAR:
+1. CLEAR_SEARCH: Agar Hokim "inputni tozala", "qidiruvni tozala", "tozala", "o'chir", "inputni bo'shat" desa -> intent: "CLEAR_SEARCH", speechReply: "Qidiruv maydoni tozalandi."
+2. NAVIGATE: Agar Hokim "1-pej" / "birinchi page" (topshiriqlar - tab 0), "2-pej" (rejalar - tab 1), "3-pej" (xodimlar - tab 2), "4-pej" (chatlar - tab 3) desa -> intent: "NAVIGATE", tab: 0..3.
+3. SEARCH: FAQAT VA FAQAT Hokim "qidir", "izla", "top" so'zlarini aytgandagina SEARCH intentini tanlang!
+4. Agar Hokim tizimga aloqasiz narsa aytsa (masalan "videoni och", "qayerdasan" yoki tasodifiy gaplar) HECH QACHON "SEARCH" qilmang! Intent: "CHAT" bo'lsin va o'zbekcha tushuntiring.`;
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
@@ -748,6 +760,37 @@ Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qa
       };
     }
 
+    // 0.1. Qidiruv / Inputni tozalash ("inputni tozala", "qidiruvni tozala", "tozala", "inputni o'chir", "qidiruvni bekor qil")
+    const isClearCmd = (
+      text.includes('inputni tozala') ||
+      text.includes('inputni ochir') ||
+      text.includes('inputni o\'chir') ||
+      text.includes('inputni boshat') ||
+      text.includes('inputni bo\'shat') ||
+      text.includes('inputni toza') ||
+      text.includes('qidiruvni tozala') ||
+      text.includes('qidiruvni ochir') ||
+      text.includes('qidiruvni o\'chir') ||
+      text.includes('qidiruvni bekor') ||
+      text.includes('qidiruvni toza') ||
+      text.includes('qidiruvni tashla') ||
+      text.includes('qidiruv tozala') ||
+      text.includes('qidiruv ochir') ||
+      text.includes('qidiruvni olib tashla') ||
+      text === 'tozala' ||
+      text === 'tozalagin' ||
+      text === 'toza qil' ||
+      text === 'tozalash' ||
+      text === 'ochir inputni' ||
+      text === 'o\'chir inputni'
+    );
+    if (isClearCmd) {
+      return {
+        intent: 'CLEAR_SEARCH',
+        message: "Qidiruv maydoni tozalandi."
+      };
+    }
+
     // 1. Salomlashish va hol-ahvol (Greeting)
     const greetings = ['salom', 'assalomu alaykum', 'assalom', 'qandaysiz', 'qalaysiz', 'charchamang', 'hormang', 'salomatmisiz', 'privet', 'hello'];
     if (greetings.some(g => text === g || text.startsWith(g + ' ') || text.endsWith(' ' + g) || text === g + '!' || text === g + '?')) {
@@ -769,8 +812,8 @@ Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qa
 
     // 3. Bekor qilish (Cancel)
     const cancelWords = [
-      'yo\'q', 'yoq', 'kerakmas', 'kerak emas', 'bekor', 'bekor qil', 'to\'xtat',
-      'o\'chir', 'tashla', 'tashlab ket', 'net', 'otmena'
+      'yo\'q', 'yoq', 'no', 'kerakmas', 'kerak emas', 'bekor', 'bekor qil', 'to\'xtat',
+      'o\'chir', 'ochir', 'tashla', 'tashlab ket', 'net', 'otmena'
     ];
     if (cancelWords.some(w => text === w || text.startsWith(w + ' ') || text.includes(' ' + w))) {
       return { intent: 'CANCEL' };
@@ -788,24 +831,27 @@ Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qa
     }
 
     // 5. Sahifalarga o'tish (Navigation - Tab 0, 1, 2, 3)
-    // Tab 0: Topshiriqlar ("1-pej", "birinchi pej", "birinchi sahifa", "topshiriqlar", "bosh sahifa", "asosiy")
-    if (/\b(?:1[- ]?(?:pej|sahifa)|birinchi\s+(?:pej|sahifa|pejni)|topshiriqlar|bosh\s+sahifa|asosiy|glavniy)\b/i.test(text) ||
-        (text.includes('topshiriq') && (text.includes('och') || text.includes("o't") || text.includes('ko\'rsat')))) {
+    // Tab 0: Topshiriqlar ("1-pej", "1-page", "birinchi pej", "birinchi sahifa", "topshiriqlar", "bosh sahifa", "asosiy")
+    if (/\b(?:1[- ]?(?:pej|peyj|page|sahifa)\w*|birinchi\s+(?:pej|peyj|page|sahifa)\w*|topshiriq\w*|bosh\s+sahifa|asosiy|glavniy)\b/i.test(text) ||
+        (text.includes('topshiriq') && (text.includes('och') || text.includes("o't") || text.includes('ko\'rsat') || text.includes('korsat')))) {
       return { intent: 'NAVIGATE', tab: 0, message: "1-sahifa: Topshiriqlar bo'limi ochildi." };
     }
 
-    // Tab 1: Rejalar ("2-pej", "ikkinchi pej", "ikkinchi sahifa", "reja", "rejalar", "plan")
-    if (/\b(?:2[- ]?(?:pej|sahifa)|ikkinchi\s+(?:pej|sahifa|pejni)|reja|rejalar|rejani|rejalarni|plan)\b/i.test(text)) {
+    // Tab 1: Rejalar ("2-pej", "2-page", "ikkinchi pej", "ikkinchi sahifa", "reja", "rejalar", "plan")
+    if (/\b(?:2[- ]?(?:pej|peyj|page|sahifa)\w*|ikkinchi\s+(?:pej|peyj|page|sahifa)\w*|reja\w*|plan\w*)\b/i.test(text) ||
+        (text.includes('reja') && (text.includes('och') || text.includes("o't") || text.includes('ko\'rsat') || text.includes('korsat')))) {
       return { intent: 'NAVIGATE', tab: 1, message: "2-sahifa: Rejalar bo'limi ochildi." };
     }
 
-    // Tab 2: Xodimlar va reyting ("3-pej", "uchinchi pej", "uchinchi sahifa", "xodimlar", "ishchilar", "reyting")
-    if (/\b(?:3[- ]?(?:pej|sahifa)|uchinchi\s+(?:pej|sahifa|pejni)|xodim|xodimlar|xodimlarni|ishchi|ishchilar|ishchilarni|reyting|reytingni)\b/i.test(text)) {
+    // Tab 2: Xodimlar va reyting ("3-pej", "3-page", "uchinchi pej", "uchinchi sahifa", "xodimlar", "ishchilar", "reyting")
+    if (/\b(?:3[- ]?(?:pej|peyj|page|sahifa)\w*|uchinchi\s+(?:pej|peyj|page|sahifa)\w*|xodim\w*|ishchi\w*|reyting\w*)\b/i.test(text) ||
+        ((text.includes('xodim') || text.includes('reyting')) && (text.includes('och') || text.includes("o't") || text.includes('ko\'rsat') || text.includes('korsat')))) {
       return { intent: 'NAVIGATE', tab: 2, message: "3-sahifa: Xodimlar va ularning reytingi sahifasiga o'tdik." };
     }
 
-    // Tab 3: Chatlar ("4-pej", "to'rtinchi pej", "to'rtinchi sahifa", "chatlar", "chat", "xabarlar")
-    if (/\b(?:4[- ]?(?:pej|sahifa)|to['ʻ`]?rtinchi\s+(?:pej|sahifa|pejni)|chat|chatlar|chatlarni|xabar|xabarlar|xabarlarni)\b/i.test(text)) {
+    // Tab 3: Chatlar ("4-pej", "4-page", "to'rtinchi pej", "to'rtinchi sahifa", "chatlar", "chat", "xabarlar")
+    if (/\b(?:4[- ]?(?:pej|peyj|page|sahifa)\w*|to['ʻ`]?rtinchi\s+(?:pej|peyj|page|sahifa)\w*|chat\w*|xabar\w*)\b/i.test(text) ||
+        (text.includes('chat') && (text.includes('och') || text.includes("o't") || text.includes('ko\'rsat') || text.includes('korsat')))) {
       return { intent: 'NAVIGATE', tab: 3, message: "4-sahifa: Chatlar bo'limi ochildi." };
     }
 
@@ -841,13 +887,18 @@ Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qa
     }
 
     // 8. Qidiruv (Search) - FAQAT VA FAQAT foydalanuvchi "qidir", "izla", "top" deb buyurgandagina!
-    const searchMatch = text.match(/\b(?:qidir|izla|top|qidiruv)\s+(.*)/i) || text.match(/(.*)\s+(?:qidir|izla|top|qidiruv)\b/i);
-    if (searchMatch) {
-      const q = (searchMatch[1] || '').replace(/ni\b|ning\b|da\b/gi, '').trim();
-      return {
-        intent: 'SEARCH',
-        query: q || text
-      };
+    const isSearchWord = /\b(?:qidir|qidirgin|izla|izlagin|top|topib ber)\b/i.test(text);
+    if (isSearchWord && !text.includes('tozala') && !text.includes('o\'chir') && !text.includes('ochir') && !text.includes('bekor')) {
+      const searchMatch = text.match(/\b(?:qidir|qidirgin|izla|izlagin|top|topib ber)\s+(.*)/i) || text.match(/(.*)\s+(?:qidir|qidirgin|izla|izlagin|top|topib ber)\b/i);
+      if (searchMatch) {
+        let q = (searchMatch[1] || '').replace(/ni\b|ning\b|da\b|deb\b|haqida\b/gi, '').trim();
+        if (q.length >= 2 && !q.includes('sahifa') && !q.includes('pej') && !q.includes('page')) {
+          return {
+            intent: 'SEARCH',
+            query: q
+          };
+        }
+      }
     }
 
     // 9. Yangi topshiriq yaratish (Xorazm "ish ber", "topshiriq ber", "vazifa yukla", "kerak", "asfaltlash", "biriktir", "qilsin", "etsin")
@@ -878,10 +929,22 @@ Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qa
   }
 
   async function handleUserSpeech(userSpeech) {
+    const trimmed = (userSpeech || '').trim();
+    if (!trimmed) return;
+
+    // Shovqin filtri: agar faqat raqamlar, vaqt/nuqta yoki harfsiz shovqin bo'lsa - mutlaqo jim turish!
+    if (aiState === 'IDLE') {
+      if (!/[a-zA-Zа-яА-ЯўқғҳЎҚҒҲ]/.test(trimmed) || /^[\d\s.:\-_/]+$/.test(trimmed)) {
+        console.log("handleUserSpeech: Non-verbal noise ignored in IDLE:", trimmed);
+        updateAiStatus('idle', 'Kutilmoqda');
+        return;
+      }
+    }
+
     appendAiMessage('user', userSpeech);
     updateAiStatus('thinking', 'Qayta ishlanmoqda...');
 
-    const cleanLower = (userSpeech || '').toLowerCase().trim();
+    const cleanLower = trimmed.toLowerCase();
 
     // 0. To'xtatish va o'zini o'zi yopish ("to'xta", "toxta", "jim", "bas", "yetadi", "yopil", "stop", "chiq")
     const stopWords = ["to'xta", "toxta", "to'xtat", "toxtat", "jim bo'l", "jim bol", "jim", "bas", "yetadi", "yopil", "yop", "chiq", "stop", "xayr"];
@@ -1015,11 +1078,124 @@ Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qa
     }
 
     // C. IDLE bosqichi
+    // 1. Mahalliy tezkor va aniq Intent tahlili (Avval mahalliy aniq qoidalar tekshiriladi)
+    const localAction = analyzeIntent(userSpeech);
 
-    // 1. Agar Gemini API mavjud bo'lsa
+    if (localAction.intent === 'CLEAR_SEARCH') {
+      if (window.mayorAiHelpers && window.mayorAiHelpers.clearSearch) {
+        window.mayorAiHelpers.clearSearch();
+      }
+      appendAiMessage('jarvis', localAction.message);
+      speakText(localAction.message);
+      return;
+    }
+
+    if (localAction.intent === 'NAVIGATE') {
+      if (window.mayorAiHelpers && window.mayorAiHelpers.switchToTab) {
+        window.mayorAiHelpers.switchToTab(localAction.tab);
+      }
+      appendAiMessage('jarvis', localAction.message);
+      speakText(localAction.message);
+      return;
+    }
+
+    if (localAction.intent === 'FILTER_STATUS') {
+      if (window.mayorAiHelpers) {
+        window.mayorAiHelpers.switchToTab(0);
+        window.mayorAiHelpers.filterTasksByStatus(localAction.statusIdx);
+      }
+      appendAiMessage('jarvis', localAction.message);
+      speakText(localAction.message);
+      return;
+    }
+
+    if (localAction.intent === 'GREETING') {
+      appendAiMessage('jarvis', localAction.message);
+      speakText(localAction.message);
+      return;
+    }
+
+    if (localAction.intent === 'CANCEL') {
+      if (window.mayorAiHelpers && window.mayorAiHelpers.closeTaskModal) {
+        window.mayorAiHelpers.closeTaskModal();
+      }
+      if (window.mayorAiHelpers && window.mayorAiHelpers.clearSearch) {
+        window.mayorAiHelpers.clearSearch();
+      }
+      const reply = "Bekor qilindi.";
+      appendAiMessage('jarvis', reply);
+      speakText(reply);
+      return;
+    }
+
+    if (localAction.intent === 'SEARCH') {
+      if (window.mayorAiHelpers && window.mayorAiHelpers.searchTasks) {
+        window.mayorAiHelpers.searchTasks(localAction.query);
+      }
+      const reply = `"${localAction.query}" bo'yicha qidiruv natijalari ko'rsatilmoqda.`;
+      appendAiMessage('jarvis', reply);
+      speakText(reply);
+      return;
+    }
+
+    if (localAction.intent === 'CREATE_TASK') {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const worker = localAction.worker;
+      const endStr = localAction.endDate || parseDateFromSpeech(userSpeech);
+
+      if (window.mayorAiHelpers && window.mayorAiHelpers.openTaskModalWithData) {
+        window.mayorAiHelpers.switchToTab(0);
+        window.mayorAiHelpers.openTaskModalWithData({
+          title: localAction.title,
+          workerId: worker ? worker.id : null,
+          startDate: todayStr,
+          endDate: endStr
+        });
+      }
+
+      if (worker) {
+        draftTask = {
+          title: localAction.title,
+          workerId: worker.id,
+          workerName: worker.fullName || (worker.firstName + ' ' + worker.lastName),
+          startDate: todayStr,
+          endDate: endStr
+        };
+        aiState = 'CONFIRMING_TASK';
+        const promptSpeech = `${draftTask.workerName} ga "${draftTask.title}" topshirig'i tayyorlandi. Muddati: ${draftTask.endDate}. Topshiriqni tasdiqlaysizmi?`;
+        appendAiMessage('jarvis', promptSpeech);
+        speakText(promptSpeech);
+        return;
+      } else {
+        draftTask = {
+          title: localAction.title,
+          workerId: '',
+          workerName: '',
+          startDate: todayStr,
+          endDate: ''
+        };
+        aiState = 'DRAFTING_TASK';
+        const promptSpeech = `Xo'p, tushunarli. Topshiriq: "${localAction.title}". Bu topshiriqni qaysi xodimga biriktiramiz va muddati qachongacha?`;
+        appendAiMessage('jarvis', promptSpeech);
+        speakText(promptSpeech);
+        return;
+      }
+    }
+
+    // 2. Agar mahalliy tahlil UNKNOWN bo'lsa, Gemini API ga murojaat qilamiz
     try {
       const geminiResult = await callGeminiAssistant(userSpeech);
       if (geminiResult) {
+        if (geminiResult.intent === 'CLEAR_SEARCH') {
+          if (window.mayorAiHelpers && window.mayorAiHelpers.clearSearch) {
+            window.mayorAiHelpers.clearSearch();
+          }
+          const msg = geminiResult.speechReply || "Qidiruv maydoni tozalandi.";
+          appendAiMessage('jarvis', msg);
+          speakText(msg);
+          return;
+        }
+
         if (geminiResult.intent === 'NAVIGATE') {
           if (window.mayorAiHelpers && window.mayorAiHelpers.switchToTab) {
             window.mayorAiHelpers.switchToTab(geminiResult.tab ?? 0);
@@ -1090,18 +1266,23 @@ Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qa
           }
         }
 
-        if (geminiResult.intent === 'GREETING' || geminiResult.intent === 'CHAT') {
-          const reply = geminiResult.speechReply || "Assalomu alaykum, hurmatli Hokim! Sizga qanday yordam bera olaman?";
-          appendAiMessage('jarvis', reply);
-          speakText(reply);
-          return;
+        if (geminiResult.intent === 'SEARCH') {
+          // FAQAT VA FAQAT foydalanuvchi qidiruv so'zini aytgan bo'lsa!
+          const hasSearchWord = /\b(?:qidir|izla|top)\b/i.test(cleanLower);
+          if (hasSearchWord && geminiResult.query && geminiResult.query.trim()) {
+            if (window.mayorAiHelpers && window.mayorAiHelpers.searchTasks) {
+              window.mayorAiHelpers.searchTasks(geminiResult.query.trim());
+            }
+            const reply = geminiResult.speechReply || `"${geminiResult.query}" bo'yicha qidiruv natijalari ko'rsatilmoqda.`;
+            appendAiMessage('jarvis', reply);
+            speakText(reply);
+            return;
+          }
+          // Agar qidiruv so'zi bo'lmasa, HECH QACHON inputga yozilmaydi!
         }
 
-        if (geminiResult.intent === 'SEARCH') {
-          if (window.mayorAiHelpers) {
-            window.mayorAiHelpers.searchTasks(geminiResult.query || userSpeech);
-          }
-          const reply = geminiResult.speechReply || `"${geminiResult.query || userSpeech}" bo'yicha qidiruv natijalari ko'rsatilmoqda.`;
+        if (geminiResult.intent === 'GREETING' || geminiResult.intent === 'CHAT' || geminiResult.speechReply) {
+          const reply = geminiResult.speechReply || "Sizni eshitmoqdaman, hurmatli Hokim!";
           appendAiMessage('jarvis', reply);
           speakText(reply);
           return;
@@ -1111,90 +1292,8 @@ Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qa
       console.warn("Gemini dispatch error:", e);
     }
 
-    // 2. Mahalliy O'zbekcha Intent Engine Fallback
-    const action = analyzeIntent(userSpeech);
-
-    if (action.intent === 'GREETING') {
-      appendAiMessage('jarvis', action.message);
-      speakText(action.message);
-      return;
-    }
-
-    if (action.intent === 'NAVIGATE') {
-      if (window.mayorAiHelpers && window.mayorAiHelpers.switchToTab) {
-        window.mayorAiHelpers.switchToTab(action.tab);
-      }
-      appendAiMessage('jarvis', action.message);
-      speakText(action.message);
-      return;
-    }
-
-    if (action.intent === 'FILTER_STATUS') {
-      if (window.mayorAiHelpers) {
-        window.mayorAiHelpers.switchToTab(0);
-        window.mayorAiHelpers.filterTasksByStatus(action.statusIdx);
-      }
-      appendAiMessage('jarvis', action.message);
-      speakText(action.message);
-      return;
-    }
-
-    if (action.intent === 'CREATE_TASK') {
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const worker = action.worker;
-      const endStr = action.endDate || parseDateFromSpeech(userSpeech);
-
-      if (window.mayorAiHelpers && window.mayorAiHelpers.openTaskModalWithData) {
-        window.mayorAiHelpers.switchToTab(0);
-        window.mayorAiHelpers.openTaskModalWithData({
-          title: action.title,
-          workerId: worker ? worker.id : null,
-          startDate: todayStr,
-          endDate: endStr
-        });
-      }
-
-      if (worker) {
-        draftTask = {
-          title: action.title,
-          workerId: worker.id,
-          workerName: worker.fullName || (worker.firstName + ' ' + worker.lastName),
-          startDate: todayStr,
-          endDate: endStr
-        };
-        aiState = 'CONFIRMING_TASK';
-        const promptSpeech = `${draftTask.workerName} ga "${draftTask.title}" topshirig'i tayyorlandi. Muddati: ${draftTask.endDate}. Topshiriqni tasdiqlaysizmi?`;
-        appendAiMessage('jarvis', promptSpeech);
-        speakText(promptSpeech);
-        return;
-      } else {
-        draftTask = {
-          title: action.title,
-          workerId: '',
-          workerName: '',
-          startDate: todayStr,
-          endDate: ''
-        };
-        aiState = 'DRAFTING_TASK';
-        const promptSpeech = `Xo'p, tushunarli. Topshiriq: "${action.title}". Bu topshiriqni qaysi xodimga biriktiramiz va muddati qachongacha?`;
-        appendAiMessage('jarvis', promptSpeech);
-        speakText(promptSpeech);
-        return;
-      }
-    }
-
-    if (action.intent === 'SEARCH') {
-      if (window.mayorAiHelpers) {
-        window.mayorAiHelpers.searchTasks(action.query);
-      }
-      const reply = `"${action.query}" bo'yicha qidiruv natijalari ko'rsatilmoqda.`;
-      appendAiMessage('jarvis', reply);
-      speakText(reply);
-      return;
-    }
-
-    // Noma'lum buyruq (masalan: "videoni och") hech qachon qidiruvga yo'naltirilmaydi!
-    const defaultReply = "Kechirasiz, buyrug'ingizni tushunmadim. Masalan: '1-pejni och', 'Rejalarni och' yoki 'Yangi topshiriq yarat' deb ayting.";
+    // Noma'lum buyruq (masalan: "videoni och") hech qachon qidiruvga yo'naltirilmaydi va inputga yozilmaydi!
+    const defaultReply = "Kechirasiz, buyruqni tushunmadim. Masalan: '1-sahifaga o't', 'Yangi topshiriq ber' yoki 'Qidiruvni tozala' deb ayting.";
     appendAiMessage('jarvis', defaultReply);
     speakText(defaultReply);
   }

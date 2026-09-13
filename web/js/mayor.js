@@ -1737,18 +1737,45 @@ window.mayorAiHelpers = {
   filterTasksByStatus: (statusIdx) => {
     setTaskFilter(statusIdx);
   },
+  clearSearch: () => {
+    mayorTaskSearchQuery = '';
+    const taskInput = document.getElementById('mayor-task-search-input');
+    if (taskInput) taskInput.value = '';
+    const taskClear = document.getElementById('mayor-task-search-clear');
+    if (taskClear) taskClear.style.display = 'none';
+
+    mayorScheduleSearchQuery = '';
+    const schedInput = document.getElementById('mayor-schedule-search-input');
+    if (schedInput) schedInput.value = '';
+    const schedClear = document.getElementById('mayor-schedule-search-clear');
+    if (schedClear) schedClear.style.display = 'none';
+
+    mayorWorkerSearchQuery = '';
+    const workerInput = document.getElementById('mayor-worker-search-input');
+    if (workerInput) workerInput.value = '';
+    const workerClear = document.getElementById('mayor-worker-search-clear');
+    if (workerClear) workerClear.style.display = 'none';
+
+    if (mayorCurrentTab === 0) renderMayorTasks();
+    else if (mayorCurrentTab === 1) renderMayorSchedules();
+    else if (mayorCurrentTab === 2) renderMayorWorkers();
+  },
   searchTasks: (q) => {
-    mayorTaskSearchQuery = q;
+    mayorTaskSearchQuery = q || '';
     const input = document.getElementById('mayor-task-search-input');
-    if (input) input.value = q;
+    if (input) input.value = q || '';
     renderMayorTasks();
   },
   searchSchedules: (q) => {
-    mayorScheduleSearchQuery = q;
+    mayorScheduleSearchQuery = q || '';
+    const input = document.getElementById('mayor-schedule-search-input');
+    if (input) input.value = q || '';
     renderMayorSchedules();
   },
   searchWorkers: (q) => {
-    mayorWorkerSearchQuery = q;
+    mayorWorkerSearchQuery = q || '';
+    const input = document.getElementById('mayor-worker-search-input');
+    if (input) input.value = q || '';
     renderMayorWorkers();
   }
 };
