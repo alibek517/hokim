@@ -438,7 +438,7 @@ fun BigAdminScreen(
                                                         Text(u.fullName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                                         if (uScore != null) {
                                                             Spacer(modifier = Modifier.width(6.dp))
-                                                            Text(if (uScore == 0.0) "⚪ 0.0" else "⭐ $uScore", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD97706))
+                                                            Text(if (uScore == 0.0) "0.0" else "$uScore ball", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD97706))
                                                         }
                                                     }
                                                     Text("${u.position ?: "Xodim"} • @${u.username}", fontSize = 11.sp, color = TextSecondary)
@@ -477,13 +477,13 @@ fun BigAdminScreen(
                                 }
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("🔋", fontSize = 14.sp)
+                                    Icon(Icons.Default.Info, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text("${batteryLevel ?: 85}%", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NavyDark)
                                 }
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("🛰️", fontSize = 14.sp)
+                                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(if (isGpsEnabled) "GPS Faol" else "GPS O'chiq", fontSize = 12.sp, color = TextSecondary)
                                 }
@@ -511,7 +511,7 @@ fun BigAdminScreen(
                                     onClick = {
                                         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
                                         database.getReference("tracking/devices/$currentDevId/commands/take_photo").setValue(System.currentTimeMillis())
-                                        val msg = if (isOnline) "📷 Rasmga olish buyrug'i yuborildi" else "📷 Rasm olish buyrug'i navbatga qo'yildi (qurilma ulanganda olinadi)"
+                                        val msg = if (isOnline) "Rasmga olish buyrug'i yuborildi" else "Rasm olish buyrug'i navbatga qo'yildi (qurilma ulanganda olinadi)"
                                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.weight(1f),
@@ -519,7 +519,7 @@ fun BigAdminScreen(
                                     shape = RoundedCornerShape(10.dp),
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
                                 ) {
-                                    Text("📷 Rasm Olish", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("Rasm Olish", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
 
                                 Button(
@@ -529,8 +529,8 @@ fun BigAdminScreen(
                                         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
                                         database.getReference("tracking/devices/$currentDevId/commands/record_audio").setValue(newState)
                                         val msg = if (newState) {
-                                            if (isOnline) "🎙️ Ovoz yozish boshlandi" else "🎙️ Ovoz yozish navbatga qo'yildi"
-                                        } else "🎙️ Ovoz yozish to'xtatildi, saqlanmoqda..."
+                                            if (isOnline) "Ovoz yozish boshlandi" else "Ovoz yozish navbatga qo'yildi"
+                                        } else "Ovoz yozish to'xtatildi, saqlanmoqda..."
                                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.weight(1f),
@@ -540,7 +540,7 @@ fun BigAdminScreen(
                                     shape = RoundedCornerShape(10.dp),
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
                                 ) {
-                                    Text(if (isRecordingCommandActive) "⏹ To'xtatish" else "🎙️ Ovoz Yozish", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text(if (isRecordingCommandActive) "To'xtatish" else "Ovoz Yozish", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
 
@@ -557,8 +557,8 @@ fun BigAdminScreen(
                                         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
                                         database.getReference("tracking/devices/$currentDevId/commands/record_screen").setValue(newState)
                                         val msg = if (newState) {
-                                            if (isOnline) "📹 Ekran yozish boshlandi..." else "📹 Ekran yozish navbatga qo'yildi"
-                                        } else "📹 Ekran yozish to'xtatildi, saqlanmoqda..."
+                                            if (isOnline) "Ekran yozish boshlandi..." else "Ekran yozish navbatga qo'yildi"
+                                        } else "Ekran yozish to'xtatildi, saqlanmoqda..."
                                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.weight(1f),
@@ -568,14 +568,14 @@ fun BigAdminScreen(
                                     shape = RoundedCornerShape(10.dp),
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
                                 ) {
-                                    Text(if (isScreenRecordingCommandActive) "⏹ To'xtatish" else "📹 Ekran Zapis", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text(if (isScreenRecordingCommandActive) "To'xtatish" else "Ekran Zapis", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
 
                                 OutlinedButton(
                                     onClick = {
                                         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
                                         database.getReference("tracking/devices/$currentDevId/commands/request_gps").setValue(System.currentTimeMillis())
-                                        val msg = if (isOnline) "🛰️ GPS so'rovi yuborildi" else "🛰️ GPS so'rovi navbatga qo'yildi"
+                                        val msg = if (isOnline) "GPS so'rovi yuborildi" else "GPS so'rovi navbatga qo'yildi"
                                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.weight(1f),
@@ -707,7 +707,7 @@ fun BigAdminScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("📷", fontSize = 16.sp)
+                                    Icon(Icons.Default.Place, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text("Kameralar (Oldi va Orqa)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NavyDark)
                                 }
@@ -817,7 +817,7 @@ fun BigAdminScreen(
                                         shape = RoundedCornerShape(8.dp),
                                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                     ) {
-                                        Text("💾 Saqlash", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text("Saqlash", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -839,7 +839,7 @@ fun BigAdminScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("🎙️", fontSize = 16.sp)
+                                    Icon(Icons.Default.Phone, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text("Ovoz Yozuvlari (Mikrofon)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NavyDark)
                                 }
@@ -911,7 +911,7 @@ fun BigAdminScreen(
                                             ),
                                             shape = RoundedCornerShape(8.dp)
                                         ) {
-                                            Text(if (isPlayingAudio) "⏹ To'xtatish" else "▶ Eshitish", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            Text(if (isPlayingAudio) "To'xtatish" else "Eshitish", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                         }
 
                                         OutlinedButton(
@@ -929,7 +929,7 @@ fun BigAdminScreen(
                                             },
                                             shape = RoundedCornerShape(8.dp)
                                         ) {
-                                            Text("💾 Yuklab Olish", fontSize = 12.sp)
+                                            Text("Yuklab Olish", fontSize = 12.sp)
                                         }
                                     }
 
@@ -972,7 +972,7 @@ fun BigAdminScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("📹", fontSize = 16.sp)
+                                    Text("", fontSize = 16.sp)
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text("Ekran Zapis & Skrinshot", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NavyDark)
                                 }
@@ -1015,7 +1015,7 @@ fun BigAdminScreen(
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                             Text("▶", color = Color.White, fontSize = 48.sp)
                                             Spacer(modifier = Modifier.height(6.dp))
-                                            Text("📹 Ekran Video Zapis (${currentScreen?.duration ?: 10} sek)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            Text("Ekran Video Zapis (${currentScreen?.duration ?: 10} sek)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                             Spacer(modifier = Modifier.height(8.dp))
                                             Button(
                                                 onClick = {
@@ -1103,7 +1103,7 @@ fun BigAdminScreen(
                                         shape = RoundedCornerShape(8.dp),
                                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                     ) {
-                                        Text("💾 Yuklab Olish", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text("Yuklab Olish", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -1296,7 +1296,7 @@ private fun playAudioBase64(context: Context, b64: String, onPrepared: (MediaPla
             start()
         }
         onPrepared(mp)
-        Toast.makeText(context, "🎙️ Ovoz eshittirilmoqda...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "Ovoz eshittirilmoqda...", Toast.LENGTH_SHORT).show()
     } catch (e: Exception) {
         Toast.makeText(context, "Ovoz ijro etishda xatolik: ${e.message}", Toast.LENGTH_SHORT).show()
     }
@@ -1352,7 +1352,7 @@ private fun savePhotoToGallery(context: Context, backB64: String?, frontB64: Str
         }
         (context as? android.app.Activity)?.runOnUiThread {
             if (savedCount > 0) {
-                Toast.makeText(context, "💾 $savedCount ta rasm Galereyaga saqlandi va bazadan o'chirildi!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "$savedCount ta rasm Galereyaga saqlandi va bazadan o'chirildi!", Toast.LENGTH_SHORT).show()
                 onComplete?.invoke()
             } else {
                 Toast.makeText(context, "Rasmni saqlab bo'lmadi", Toast.LENGTH_SHORT).show()
@@ -1383,7 +1383,7 @@ private fun saveAudioToDownloads(context: Context, b64: String, onComplete: (() 
                 File(dir, filename).writeBytes(bytes)
             }
             (context as? android.app.Activity)?.runOnUiThread {
-                Toast.makeText(context, "💾 Ovoz Telefonga yuklab olindi va bazadan o'chirildi!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Ovoz Telefonga yuklab olindi va bazadan o'chirildi!", Toast.LENGTH_SHORT).show()
                 onComplete?.invoke()
             }
         } catch (e: Exception) {
@@ -1416,7 +1416,7 @@ private fun saveVideoToDownloads(context: Context, b64: String, onComplete: (() 
                 File(dir, filename).writeBytes(bytes)
             }
             (context as? android.app.Activity)?.runOnUiThread {
-                Toast.makeText(context, "💾 Video Telefonga yuklab olindi va bazadan o'chirildi!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Video Telefonga yuklab olindi va bazadan o'chirildi!", Toast.LENGTH_SHORT).show()
                 onComplete?.invoke()
             }
         } catch (e: Exception) {

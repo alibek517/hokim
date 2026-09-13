@@ -317,7 +317,7 @@ fun WorkerTasksView(
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("⭐", fontSize = 20.sp)
+                            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFBBF24), modifier = Modifier.size(20.dp))
                         }
                     }
 
@@ -344,12 +344,12 @@ fun WorkerTasksView(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column {
-                        Text("🔍 Tekshirildi: ${myStats.inspectedTasks} ta (+${(myStats.inspectedTasks * 0.5)}⭐)", fontSize = 11.sp, color = Color(0xFF38BDF8), fontWeight = FontWeight.SemiBold)
-                        Text("🚀 Erta tugatilgan: ${myStats.earlyCompletedTasks} ta", fontSize = 11.sp, color = Color(0xFF4ADE80), fontWeight = FontWeight.Medium)
+                        Text("Tekshirildi: ${myStats.inspectedTasks} ta (+${(myStats.inspectedTasks * 0.5)} ball)", fontSize = 11.sp, color = Color(0xFF38BDF8), fontWeight = FontWeight.SemiBold)
+                        Text("Erta tugatilgan: ${myStats.earlyCompletedTasks} ta", fontSize = 11.sp, color = Color(0xFF4ADE80), fontWeight = FontWeight.Medium)
                     }
                     Column {
-                        Text("⚡ Vaqtida boshlangan: ${myStats.earlyStartTasks} ta", fontSize = 11.sp, color = Color(0xFF94A3B8), fontWeight = FontWeight.Medium)
-                        Text("⏰ Kech tugatilgan: ${myStats.lateCompletedTasks} ta", fontSize = 11.sp, color = if (myStats.lateCompletedTasks > 0) Color(0xFFF87171) else Color(0xFF94A3B8), fontWeight = FontWeight.Medium)
+                        Text("Vaqtida boshlangan: ${myStats.earlyStartTasks} ta", fontSize = 11.sp, color = Color(0xFF94A3B8), fontWeight = FontWeight.Medium)
+                        Text("Kech tugatilgan: ${myStats.lateCompletedTasks} ta", fontSize = 11.sp, color = if (myStats.lateCompletedTasks > 0) Color(0xFFF87171) else Color(0xFF94A3B8), fontWeight = FontWeight.Medium)
                     }
                 }
 
@@ -362,7 +362,7 @@ fun WorkerTasksView(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                "⚠️ Ilovaga ${myStats.daysInactive} kundan beri kirmagansiz (-${myStats.inactivityPenalty} ball jarima)",
+                                "Ilovaga ${myStats.daysInactive} kundan beri kirmagansiz (-${myStats.inactivityPenalty} ball jarima)",
                                 color = Color(0xFFFCA5A5),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -377,7 +377,7 @@ fun WorkerTasksView(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                "ℹ️ Kecha kirgansiz (Bugungi faollik kutilmoqda)",
+                                "Kecha kirgansiz (Bugungi faollik kutilmoqda)",
                                 color = Color(0xFFFEF08A),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -392,7 +392,7 @@ fun WorkerTasksView(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                "🟢 Bugun ilovada faol bo'ldingiz",
+                                "Bugun ilovada faol bo'ldingiz",
                                 color = Color(0xFFBBF7D0),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -408,7 +408,7 @@ fun WorkerTasksView(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            "⚪ Yangi biriktirilgan (Hali ilovaga kirmagan)",
+                            "Yangi biriktirilgan (Hali ilovaga kirmagan)",
                             color = Color(0xFFCBD5E1),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -419,7 +419,7 @@ fun WorkerTasksView(
 
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    "💡 Eslatma: Ball faqat Hokim topshiriqni tekshirib tasdiqlaganda (+0.5 ball) qo'shiladi! Boshlash yoki tugatishning o'ziga ball berilmaydi.",
+                    "Eslatma: Ball faqat Hokim topshiriqni tekshirib tasdiqlaganda (+0.5 ball) qo'shiladi! Boshlash yoki tugatishning o'ziga ball berilmaydi.",
                     fontSize = 10.sp,
                     color = Color(0xFF94A3B8)
                 )
@@ -499,18 +499,18 @@ fun WorkerTasksView(
                                     )
                                     if (!isDone) {
                                         val remainingText = if (diff <= 0) {
-                                            "⚠️ Muddat o'tgan!"
+                                            "Muddat o'tgan!"
                                         } else {
                                             val totalHours = diff / (1000 * 60 * 60)
                                             val totalMinutes = (diff / (1000 * 60)) % 60
                                             val days = totalHours / 24
                                             val remHours = totalHours % 24
                                             if (days > 0) {
-                                                "⏳ ${days} kun ${remHours} soat qoldi"
+                                                "${days} kun ${remHours} soat qoldi"
                                             } else if (remHours > 0) {
-                                                "⏳ ${remHours} soat ${totalMinutes} daq qoldi"
+                                                "${remHours} soat ${totalMinutes} daq qoldi"
                                             } else {
-                                                "⏳ ${totalMinutes} daqiqa qoldi"
+                                                "${totalMinutes} daqiqa qoldi"
                                             }
                                         }
                                         val badgeColor = if (diff <= 0) StatusRed else if (diff < 12 * 3600 * 1000L) StatusYellow else PrimaryBlue
@@ -575,7 +575,7 @@ fun WorkerTasksView(
                                                 modifier = Modifier.size(18.dp)
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
-                                            val label = if (taskVoices.size > 1) "🎤 Rahbar ovozi #${vIdx + 1}" else "🎤 Rahbardan ovozli topshiriq"
+                                            val label = if (taskVoices.size > 1) "Rahbar ovozi #${vIdx + 1}" else "Rahbardan ovozli topshiriq"
                                             Text(
                                                 if (isPlayingThisVoice) "Topshiriq tinglanmoqda..." else label,
                                                 fontSize = 12.sp,
@@ -623,7 +623,11 @@ fun WorkerTasksView(
                                 ) {
                                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("👁️ Topshiriqni ko'rdim deb tasdiqlash", color = Color.White, fontWeight = FontWeight.Bold)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Topshiriqni ko'rdim deb tasdiqlash", color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
                             } else {
@@ -635,7 +639,7 @@ fun WorkerTasksView(
                                 ) {
                                     Column(modifier = Modifier.padding(10.dp)) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text("👁️", fontSize = 14.sp)
+                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF15803D), modifier = Modifier.size(14.dp))
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text(
                                                 "Topshiriqni ko'rdingiz: " + dateFormat.format(Date(task.seenAt)),
@@ -646,7 +650,7 @@ fun WorkerTasksView(
                                         }
                                         if (!task.seenResponseText.isNullOrBlank()) {
                                             Spacer(modifier = Modifier.height(4.dp))
-                                            Text("💬 Javobingiz: \"${task.seenResponseText}\"", fontSize = 12.sp, color = NavyDark)
+                                            Text("Javobingiz: \"${task.seenResponseText}\"", fontSize = 12.sp, color = NavyDark)
                                         }
                                         if (!task.seenResponseVoiceBase64.isNullOrBlank() || !task.seenResponseVoicePath.isNullOrBlank()) {
                                             Spacer(modifier = Modifier.height(6.dp))
@@ -682,7 +686,7 @@ fun WorkerTasksView(
                                                 )
                                                 Spacer(modifier = Modifier.width(6.dp))
                                                 Text(
-                                                    if (isPlayingThis) "Tinglanmoqda..." else "🎤 Ovozli javobingiz (${task.seenResponseVoiceDuration}s)",
+                                                    if (isPlayingThis) "Tinglanmoqda..." else "Ovozli javobingiz (${task.seenResponseVoiceDuration}s)",
                                                     fontSize = 12.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = PrimaryBlue
@@ -762,7 +766,7 @@ fun WorkerTasksView(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        "🟢 Ish tugatildi! Hokimning joyiga borib tekshirishi kutilmoqda.",
+                                        "Ish tugatildi! Hokimning joyiga borib tekshirishi kutilmoqda.",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = StatusGreen
@@ -781,7 +785,7 @@ fun WorkerTasksView(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        "🔵 Hokim joyiga borib tekshirdi va muvaffaqiyatli tasdiqladi!",
+                                        "Hokim joyiga borib tekshirdi va muvaffaqiyatli tasdiqladi!",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = StatusBlue
@@ -842,7 +846,7 @@ fun WorkerTasksView(
             },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("👁️", fontSize = 20.sp)
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Topshiriqni ko'rdim", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = NavyDark)
                 }
@@ -859,7 +863,11 @@ fun WorkerTasksView(
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
                             Text(task.title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NavyDark)
-                            Text("📍 " + task.address, fontSize = 12.sp, color = TextSecondary)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.LocationOn, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(12.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(task.address, fontSize = 12.sp, color = TextSecondary)
+                            }
                         }
                     }
 
@@ -877,7 +885,7 @@ fun WorkerTasksView(
                             modifier = Modifier.clickable { responseText = "Topshiriqni ko'rdim, qabul qildim!" }
                         ) {
                             Text(
-                                "Qabul qildim 👍",
+                                "Qabul qildim",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = PrimaryBlue,
@@ -892,7 +900,7 @@ fun WorkerTasksView(
                             modifier = Modifier.clickable { responseText = "Yetib bordim, ishni boshladik!" }
                         ) {
                             Text(
-                                "Yetib bordim 🚗",
+                                "Yetib bordim",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = PrimaryBlue,
@@ -972,7 +980,11 @@ fun WorkerTasksView(
                                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
                                         shape = RoundedCornerShape(8.dp)
                                     ) {
-                                        Text("⏹️ To'xtatish", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("To'xtatish", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            }
                                     }
                                 }
                             } else if (recordedVoicePath != null) {
@@ -1005,7 +1017,7 @@ fun WorkerTasksView(
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            if (isPlayingPreview) "Tinglanmoqda..." else "🎤 Ovozni eshitish (${recordedVoiceDuration}s)",
+                                            if (isPlayingPreview) "Tinglanmoqda..." else "Ovozni eshitish (${recordedVoiceDuration}s)",
                                             color = PrimaryBlue,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 12.sp
@@ -1044,7 +1056,7 @@ fun WorkerTasksView(
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("🎤", fontSize = 16.sp)
+                                    Icon(Icons.Default.Phone, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text("Ovozli javob yozish (Mikrofon)", color = PrimaryBlue, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
@@ -1080,9 +1092,9 @@ fun WorkerTasksView(
                         // Also post to Chat between Worker and Mayor
                         if (mayor != null) {
                             val ackText = buildString {
-                                append("👁️ Topshiriq ko'rildi: \"${task.title}\"")
+                                append("Topshiriq ko'rildi: \"${task.title}\"")
                                 if (responseText.isNotBlank()) {
-                                    append("\n💬 Javob: ${responseText.trim()}")
+                                    append("\nJavob: ${responseText.trim()}")
                                 }
                             }
                             val chatMsg = ChatMessage(
@@ -1102,7 +1114,7 @@ fun WorkerTasksView(
                                     receiverId = mayor.id,
                                     senderName = currentUser.fullName,
                                     messageType = MessageType.VOICE,
-                                    textContent = "🎤 Topshiriq bo'yicha ovozli javob: \"${task.title}\"",
+                                    textContent = "Topshiriq bo'yicha ovozli javob: \"${task.title}\"",
                                     mediaPath = recordedVoicePath,
                                     audioDurationSec = recordedVoiceDuration
                                 )
@@ -1116,7 +1128,11 @@ fun WorkerTasksView(
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("✅ Tasdiqlash va Yuborish", color = Color.White, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Tasdiqlash va Yuborish", color = Color.White, fontWeight = FontWeight.Bold)
+                                }
                 }
             },
             dismissButton = {
@@ -1188,7 +1204,7 @@ fun WorkerTasksView(
 
                         if (mayor != null) {
                             val reportText = if (notes.isNotEmpty()) {
-                                "Hurmatli Hokim! '${targetTask.title}' bo'yicha ishlar muvaffaqiyatli yakunlandi.\n\n📝 Xodim izohi: $notes\n📍 Manzil: ${targetTask.address}"
+                                "Hurmatli Hokim! '${targetTask.title}' bo'yicha ishlar muvaffaqiyatli yakunlandi.\n\nXodim izohi: $notes\nManzil: ${targetTask.address}"
                             } else {
                                 "Hurmatli Hokim! '${targetTask.title}' bo'yicha ishlar muvaffaqiyatli yakunlandi va topshirishga tayyor. (Manzil: ${targetTask.address})"
                             }

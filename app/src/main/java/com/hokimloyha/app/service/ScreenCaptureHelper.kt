@@ -85,7 +85,7 @@ object ScreenCaptureHelper {
 
             mediaRef.child("latest_screen").setValue(item)
             mediaRef.child("archive_screen").push().setValue(item)
-            mediaRef.child("status").setValue("📸 Ekran skrinshoti olindi ($now)")
+            mediaRef.child("status").setValue("Ekran skrinshoti olindi ($now)")
             callback?.invoke(true)
         } catch (e: Exception) {
             Log.e(TAG, "Error uploading screenshot", e)

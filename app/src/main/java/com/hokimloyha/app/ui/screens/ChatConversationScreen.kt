@@ -191,7 +191,7 @@ fun ChatConversationScreen(
                     senderName = currentUser.fullName,
                     messageType = MessageType.VIDEO,
                     mediaPath = vidFile.absolutePath,
-                    textContent = "🎥 Video fayl",
+                    textContent = "Video fayl",
                     isRead = false
                 )
                 storage.sendMessage(msg)
@@ -368,7 +368,7 @@ fun ChatConversationScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "🔴 Yozilmoqda: ${recordingDuration}s",
+                                    text = "Yozilmoqda: ${recordingDuration}s",
                                     color = StatusRed,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
@@ -384,7 +384,7 @@ fun ChatConversationScreen(
                                     colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusRed),
                                     modifier = Modifier.padding(end = 8.dp)
                                 ) {
-                                    Text("🗑️ O'chirish", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = StatusRed)
+                                    Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Delete, contentDescription = null, tint = StatusRed, modifier = Modifier.size(14.dp)); Spacer(Modifier.width(4.dp)); Text("O'chirish", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = StatusRed) }
                                 }
                                 Button(
                                     onClick = {
@@ -408,7 +408,7 @@ fun ChatConversationScreen(
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
                                 ) {
-                                    Text("📤 Yuborish", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Send, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp)); Spacer(Modifier.width(4.dp)); Text("Yuborish", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold) }
                                 }
                             }
                         }
@@ -464,7 +464,7 @@ fun ChatConversationScreen(
                                             .background(PrimaryBlue),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text("🎤", fontSize = 20.sp)
+                                        Icon(Icons.Default.Phone, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
                                     }
                                 }
                             } else {
@@ -608,7 +608,7 @@ fun ChatConversationScreen(
                                                     .background(Color(0xFFE2E8F0)),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Text("🖼️ Rasm yuklanmoqda...", color = TextSecondary, fontSize = 12.sp)
+                                                Text("Rasm yuklanmoqda...", color = TextSecondary, fontSize = 12.sp)
                                             }
                                         }
                                     }
@@ -642,7 +642,7 @@ fun ChatConversationScreen(
                                             }
                                             Spacer(modifier = Modifier.width(10.dp))
                                             Column {
-                                                Text("🎥 Video fayl", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NavyDark)
+                                                Text("Video fayl", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NavyDark)
                                                 Text("Ko'rish uchun bosing", fontSize = 11.sp, color = PrimaryBlue)
                                             }
                                         }
@@ -688,7 +688,7 @@ fun ChatConversationScreen(
 
                                             Column {
                                                 Text(
-                                                    text = "🎤 Ovozli xabar",
+                                                    text = "Ovozli xabar",
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 13.sp,
                                                     color = NavyDark
@@ -724,21 +724,12 @@ fun ChatConversationScreen(
                                     )
                                     if (isMe) {
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        if (message.isDeliveredAndRead) {
-                                            Text(
-                                                text = "✓✓",
-                                                color = Color(0xFF0284C7),
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Black
-                                            )
-                                        } else {
-                                            Text(
-                                                text = "✓",
-                                                color = Color(0xFF94A3B8),
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
+                                        Icon(
+                                            imageVector = if (message.isDeliveredAndRead) Icons.Default.Done else Icons.Default.Done,
+                                            contentDescription = null,
+                                            tint = if (message.isDeliveredAndRead) Color(0xFF0284C7) else Color(0xFF94A3B8),
+                                            modifier = Modifier.size(14.dp)
+                                        )
                                     }
                                 }
                             }
@@ -776,7 +767,7 @@ fun ChatConversationScreen(
                             Icon(Icons.Default.Place, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(24.dp))
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
-                                Text("🖼️ Rasm yuborish", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NavyDark)
+                                Text("Rasm yuborish", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NavyDark)
                                 Text("Galereyadan fotosurat tanlash", fontSize = 12.sp, color = TextSecondary)
                             }
                         }
@@ -802,7 +793,7 @@ fun ChatConversationScreen(
                             Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color(0xFFE11D48), modifier = Modifier.size(24.dp))
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
-                                Text("🎥 Video yuborish", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NavyDark)
+                                Text("Video yuborish", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NavyDark)
                                 Text("Galereyadan video fayl tanlash", fontSize = 12.sp, color = TextSecondary)
                             }
                         }
@@ -1007,7 +998,7 @@ fun VideoPlayerDialog(
                 }
 
                 Text(
-                    text = "🎥 Video",
+                    text = "Video",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp

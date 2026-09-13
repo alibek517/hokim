@@ -33,7 +33,7 @@
 
     recognition.onstart = () => {
       isListening = true;
-      updateAiStatus('listening', '🎤 Eshitmoqda...');
+      updateAiStatus('listening', 'Eshitmoqda...');
     };
 
     recognition.onresult = (event) => {
@@ -108,9 +108,11 @@
     isVoiceEnabled = !isVoiceEnabled;
     const btn = document.getElementById('ai-voice-toggle-btn');
     if (btn) {
-      btn.innerText = isVoiceEnabled ? '🔊' : '🔇';
       btn.style.color = isVoiceEnabled ? '#60A5FA' : '#94A3B8';
       btn.title = isVoiceEnabled ? "Ovoz yoqilgan (o'chirish uchun bosing)" : "Ovoz o'chirilgan (yoqish uchun bosing)";
+      btn.innerHTML = isVoiceEnabled
+        ? '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>'
+        : '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>';
     }
     if (!isVoiceEnabled) {
       if (activeAudioPlayer) {
@@ -157,13 +159,13 @@
     const cleanText = (text || '').trim();
     if (!cleanText) {
       isSpeaking = false;
-      updateAiStatus(isListening ? 'listening' : 'idle', isListening ? '🎤 Eshitmoqda...' : 'Kutilmoqda');
+      updateAiStatus(isListening ? 'listening' : 'idle', isListening ? 'Eshitmoqda...' : 'Kutilmoqda');
       if (callback) callback();
       return;
     }
 
     isSpeaking = true;
-    updateAiStatus('speaking', '🔊 Gapirmoqda...');
+    updateAiStatus('speaking', 'Gapirmoqda...');
 
     // 1. Birinchi o'rinda Microsoft Neural O'zbekcha Ovoz (https://hokim.vercel.app/api/tts)
     const baseUrl = (window.location.protocol.startsWith('http') && window.location.hostname.includes('vercel.app'))
@@ -177,31 +179,31 @@
     const triggerLocalFallback = () => {
       if (fallbackTriggered) return;
       fallbackTriggered = true;
+      try {
+        audio.pause();
+        audio.src = '';
+      } catch (_) {}
       if (activeAudioPlayer === audio) activeAudioPlayer = null;
       speakLocalUzbek(cleanText, callback);
+    };
+
+    audio.onplay = () => {
+      // Audio o'ynay boshladi - mahalliy fallback butunlay bloklanadi!
+      fallbackTriggered = true;
+      isSpeaking = true;
+      updateAiStatus('speaking', 'Gapirmoqda...');
     };
 
     audio.onended = () => {
       isSpeaking = false;
       activeAudioPlayer = null;
-      updateAiStatus(isListening ? 'listening' : 'idle', isListening ? '🎤 Eshitmoqda...' : 'Kutilmoqda');
+      updateAiStatus(isListening ? 'listening' : 'idle', isListening ? 'Eshitmoqda...' : 'Kutilmoqda');
       if (callback) callback();
     };
 
     audio.onerror = (e) => {
       console.warn("Neural TTS server offline/rate-limited, fallback to browser speech...", e);
       triggerLocalFallback();
-    };
-
-    // Agar 3 sekund ichida audio o'ynamasa, mahalliy fallback
-    const fallbackTimer = setTimeout(() => {
-      if (audio.paused && audio.currentTime === 0) {
-        triggerLocalFallback();
-      }
-    }, 3000);
-
-    audio.onplay = () => {
-      clearTimeout(fallbackTimer);
     };
 
     try {
@@ -223,16 +225,13 @@
   function speakLocalUzbek(text, callback) {
     if (!('speechSynthesis' in window)) {
       isSpeaking = false;
-      updateAiStatus(isListening ? 'listening' : 'idle', isListening ? '🎤 Eshitmoqda...' : 'Kutilmoqda');
+      updateAiStatus(isListening ? 'listening' : 'idle', isListening ? 'Eshitmoqda...' : 'Kutilmoqda');
       if (callback) callback();
       return;
     }
 
     try {
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.95;
-      utterance.pitch = 1.0;
 
       const voices = cachedVoices.length > 0 ? cachedVoices : (window.speechSynthesis.getVoices() || []);
       // Qat'iy qoida: Faqat o'zbek tili ovozini topish (uz-UZ, Madina, Sardor, Uzbek)
@@ -241,27 +240,35 @@
         (v.name && (v.name.toLowerCase().includes('uzbek') || v.name.toLowerCase().includes('madina') || v.name.toLowerCase().includes('sardor')))
       );
 
-      if (uzVoice) {
-        utterance.voice = uzVoice;
-        utterance.lang = uzVoice.lang || 'uz-UZ';
-      } else {
-        utterance.lang = 'uz-UZ';
+      // Agar brauzerda sof O'zbekcha ovoz bo'lmasa, hech qachon ingliz/rus erkak ovozida gapirmasin!
+      if (!uzVoice) {
+        console.warn("Brauzerda sof o'zbekcha TTS ovoz topilmadi. Begona (inglizcha/ruscha) tilda gapirmaslik uchun nutq to'xtatildi.");
+        isSpeaking = false;
+        updateAiStatus(isListening ? 'listening' : 'idle', isListening ? 'Eshitmoqda...' : 'Kutilmoqda');
+        if (callback) callback();
+        return;
       }
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
+      utterance.voice = uzVoice;
+      utterance.lang = uzVoice.lang || 'uz-UZ';
 
       utterance.onstart = () => {
         isSpeaking = true;
-        updateAiStatus('speaking', '🔊 Gapirmoqda...');
+        updateAiStatus('speaking', 'Gapirmoqda...');
       };
 
       utterance.onend = () => {
         isSpeaking = false;
-        updateAiStatus(isListening ? 'listening' : 'idle', isListening ? '🎤 Eshitmoqda...' : 'Kutilmoqda');
+        updateAiStatus(isListening ? 'listening' : 'idle', isListening ? 'Eshitmoqda...' : 'Kutilmoqda');
         if (callback) callback();
       };
 
       utterance.onerror = () => {
         isSpeaking = false;
-        updateAiStatus(isListening ? 'listening' : 'idle', isListening ? '🎤 Eshitmoqda...' : 'Kutilmoqda');
+        updateAiStatus(isListening ? 'listening' : 'idle', isListening ? 'Eshitmoqda...' : 'Kutilmoqda');
         if (callback) callback();
       };
 
@@ -269,7 +276,7 @@
     } catch (e) {
       console.warn("speakLocalUzbek error:", e);
       isSpeaking = false;
-      updateAiStatus(isListening ? 'listening' : 'idle', isListening ? '🎤 Eshitmoqda...' : 'Kutilmoqda');
+      updateAiStatus(isListening ? 'listening' : 'idle', isListening ? 'Eshitmoqda...' : 'Kutilmoqda');
       if (callback) callback();
     }
   }
@@ -314,7 +321,7 @@
 
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
-    const displaySize = 320;
+    const displaySize = 96;
     canvas.width = Math.round(displaySize * dpr);
     canvas.height = Math.round(displaySize * dpr);
     canvas.style.width = displaySize + 'px';
@@ -322,15 +329,15 @@
 
     const cx = displaySize / 2;
     const cy = displaySize / 2;
-    const baseR = 95;
+    const baseR = 28;
 
-    // Orbiting particles
+    // Orbiting particles scaled to 96px
     const particles = [
-      { angle: 0, dist: 125, speed: 0.018, size: 3.5, alpha: 0.7 },
-      { angle: 1.2, dist: 138, speed: -0.012, size: 2.5, alpha: 0.6 },
-      { angle: 2.8, dist: 120, speed: 0.022, size: 3.0, alpha: 0.8 },
-      { angle: 4.1, dist: 145, speed: -0.015, size: 2.0, alpha: 0.5 },
-      { angle: 5.3, dist: 130, speed: 0.014, size: 2.8, alpha: 0.65 }
+      { angle: 0, dist: 37, speed: 0.024, size: 1.8, alpha: 0.75 },
+      { angle: 1.2, dist: 41, speed: -0.016, size: 1.5, alpha: 0.6 },
+      { angle: 2.8, dist: 35, speed: 0.028, size: 1.7, alpha: 0.8 },
+      { angle: 4.1, dist: 43, speed: -0.018, size: 1.4, alpha: 0.5 },
+      { angle: 5.3, dist: 38, speed: 0.018, size: 1.6, alpha: 0.65 }
     ];
 
     function render(time) {
@@ -366,20 +373,20 @@
 
       // Voice reactive dynamics
       let pulseAmp = 1.0;
-      let breathWaveAmp = 2.0;
+      let breathWaveAmp = 0.8;
       let glowColor = 'rgba(99, 102, 241, 0.4)';
 
       if (isListening) {
         pulseAmp = 1.05 + 0.03 * Math.sin(time * 0.008);
-        breathWaveAmp = 5.0;
-        glowColor = 'rgba(59, 130, 246, 0.6)';
+        breathWaveAmp = 1.6;
+        glowColor = 'rgba(59, 130, 246, 0.65)';
       } else if (isSpeaking) {
-        pulseAmp = 1.08 + 0.06 * Math.sin(time * 0.015) + 0.03 * Math.cos(time * 0.023);
-        breathWaveAmp = 7.0;
-        glowColor = 'rgba(129, 140, 248, 0.7)';
+        pulseAmp = 1.08 + 0.05 * Math.sin(time * 0.015) + 0.02 * Math.cos(time * 0.023);
+        breathWaveAmp = 2.2;
+        glowColor = 'rgba(129, 140, 248, 0.75)';
       } else {
         pulseAmp = 1.0 + 0.02 * Math.sin(time * 0.002);
-        breathWaveAmp = 2.5;
+        breathWaveAmp = 0.8;
       }
 
       const activeRadius = baseR * pulseAmp;
@@ -420,7 +427,7 @@
       }
       ctx.closePath();
 
-      // 4. Fill with Radiant 3D sphere gradient (matches user Image 2 replica)
+      // 4. Fill with Radiant 3D sphere gradient
       const lx = cx - activeRadius * 0.32;
       const ly = cy - activeRadius * 0.30;
       const bodyGrad = ctx.createRadialGradient(lx, ly, activeRadius * 0.05, cx, cy, activeRadius * 1.15);
@@ -432,7 +439,7 @@
 
       ctx.fillStyle = bodyGrad;
       ctx.shadowColor = 'rgba(99, 102, 241, 0.7)';
-      ctx.shadowBlur = 30;
+      ctx.shadowBlur = 14;
       ctx.fill();
       ctx.shadowBlur = 0;
 
@@ -451,7 +458,7 @@
 
       // Curved inner neon rim highlight
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1.0;
       ctx.beginPath();
       ctx.arc(cx, cy, activeRadius * 0.94, -Math.PI * 0.8, -Math.PI * 0.2);
       ctx.stroke();
@@ -465,7 +472,7 @@
       }
       ctx.closePath();
       ctx.strokeStyle = 'rgba(199, 210, 254, 0.55)';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.2;
       ctx.stroke();
 
       // 7. Orbiting celestial motes
@@ -476,7 +483,7 @@
 
         ctx.fillStyle = `rgba(224, 231, 255, ${p.alpha})`;
         ctx.shadowColor = '#60A5FA';
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 6;
         ctx.beginPath();
         ctx.arc(px, py, p.size, 0, 2 * Math.PI);
         ctx.fill();
@@ -498,9 +505,9 @@
 
   function updateAiStatus(state, label) {
     currentVisualState = state || 'idle';
-    const badge = document.getElementById('ai-orb-status-badge');
-    if (badge) {
-      badge.innerText = label;
+    const textEl = document.getElementById('ai-status-text') || document.getElementById('ai-orb-status-badge');
+    if (textEl) {
+      textEl.innerText = label;
     }
   }
 
@@ -643,7 +650,16 @@ Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qa
   function analyzeIntent(rawText) {
     const text = rawText.toLowerCase().trim();
 
-    // 0. Salomlashish va hol-ahvol (Greeting)
+    // 0. To'xtatish va o'zini o'zi yopish (Stop / Dismiss)
+    const stopWords = ["to'xta", "toxta", "to'xtat", "toxtat", "jim bo'l", "jim bol", "jim", "bas", "yetadi", "yopil", "yop", "chiq", "stop", "xayr"];
+    if (stopWords.some(w => text === w || text.startsWith(w + ' ') || text.endsWith(' ' + w) || text.includes(' ' + w + ' '))) {
+      return {
+        intent: 'STOP',
+        message: "Tushundim, to'xtadim."
+      };
+    }
+
+    // 1. Salomlashish va hol-ahvol (Greeting)
     const greetings = ['salom', 'assalomu alaykum', 'assalom', 'qandaysiz', 'qalaysiz', 'charchamang', 'hormang', 'salomatmisiz', 'privet', 'hello'];
     if (greetings.some(g => text === g || text.startsWith(g + ' ') || text.endsWith(' ' + g) || text === g + '!' || text === g + '?')) {
       return {
@@ -763,10 +779,25 @@ Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qa
     };
   }
 
-  // Handle Speech / Text Command
   async function handleUserSpeech(userSpeech) {
     appendAiMessage('user', userSpeech);
-    updateAiStatus('thinking', '⚡ Qayta ishlanmoqda...');
+    updateAiStatus('thinking', 'Qayta ishlanmoqda...');
+
+    // 0. To'xtatish va o'zini o'zi yopish ("to'xta", "toxta", "jim", "bas", "yetadi", "yopil", "stop", "chiq")
+    const cleanLower = (userSpeech || '').toLowerCase().trim();
+    const stopWords = ["to'xta", "toxta", "to'xtat", "toxtat", "jim bo'l", "jim bol", "jim", "bas", "yetadi", "yopil", "yop", "chiq", "stop", "xayr"];
+    if (stopWords.some(w => cleanLower === w || cleanLower.startsWith(w + ' ') || cleanLower.endsWith(' ' + w) || cleanLower.includes(' ' + w + ' '))) {
+      aiState = 'IDLE';
+      const reply = "Tushundim, to'xtadim.";
+      appendAiMessage('jarvis', reply);
+      speakText(reply, () => {
+        closeAiAssistantModal();
+      });
+      setTimeout(() => {
+        closeAiAssistantModal();
+      }, 1200);
+      return;
+    }
 
     if (aiState === 'CONFIRMING_TASK') {
       const parsed = analyzeIntent(userSpeech);
@@ -1018,6 +1049,7 @@ Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qa
 
   window.openAiAssistantModal = function() {
     const modal = document.getElementById('ai-assistant-modal');
+    document.querySelectorAll('.ai-header-btn').forEach(b => b.classList.add('active'));
     if (modal) {
       modal.classList.add('active');
       startOrbAnimation();
@@ -1029,11 +1061,12 @@ Hokimning gapi bo'yicha tahlil qiling va FAQAT quyidagi JSON formatida natija qa
 
   window.closeAiAssistantModal = function() {
     const modal = document.getElementById('ai-assistant-modal');
+    document.querySelectorAll('.ai-header-btn').forEach(b => b.classList.remove('active'));
     if (modal) modal.classList.remove('active');
     stopOrbAnimation();
     if (isListening && recognition) {
       isListening = false;
-      recognition.stop();
+      try { recognition.stop(); } catch(_) {}
     }
     if (activeAudioPlayer) {
       try { activeAudioPlayer.pause(); activeAudioPlayer.src = ''; } catch (_) {}

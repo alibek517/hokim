@@ -133,7 +133,7 @@ fun MayorScreen(
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // AI Jarvis Button (Faqat Hokim uchun)
-                        IconButton(onClick = { showAiJarvisDialog = true }) {
+                        IconButton(onClick = { showAiJarvisDialog = !showAiJarvisDialog }) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
@@ -141,7 +141,7 @@ fun MayorScreen(
                                     .background(Color(0xFF6366F1))
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
-                                Text("✨", fontSize = 12.sp)
+                                Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Text("AI", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                             }
@@ -440,7 +440,7 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 8.dp),
-                placeholder = { Text("🔍 Rejalarni qidirish...", fontSize = 12.sp) },
+                placeholder = { Text("Rejalarni qidirish...", fontSize = 12.sp) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -541,7 +541,7 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
                                         verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         Text(
-                                            "🎤 Ovozli yozuvlar (${voices.size} ta):",
+                                            "Ovozli yozuvlar (${voices.size} ta):",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = PrimaryBlue
@@ -653,7 +653,7 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
                 if (isRecordingVoice) scheduleVoiceRecorder.cancelRecording()
                 showAddDialog = false
             },
-            title = { Text("🗓️ Yangi Reja Kiritish", fontWeight = FontWeight.Bold) },
+            title = { Text("Yangi Reja Kiritish", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     // 1 ta yagona "Reja *" maydoni (3 tasi bitta qilingan)
@@ -760,10 +760,10 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
                             modifier = Modifier.fillMaxWidth(),
                             border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryBlue.copy(alpha = 0.5f))
                         ) {
-                            Text("🎤", fontSize = 16.sp)
+                            Icon(Icons.Default.Phone, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                if (recordedVoices.isEmpty()) "🎤 Ovoz yozish (gols)" else "➕ Yana ovoz qo'shish (${recordedVoices.size} ta kiritildi)",
+                                if (recordedVoices.isEmpty()) "Ovoz yozish (gols)" else "Yana ovoz qo'shish (${recordedVoices.size} ta kiritildi)",
                                 color = PrimaryBlue,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -818,7 +818,7 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
-                                            if (isPlayingThis) "Tinglanmoqda..." else "🎤 Ovoz #${index + 1} (${dur}s)",
+                                            if (isPlayingThis) "Tinglanmoqda..." else "Ovoz #${index + 1} (${dur}s)",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Medium,
                                             color = NavyDark
@@ -881,7 +881,7 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
                                 android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
                             } catch (e: Exception) { null }
                         }
-                        val finalTitle = title.trim().ifBlank { "🎤 Ovozli reja (${base64List.size} ta ovoz)" }
+                        val finalTitle = title.trim().ifBlank { "Ovozli reja (${base64List.size} ta ovoz)" }
                         val newSchedule = ScheduleItem(
                             id = UUID.randomUUID().toString(),
                             mayorId = currentUser.id,
@@ -935,7 +935,7 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
     val workers = users.filter { it.role == UserRole.WORKER && it.mayorId == currentUser.id }
 
     var selectedFilterIndex by remember { mutableIntStateOf(0) }
-    val filterTabs = listOf("Barchasi", "Boshlanmagan (🔴)", "Jarayonda (🟡)", "Bajarildi (🟢)", "Tekshirildi (🔵)")
+    val filterTabs = listOf("Barchasi", "Boshlanmagan", "Jarayonda", "Bajarildi", "Tekshirildi")
 
     val now = System.currentTimeMillis()
     val filteredTasks = when (selectedFilterIndex) {
@@ -1009,7 +1009,7 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp, vertical = 6.dp),
-                placeholder = { Text("🔍 Topshiriq yoki mas'ul xodimni qidirish...", fontSize = 12.sp) },
+                placeholder = { Text("Topshiriq yoki mas'ul xodimni qidirish...", fontSize = 12.sp) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -1073,18 +1073,18 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                         )
                                         if (!isDone) {
                                             val remainingText = if (diff <= 0) {
-                                                "⚠️ Muddat o'tgan!"
+                                                "Muddat o'tgan!"
                                             } else {
                                                 val totalHours = diff / (1000 * 60 * 60)
                                                 val totalMinutes = (diff / (1000 * 60)) % 60
                                                 val days = totalHours / 24
                                                 val remHours = totalHours % 24
                                                 if (days > 0) {
-                                                    "⏳ ${days} kun ${remHours} soat qoldi"
+                                                    "${days} kun ${remHours} soat qoldi"
                                                 } else if (remHours > 0) {
-                                                    "⏳ ${remHours} soat ${totalMinutes} daq qoldi"
+                                                    "${remHours} soat ${totalMinutes} daq qoldi"
                                                 } else {
-                                                    "⏳ ${totalMinutes} daqiqa qoldi"
+                                                    "${totalMinutes} daqiqa qoldi"
                                                 }
                                             }
                                             val badgeColor = if (diff <= 0) StatusRed else if (diff < 12 * 3600 * 1000L) StatusYellow else PrimaryBlue
@@ -1152,7 +1152,7 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                Text("🎤", fontSize = 14.sp)
+                                                Icon(Icons.Default.Phone, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                                                 Spacer(modifier = Modifier.width(4.dp))
                                                 Text("Zvuk", color = PrimaryBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                             }
@@ -1231,7 +1231,7 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                                                 messageType = MessageType.VOICE,
                                                                 mediaPath = path,
                                                                 audioDurationSec = durSec,
-                                                                textContent = "🎤 Topshiriq: \"${task.title}\"",
+                                                                textContent = "Topshiriq: \"${task.title}\"",
                                                                 isRead = false
                                                             )
                                                             storage.sendMessage(voiceMsg)
@@ -1305,7 +1305,7 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(6.dp))
-                                                val label = if (taskVoices.size > 1) "🎤 Ovoz #${vIdx + 1}" else "🎤 Ovozli topshiriq"
+                                                val label = if (taskVoices.size > 1) "Ovoz #${vIdx + 1}" else "Ovozli topshiriq"
                                                 Text(
                                                     if (isPlayingThisVoice) "Tinglanmoqda..." else label,
                                                     fontSize = 12.sp,
@@ -1371,8 +1371,10 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                                 .background(Color(0xFFDCFCE7))
                                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                                         ) {
+                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF15803D), modifier = Modifier.size(12.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
                                             Text(
-                                                "👁️ Ko'rildi: ${seenTimeFormat.format(Date(task.seenAt))}",
+                                                "Ko'rildi: ${seenTimeFormat.format(Date(task.seenAt))}",
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = Color(0xFF15803D)
@@ -1386,8 +1388,10 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                                 .background(Color(0xFFFEF3C7))
                                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                                         ) {
+                                            Icon(Icons.Default.DateRange, contentDescription = null, tint = Color(0xFFB45309), modifier = Modifier.size(12.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
                                             Text(
-                                                "⚠️ Ko'rilmagan",
+                                                "Ko'rilmagan",
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = Color(0xFFB45309)
@@ -1406,7 +1410,9 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                             .padding(horizontal = 8.dp, vertical = 5.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text("💬 Xodim:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF15803D))
+                                        Icon(Icons.Default.Email, contentDescription = null, tint = Color(0xFF15803D), modifier = Modifier.size(12.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Xodim:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF15803D))
                                         Spacer(modifier = Modifier.width(6.dp))
                                         if (!task.seenResponseText.isNullOrBlank()) {
                                             Text(
@@ -1715,7 +1721,7 @@ fun CreateTaskDialog(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        if (isPlayingVoicePreview) "Tinglanmoqda..." else "🎤 Ovozni eshitish (${recordedVoiceDuration}s)",
+                                        if (isPlayingVoicePreview) "Tinglanmoqda..." else "Ovozni eshitish (${recordedVoiceDuration}s)",
                                         color = PrimaryBlue,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp
@@ -1757,7 +1763,7 @@ fun CreateTaskDialog(
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("🎤", fontSize = 16.sp)
+                                Icon(Icons.Default.Phone, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("Ovozli topshiriq yozish", color = PrimaryBlue, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             }
@@ -1850,7 +1856,7 @@ fun CreateTaskDialog(
 
                     val finalTitle = when {
                         title.isNotBlank() -> title.trim()
-                        recordedVoicePath != null -> "🎤 Ovozli topshiriq (${recordedVoiceDuration}s)"
+                        recordedVoicePath != null -> "Ovozli topshiriq (${recordedVoiceDuration}s)"
                         else -> {
                             Toast.makeText(context, "Topshiriq matnini kiriting yoki ovoz yozing!", Toast.LENGTH_SHORT).show()
                             return@Button
@@ -1928,7 +1934,11 @@ fun MayorWorkersTab(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("🏆 XODIMLAR REYTINGI", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFBBF24), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("XODIMLAR REYTINGI", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
                             Text("Hokim tekshirgan har bir ish uchun +0.5 ball", color = TextSecondary, fontSize = 11.sp)
                         }
                         Surface(
@@ -1942,7 +1952,7 @@ fun MayorWorkersTab(
                                     modifier = Modifier.clickable { sortByRating = true }
                                 ) {
                                     Text(
-                                        "Ball ⭐",
+                                        "Ball",
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                         color = if (sortByRating) Color.White else TextSecondary,
                                         fontSize = 11.sp,
@@ -1978,27 +1988,42 @@ fun MayorWorkersTab(
                             if (rankedWorkers.size >= 2 && rankedWorkers[1].second.score > 0) {
                                 val second = rankedWorkers[1]
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("🥈", fontSize = 20.sp)
+                                    Surface(shape = CircleShape, color = Color(0xFF94A3B8), modifier = Modifier.size(26.dp)) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text("2", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(3.dp))
                                     Text(second.first.firstName, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                                    Text("${second.second.score} ⭐", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("${second.second.score} ball", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             // 1st Place (Winner)
                             val first = rankedWorkers[0]
                             if (first.second.score > 0) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("🥇", fontSize = 28.sp)
+                                    Surface(shape = CircleShape, color = Color(0xFFF59E0B), modifier = Modifier.size(32.dp)) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text("1", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(3.dp))
                                     Text(first.first.firstName, color = Color(0xFFFBBF24), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                                    Text("${first.second.score} / 10 ⭐", color = Color(0xFFFBBF24), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("${first.second.score} / 10 ball", color = Color(0xFFFBBF24), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             // 3rd Place
                             if (rankedWorkers.size >= 3 && rankedWorkers[2].second.score > 0) {
                                 val third = rankedWorkers[2]
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("🥉", fontSize = 18.sp)
+                                    Surface(shape = CircleShape, color = Color(0xFFB45309), modifier = Modifier.size(24.dp)) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text("3", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(3.dp))
                                     Text(third.first.firstName, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                                    Text("${third.second.score} ⭐", color = Color(0xFFCD7F32), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("${third.second.score} ball", color = Color(0xFFCD7F32), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -2023,7 +2048,7 @@ fun MayorWorkersTab(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 8.dp),
-                placeholder = { Text("🔍 Xodimlarni qidirish (ism, lavozim)...", fontSize = 12.sp) },
+                placeholder = { Text("Xodimlarni qidirish (ism, lavozim)...", fontSize = 12.sp) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -2042,12 +2067,7 @@ fun MayorWorkersTab(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(searchedWorkers) { (worker, stats) ->
-                        val rankIcon = when (stats.rank) {
-                            1 -> "🥇"
-                            2 -> "🥈"
-                            3 -> "🥉"
-                            else -> "#${stats.rank}"
-                        }
+                        val rankIcon = "#${stats.rank}" 
 
                         val scoreBgColor = when {
                             stats.totalTasks == 0 -> Color(0xFFE2E8F0)
@@ -2111,7 +2131,7 @@ fun MayorWorkersTab(
                                                 modifier = Modifier.padding(start = 6.dp)
                                             ) {
                                                 Text(
-                                                    if (stats.totalTasks == 0) "0.0 / 10 ⚪" else "${stats.score} / 10 ⭐",
+                                                    if (stats.totalTasks == 0) "0.0 / 10" else "${stats.score} / 10 ball",
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 12.sp,
                                                     color = scoreTextColor,
@@ -2145,12 +2165,12 @@ fun MayorWorkersTab(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Column {
-                                        Text("🔍 Tekshirildi: ${stats.inspectedTasks} ta (+${stats.inspectedTasks * 0.5}⭐)", fontSize = 11.sp, color = PrimaryBlue, fontWeight = FontWeight.SemiBold)
-                                        Text("🚀 Erta topshirilgan: ${stats.earlyCompletedTasks}", fontSize = 11.sp, color = Color(0xFF15803D), fontWeight = FontWeight.Medium)
+                                        Text("Tekshirildi: ${stats.inspectedTasks} ta (+${stats.inspectedTasks * 0.5} ball)", fontSize = 11.sp, color = PrimaryBlue, fontWeight = FontWeight.SemiBold)
+                                        Text("Erta topshirilgan: ${stats.earlyCompletedTasks}", fontSize = 11.sp, color = Color(0xFF15803D), fontWeight = FontWeight.Medium)
                                     }
                                     Column {
-                                        Text("⚡ Vaqtida boshlangan: ${stats.earlyStartTasks}", fontSize = 11.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Medium)
-                                        Text("⏰ Kechikkan: ${stats.lateCompletedTasks}", fontSize = 11.sp, color = if (stats.lateCompletedTasks > 0) StatusRed else TextSecondary, fontWeight = FontWeight.Medium)
+                                        Text("Vaqtida boshlangan: ${stats.earlyStartTasks}", fontSize = 11.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Medium)
+                                        Text("Kechikkan: ${stats.lateCompletedTasks}", fontSize = 11.sp, color = if (stats.lateCompletedTasks > 0) StatusRed else TextSecondary, fontWeight = FontWeight.Medium)
                                     }
                                 }
 
@@ -2164,7 +2184,7 @@ fun MayorWorkersTab(
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
                                             Text(
-                                                "⚠️ Ilovaga ${stats.daysInactive} kundan beri kirmagan (-${stats.inactivityPenalty} ball jarima)",
+                                                "Ilovaga ${stats.daysInactive} kundan beri kirmagan (-${stats.inactivityPenalty} ball jarima)",
                                                 fontSize = 11.sp,
                                                 color = StatusRed,
                                                 fontWeight = FontWeight.SemiBold,
@@ -2178,7 +2198,7 @@ fun MayorWorkersTab(
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
                                             Text(
-                                                "ℹ️ Kecha kirgan (Bugun hali kirmagan)",
+                                                "Kecha kirgan (Bugun hali kirmagan)",
                                                 fontSize = 11.sp,
                                                 color = Color(0xFF854D0E),
                                                 fontWeight = FontWeight.SemiBold,
@@ -2192,7 +2212,7 @@ fun MayorWorkersTab(
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
                                             Text(
-                                                "🟢 Bugun ilovada faol bo'lgan",
+                                                "Bugun ilovada faol bo'lgan",
                                                 fontSize = 11.sp,
                                                 color = Color(0xFF166534),
                                                 fontWeight = FontWeight.SemiBold,
@@ -2207,7 +2227,7 @@ fun MayorWorkersTab(
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Text(
-                                            "⚪ Yangi biriktirilgan (Hali ilovaga kirmagan)",
+                                            "Yangi biriktirilgan (Hali ilovaga kirmagan)",
                                             fontSize = 11.sp,
                                             color = Color(0xFF64748B),
                                             fontWeight = FontWeight.SemiBold,
@@ -2225,16 +2245,16 @@ fun MayorWorkersTab(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         if (!worker.phone.isNullOrBlank()) {
-                                            Text("📞 Tel: ${worker.phone}", fontSize = 11.sp, color = TextSecondary)
+                                            Text("Tel: ${worker.phone}", fontSize = 11.sp, color = TextSecondary)
                                         }
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             modifier = Modifier.padding(top = 2.dp)
                                         ) {
-                                            Text("🔑 Login: ", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+                                            Text("Login: ", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
                                             Text(worker.username, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("🔒 Parol: ", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+                                            Text("Parol: ", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
                                             Text(worker.password, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
                                         }
                                     }
@@ -2574,11 +2594,11 @@ fun MayorChatsTab(
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             if (lastMessage.senderId == currentUser.id) {
                                                 val isRead = lastMessage.isDeliveredAndRead
-                                                Text(
-                                                    text = if (isRead) "✓✓" else "✓",
-                                                    color = if (isRead) Color(0xFF0284C7) else Color(0xFF94A3B8),
-                                                    fontSize = 12.sp,
-                                                    fontWeight = if (isRead) FontWeight.Black else FontWeight.Bold
+                                                Icon(
+                                                    imageVector = if (isRead) Icons.Default.Done else Icons.Default.Done,
+                                                    contentDescription = null,
+                                                    tint = if (isRead) Color(0xFF0284C7) else Color(0xFF94A3B8),
+                                                    modifier = Modifier.size(14.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(4.dp))
                                             }
@@ -2596,9 +2616,9 @@ fun MayorChatsTab(
 
                                 val previewText = when {
                                     lastMessage == null -> "Muloqotni boshlang..."
-                                    lastMessage.messageType == com.hokimloyha.app.model.MessageType.VOICE -> "🎤 Ovozli xabar (" + lastMessage.audioDurationSec + " sek)"
-                                    lastMessage.messageType == com.hokimloyha.app.model.MessageType.IMAGE -> "🖼️ Rasm"
-                                    lastMessage.messageType == com.hokimloyha.app.model.MessageType.VIDEO -> "🎥 Video"
+                                    lastMessage.messageType == com.hokimloyha.app.model.MessageType.VOICE -> "Ovozli xabar (" + lastMessage.audioDurationSec + " sek)"
+                                    lastMessage.messageType == com.hokimloyha.app.model.MessageType.IMAGE -> "Rasm"
+                                    lastMessage.messageType == com.hokimloyha.app.model.MessageType.VIDEO -> "Video"
                                     else -> lastMessage.textContent ?: ""
                                 }
 
@@ -2774,6 +2794,16 @@ fun AiJarvisDialog(
         inputText = ""
 
         val lower = cmd.lowercase()
+
+        // 0. To'xtatish va o'zini o'zi yopish ("to'xta", "stop", "jim", "bas", "yetadi", "yopil", "chiq")
+        val stopWords = listOf("to'xta", "toxta", "to'xtat", "toxtat", "jim bo'l", "jim bol", "jim", "bas", "yetadi", "yopil", "yop", "chiq", "stop", "xayr")
+        if (stopWords.any { lower == it || lower.startsWith("$it ") || lower.endsWith(" $it") || lower.contains(" $it ") }) {
+            val reply = "Tushundim, to'xtadim."
+            conversationHistory.add("JARVIS" to reply)
+            speak(reply)
+            onDismiss()
+            return
+        }
 
         // 1. Tasdiqlash bosqichi
         if (aiState == "CONFIRMING") {
@@ -2955,154 +2985,148 @@ fun AiJarvisDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xF0090D1A))
+                .background(Color(0x2A000000))
                 .clickable { onDismiss() }
-                .padding(24.dp)
+                .padding(bottom = 24.dp, start = 16.dp, end = 16.dp),
+            contentAlignment = Alignment.BottomCenter
         ) {
-            // Top Bar
-            Row(
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.TopCenter),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null
+                    ) {}
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("✨", fontSize = 20.sp)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "O'zbek AI Yordamchisi",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                        color = Color.White
-                    )
-                }
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF1E293B))
+                // Sleek translucent Siri caption capsule
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xEB0F172A),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x33FFFFFF)),
+                    shadowElevation = 10.dp,
+                    modifier = Modifier.widthIn(max = 360.dp)
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = "Yopish", tint = Color.White, modifier = Modifier.size(18.dp))
-                }
-            }
-
-            // Center: Morphing Glowing AI Orb (Tomoloq -> 5/8 burchak -> Tomoloq)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(240.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                // Outer glowing halo rings
-                Box(
-                    modifier = Modifier
-                        .size(230.dp)
-                        .scale(scale * 1.05f)
-                        .clip(CircleShape)
-                        .background(Color(0x336366F1))
-                )
-                Box(
-                    modifier = Modifier
-                        .size(195.dp)
-                        .scale(scale)
-                        .clip(CircleShape)
-                        .background(Color(0x443B82F6))
-                )
-
-                // Core Morphing Orb (Tomoloq -> 5 burchak -> 8 burchak -> Tomoloq)
-                Box(
-                    modifier = Modifier
-                        .size(160.dp)
-                        .scale(scale)
-                        .rotate(rotation)
-                        .clip(RoundedCornerShape(percent = cornerRadiusPercent.toInt()))
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    Color.White,
-                                    Color(0xFFBFDBFE),
-                                    Color(0xFF6366F1),
-                                    Color(0xFF3B82F6),
-                                    Color(0xFF1E1B4B)
-                                ),
-                                center = Offset(110f, 60f),
-                                radius = 220f
-                            )
-                        )
-                        .clickable {
-                            val hasPerm = ContextCompat.checkSelfPermission(
-                                context,
-                                Manifest.permission.RECORD_AUDIO
-                            ) == PackageManager.PERMISSION_GRANTED
-                            if (hasPerm) {
-                                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uz-UZ")
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "uz-UZ")
-                                    putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
-                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "O'zbek tilida buyruq bering...")
-                                }
-                                try {
-                                    isListening = true
-                                    speechLauncher.launch(intent)
-                                } catch (e: Exception) {
-                                    isListening = false
-                                    Toast.makeText(context, "Ovozli qidiruv mavjud emas", Toast.LENGTH_SHORT).show()
-                                }
-                            } else {
-                                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isListening) Icons.Default.Phone else Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = if (isListening) Color(0xFF60A5FA) else Color(0xFFA78BFA),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Text(
+                                    text = if (isListening) "Tinglanmoqda..." else if (isSpeaking) "Javob berilmoqda..." else "O'zbek AI Yordamchi",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isListening) Color(0xFF60A5FA) else Color(0xFFE2E8F0)
+                                )
+                            }
+                            IconButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Yopish",
+                                    tint = Color(0xFF94A3B8),
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
                         }
-                )
-            }
-
-            // Bottom: Live Status & Subtitle
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .clickable(enabled = false) {},
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color(0x336366F1),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x556366F1))
-                ) {
-                    Text(
-                        if (isListening) "🎤 Tinglanmoqda..." else "Kutilmoqda",
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                        fontSize = 12.sp,
-                        color = if (isListening) Color(0xFF93C5FD) else Color(0xFFCBD5E1),
-                        fontWeight = FontWeight.Bold
-                    )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = lastCaption,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White,
+                            lineHeight = 18.sp
+                        )
+                    }
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = Color(0x991E293B),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x33FFFFFF)),
-                    modifier = Modifier.fillMaxWidth()
+                // Apple Siri Style Floating Morphing Orb (Circle -> 5/8-corner -> Circle)
+                Box(
+                    modifier = Modifier.size(100.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        lastCaption,
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
-                        fontSize = 15.sp,
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold,
-                        lineHeight = 22.sp
+                    // Outer glow halo
+                    Box(
+                        modifier = Modifier
+                            .size(96.dp)
+                            .scale(scale * 1.05f)
+                            .clip(CircleShape)
+                            .background(Color(0x336366F1))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(82.dp)
+                            .scale(scale)
+                            .clip(CircleShape)
+                            .background(Color(0x443B82F6))
+                    )
+
+                    // Core Morphing Orb (Tomoloq -> 5 burchak -> 8 burchak -> Tomoloq)
+                    Box(
+                        modifier = Modifier
+                            .size(68.dp)
+                            .scale(scale)
+                            .rotate(rotation)
+                            .clip(RoundedCornerShape(percent = cornerRadiusPercent.toInt()))
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Color.White,
+                                        Color(0xFFBFDBFE),
+                                        Color(0xFF6366F1),
+                                        Color(0xFF3B82F6),
+                                        Color(0xFF1E1B4B)
+                                    ),
+                                    center = Offset(45f, 25f),
+                                    radius = 90f
+                                )
+                            )
+                            .clickable {
+                                val hasPerm = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.RECORD_AUDIO
+                                ) == PackageManager.PERMISSION_GRANTED
+                                if (hasPerm) {
+                                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uz-UZ")
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "uz-UZ")
+                                        putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
+                                        putExtra(RecognizerIntent.EXTRA_PROMPT, "O'zbek tilida buyruq bering...")
+                                    }
+                                    try {
+                                        isListening = true
+                                        speechLauncher.launch(intent)
+                                    } catch (e: Exception) {
+                                        isListening = false
+                                        Toast.makeText(context, "Ovozli qidiruv mavjud emas", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            }
                     )
                 }
 
                 Text(
-                    "Ovozli buyruq bering yoki to'xtatish uchun sharga bosing",
-                    fontSize = 12.sp,
-                    color = Color(0xFF94A3B8)
+                    text = "Ovozli buyruq bering yoki sharga bosing",
+                    fontSize = 11.sp,
+                    color = Color(0xFFCBD5E1),
+                    fontWeight = FontWeight.Medium
                 )
-                Spacer(modifier = Modifier.height(10.dp))
             }
         }
     }

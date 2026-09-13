@@ -73,14 +73,14 @@ function renderChatMessages() {
     } else if (m.messageType === 'VIDEO') {
       const src = m.mediaBase64 ? ('data:video/mp4;base64,' + m.mediaBase64) : (m.mediaPath || '');
       contentHtml = '<div style="background: rgba(37,99,235,0.1); border-radius: 8px; padding: 10px; display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="playVideo(\'' + src + '\')">' +
-        '<div style="width: 36px; height: 36px; border-radius: 18px; background: #2563EB; display: flex; align-items: center; justify-content: center; color: white;">▶</div>' +
-        '<div><div style="font-weight: bold; font-size: 13px; color: #0F172A;">🎥 Video fayl</div>' +
+        '<div style="width: 36px; height: 36px; border-radius: 18px; background: #2563EB; display: flex; align-items: center; justify-content: center; color: white;"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>' +
+        '<div><div style="font-weight: bold; font-size: 13px; color: #0F172A; display: flex; align-items: center; gap: 4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="#2563EB"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>Video fayl</div>' +
         '<div style="font-size: 11px; color: #2563EB;">Ko\'rish uchun bosing</div></div></div>';
     } else if (m.messageType === 'VOICE') {
       const src = m.mediaBase64 ? ('data:audio/mp4;base64,' + m.mediaBase64) : (m.mediaPath || '');
       contentHtml = '<div style="display: flex; align-items: center; gap: 10px; padding: 4px;">' +
-        '<button class="icon-btn" style="background: #2563EB; color: white; width: 34px; height: 34px;" onclick="playAudio(\'' + src + '\', this)">▶</button>' +
-        '<div><div style="font-weight: bold; font-size: 13px;">🎤 Ovozli xabar</div>' +
+        '<button class="icon-btn" style="background: #2563EB; color: white; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;" onclick="playAudio(\'' + src + '\', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>' +
+        '<div><div style="font-weight: bold; font-size: 13px; display: flex; align-items: center; gap: 4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="#2563EB"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Ovozli xabar</div>' +
         '<div style="font-size: 11px; color: #2563EB;">' + (m.audioDurationSec || 3) + ' sek</div></div></div>';
     } else {
       contentHtml = '<div>' + escapeHtml(m.textContent || '') + '</div>';
@@ -275,11 +275,11 @@ async function startChatVoiceRecording() {
 
     if (normalBar) normalBar.style.display = 'none';
     if (recBar) recBar.style.display = 'flex';
-    if (timerEl) timerEl.innerText = '🔴 Yozilmoqda: 0s';
+    if (timerEl) timerEl.innerText = 'Yozilmoqda: 0s';
 
     chatVoiceTimerId = setInterval(() => {
       const elapsed = Math.floor((Date.now() - chatVoiceStartTime) / 1000);
-      if (timerEl) timerEl.innerText = `🔴 Yozilmoqda: ${elapsed}s`;
+      if (timerEl) timerEl.innerText = `Yozilmoqda: ${elapsed}s`;
     }, 1000);
 
     chatVoiceRecorder.start();
@@ -370,10 +370,10 @@ function playAudio(src, btn) {
   }
   const audio = new Audio(src);
   currentPlayingAudio = audio;
-  btn.innerText = '⏸';
+  btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
   audio.play();
   audio.onended = () => {
-    btn.innerText = '▶';
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
     currentPlayingAudio = null;
   };
 }

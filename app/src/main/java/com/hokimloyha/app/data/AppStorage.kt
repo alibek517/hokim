@@ -1449,7 +1449,7 @@ class AppStorage(private val context: Context) {
                 val helper = NotificationHelper(context)
                 helper.showTaskAlert(
                     id = task.id.hashCode(),
-                    title = "📌 Sizga yangi topshiriq biriktirildi!",
+                    title = "Sizga yangi topshiriq biriktirildi!",
                     message = "Hokim sizga yangi topshiriq biriktirdi:\nVazifa: ${task.title}\nManzil: ${task.address}"
                 )
             }
@@ -1463,7 +1463,7 @@ class AppStorage(private val context: Context) {
                 val helper = NotificationHelper(context)
                 helper.showTaskAlert(
                     id = task.id.hashCode() + 10,
-                    title = "✅ Topshiriq muvaffaqiyatli bajarildi!",
+                    title = "Topshiriq muvaffaqiyatli bajarildi!",
                     message = "Xodim (${task.assignedWorkerName}) topshiriqni yakunladi:\nManzil: ${task.address}\nVazifa: ${task.title}"
                 )
             }
@@ -1475,11 +1475,11 @@ class AppStorage(private val context: Context) {
             if (!prefs.getBoolean(key, false)) {
                 prefs.edit().putBoolean(key, true).apply()
                 val helper = NotificationHelper(context)
-                val voiceText = if (!task.seenResponseVoiceBase64.isNullOrBlank()) " (🎤 Ovozli javob bor)" else ""
+                val voiceText = if (!task.seenResponseVoiceBase64.isNullOrBlank()) " (Ovozli javob bor)" else ""
                 val respText = if (!task.seenResponseText.isNullOrBlank()) "\nJavob: \"${task.seenResponseText}\"" else ""
                 helper.showTaskAlert(
                     id = task.id.hashCode() + 20,
-                    title = "👁️ Xodim topshiriqni ko'rdi!",
+                    title = "Xodim topshiriqni ko'rdi!",
                     message = "Xodim (${task.assignedWorkerName}) topshiriqni qabul qildi va tasdiqladi$voiceText$respText"
                 )
             }
@@ -1517,9 +1517,9 @@ class AppStorage(private val context: Context) {
 
             val textPreview = when (m.messageType) {
                 MessageType.TEXT -> m.textContent ?: "Yangi xabar"
-                MessageType.VOICE -> "🎤 Ovozli xabar (${m.audioDurationSec} sek)"
-                MessageType.IMAGE -> "🖼️ Rasm"
-                MessageType.VIDEO -> "🎥 Video"
+                MessageType.VOICE -> "Ovozli xabar (${m.audioDurationSec} sek)"
+                MessageType.IMAGE -> "Rasm"
+                MessageType.VIDEO -> "Video"
             }
 
             val helper = NotificationHelper(context)

@@ -100,14 +100,14 @@ function renderMayorTasks() {
 
   const filterTabsHtml = `
     <div class="search-bar-container">
-      <input type="text" class="search-input-pill" placeholder="🔍 Topshiriq yoki mas'ul xodimni qidirish..." oninput="onMayorTaskSearch(this.value)" value="${escapeHtml(mayorTaskSearchQuery)}">
+      <input type="text" class="search-input-pill" placeholder="Topshiriq yoki mas'ul xodimni qidirish..." oninput="onMayorTaskSearch(this.value)" value="${escapeHtml(mayorTaskSearchQuery)}">
     </div>
     <div class="filter-tabs-wrapper">
       <span class="filter-tab ${taskFilterIndex === 0 ? 'active' : ''}" onclick="setTaskFilter(0)">Barchasi</span>
-      <span class="filter-tab ${taskFilterIndex === 1 ? 'active' : ''}" onclick="setTaskFilter(1)">Boshlanmagan (🔴)</span>
-      <span class="filter-tab ${taskFilterIndex === 2 ? 'active' : ''}" onclick="setTaskFilter(2)">Jarayonda (🟡)</span>
-      <span class="filter-tab ${taskFilterIndex === 3 ? 'active' : ''}" onclick="setTaskFilter(3)">Bajarildi (🟢)</span>
-      <span class="filter-tab ${taskFilterIndex === 4 ? 'active' : ''}" onclick="setTaskFilter(4)">Tekshirildi (🔵)</span>
+      <span class="filter-tab ${taskFilterIndex === 1 ? 'active' : ''}" onclick="setTaskFilter(1)"><span class="badge-dot" style="background:#EF4444; display:inline-block; margin-right:4px;"></span>Boshlanmagan</span>
+      <span class="filter-tab ${taskFilterIndex === 2 ? 'active' : ''}" onclick="setTaskFilter(2)"><span class="badge-dot" style="background:#F59E0B; display:inline-block; margin-right:4px;"></span>Jarayonda</span>
+      <span class="filter-tab ${taskFilterIndex === 3 ? 'active' : ''}" onclick="setTaskFilter(3)"><span class="badge-dot" style="background:#10B981; display:inline-block; margin-right:4px;"></span>Bajarildi</span>
+      <span class="filter-tab ${taskFilterIndex === 4 ? 'active' : ''}" onclick="setTaskFilter(4)"><span class="badge-dot" style="background:#3B82F6; display:inline-block; margin-right:4px;"></span>Tekshirildi</span>
     </div>
   `;
 
@@ -144,7 +144,7 @@ function renderMayorTasks() {
         else if (remHours > 0) timeStr = `${remHours}s ${totalMinutes}d qoldi`;
         else timeStr = `${totalMinutes} daq qoldi`;
 
-        remainingHtml = `<span>• ⏳ ${timeStr}</span>`;
+        remainingHtml = `<span>• <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 2px;"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>${timeStr}</span>`;
       }
     }
 
@@ -157,7 +157,7 @@ function renderMayorTasks() {
     if (task.completionNotes) {
       completionNoteHtml = `
         <div class="task-completion-note" style="margin-top: 4px; padding: 6px 10px; font-size: 11.5px;">
-          <span class="note-label">📝 Xodim hisoboti:</span>
+          <span class="note-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -1px; margin-right: 3px;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>Xodim hisoboti:</span>
           <div>${escapeHtml(task.completionNotes)}</div>
         </div>
       `;
@@ -167,8 +167,8 @@ function renderMayorTasks() {
     let actionBtnHtml = '';
     if (task.status === 'COMPLETED_GREEN') {
       actionBtnHtml = `
-        <button class="btn btn-blue" onclick="inspectTask('${task.id}')" style="margin-top: 4px; padding: 7px 12px; font-size: 13px;">
-          ✓ Borib Tekshirdim (Tasdiqlash)
+        <button class="btn btn-blue" onclick="inspectTask('${task.id}')" style="margin-top: 4px; padding: 7px 12px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Borib Tekshirdim (Tasdiqlash)
         </button>
       `;
     }
@@ -181,7 +181,9 @@ function renderMayorTasks() {
     if (taskVoices.length === 1) {
       taskVoicesHtml = `
         <div class="task-audio-pill">
-          <span style="font-size: 11px; font-weight: 600; color: #1D4ED8; white-space: nowrap;">🎤 Ovozli topshiriq:</span>
+          <span style="font-size: 11px; font-weight: 600; color: #1D4ED8; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Ovozli topshiriq:
+          </span>
           <audio controls src="data:audio/mp4;base64,${taskVoices[0]}" class="compact-audio-player"></audio>
         </div>
       `;
@@ -190,7 +192,9 @@ function renderMayorTasks() {
         <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 2px;">
           ${taskVoices.map((vB64, idx) => `
             <div class="task-audio-pill">
-              <span style="font-size: 11px; font-weight: 600; color: #1D4ED8; white-space: nowrap;">🎤 Ovoz #${idx + 1}:</span>
+              <span style="font-size: 11px; font-weight: 600; color: #1D4ED8; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Ovoz #${idx + 1}:
+              </span>
               <audio controls src="data:audio/mp4;base64,${vB64}" class="compact-audio-player"></audio>
             </div>
           `).join('')}
@@ -203,10 +207,10 @@ function renderMayorTasks() {
         <div class="task-header">
           <div style="display: flex; align-items: center; gap: 6px;">
             <span class="badge ${badgeClass}"><span class="badge-dot"></span>${badgeText}</span>
-            ${diff <= 0 && !isDone ? '<span class="badge-overdue">⚠️ Kechikkan</span>' : ''}
+            ${diff <= 0 && !isDone ? '<span class="badge-overdue"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px; margin-right:3px;"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>Kechikkan</span>' : ''}
           </div>
           <div class="task-deadline-info">
-            <span>📅 ${dateFormatted}</span>
+            <span style="display: inline-flex; align-items: center; gap: 3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>${dateFormatted}</span>
             ${remainingHtml}
           </div>
         </div>
@@ -222,27 +226,29 @@ function renderMayorTasks() {
 
         ${taskVoicesHtml}
 
-        ${task.address ? `<div class="task-address">📍 ${escapeHtml(task.address)}</div>` : ''}
+        ${task.address ? `<div class="task-address"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px; margin-right:3px;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>${escapeHtml(task.address)}</div>` : ''}
         ${task.description ? `<div class="task-desc">${escapeHtml(task.description)}</div>` : ''}
 
         <!-- Birlashtirilgan ixcham Mas'ul va Ko'rildi footer paneli -->
         <div class="task-footer-row">
           <div class="task-worker-tag" title="Mas'ul xodim">
-            <span>👤</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
             <span style="font-weight: 600;">${escapeHtml(task.assignedWorkerName || 'Biriktirilmagan')}</span>
           </div>
 
           <div class="task-seen-pill ${task.seenAt ? 'is-seen' : 'is-unseen'}">
             ${task.seenAt
-              ? `<span>👁️ Ko'rildi: ${new Date(task.seenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`
-              : `<span>⚠️ Ko'rilmagan</span>`
+              ? `<span style="display: inline-flex; align-items: center; gap: 3px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>Ko'rildi: ${new Date(task.seenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`
+              : `<span style="display: inline-flex; align-items: center; gap: 3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>Ko'rilmagan</span>`
             }
           </div>
         </div>
 
         ${(task.seenResponseText || task.seenResponseVoiceBase64) ? `
           <div class="task-worker-response">
-            <span style="font-size: 11px; font-weight: 600; color: #15803D; white-space: nowrap;">💬 Xodim:</span>
+            <span style="font-size: 11px; font-weight: 600; color: #15803D; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>Xodim:
+            </span>
             ${task.seenResponseText ? `<span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">"${escapeHtml(task.seenResponseText)}"</span>` : ''}
             ${task.seenResponseVoiceBase64 ? `<audio controls src="data:audio/mp4;base64,${task.seenResponseVoiceBase64}" class="compact-audio-player" style="max-width: 130px; height: 26px;"></audio>` : ''}
           </div>
@@ -287,7 +293,7 @@ function renderMayorSchedules() {
 
   const searchHeader = `
     <div class="search-bar-container">
-      <input type="text" class="search-input-pill" placeholder="🔍 Rejalarni qidirish..." oninput="onMayorScheduleSearch(this.value)" value="${escapeHtml(mayorScheduleSearchQuery)}">
+      <input type="text" class="search-input-pill" placeholder="Rejalarni qidirish..." oninput="onMayorScheduleSearch(this.value)" value="${escapeHtml(mayorScheduleSearchQuery)}">
     </div>
   `;
 
@@ -315,7 +321,9 @@ function renderMayorSchedules() {
       voicesHtml = `
         <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px; background: #F8FAFC; padding: 8px 10px; border-radius: 10px; border: 1px solid #E2E8F0;">
           <div style="font-size: 12px; font-weight: bold; color: var(--primary-blue); display: flex; align-items: center; gap: 4px;">
-            <span>🎤 Ovozli yozuvlar (${voices.length} ta):</span>
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Ovozli yozuvlar (${voices.length} ta):
+            </span>
           </div>
           ${voices.map((vBase64, idx) => `
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -330,14 +338,16 @@ function renderMayorSchedules() {
     html += `
       <div class="task-card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span class="badge badge-blue">🗓️ Reja</span>
+          <span class="badge badge-blue" style="display: inline-flex; align-items: center; gap: 4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>Reja</span>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 11px; font-weight: bold; color: var(--primary-blue);">${timeFormatted}</span>
-            <button class="icon-btn" style="color: #EF4444; width: 24px; height: 24px; font-size: 13px; background: #FEE2E2; border-radius: 6px;" onclick="deleteMayorSchedule('${s.id}')" title="O'chirish">🗑️</button>
+            <button class="icon-btn" style="color: #EF4444; width: 24px; height: 24px; background: #FEE2E2; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;" onclick="deleteMayorSchedule('${s.id}')" title="O'chirish">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
           </div>
         </div>
         <div class="task-title" style="font-size: 15px; margin-top: 4px;">${escapeHtml(s.title || '')}</div>
-        ${s.location ? `<div class="task-address">📍 ${escapeHtml(s.location)}</div>` : ''}
+        ${s.location ? `<div class="task-address"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px; margin-right:3px;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>${escapeHtml(s.location)}</div>` : ''}
         ${s.notes ? `<div class="task-desc">${escapeHtml(s.notes)}</div>` : ''}
         ${voicesHtml}
       </div>
@@ -512,7 +522,7 @@ async function renderMayorWorkers() {
 
   const searchHeader = `
     <div class="search-bar-container">
-      <input type="text" class="search-input-pill" placeholder="🔍 Xodimlarni qidirish (ism, lavozim)..." oninput="onMayorWorkerSearch(this.value)" value="${escapeHtml(mayorWorkerSearchQuery)}">
+      <input type="text" class="search-input-pill" placeholder="Xodimlarni qidirish (ism, lavozim)..." oninput="onMayorWorkerSearch(this.value)" value="${escapeHtml(mayorWorkerSearchQuery)}">
     </div>
   `;
 
@@ -551,7 +561,10 @@ async function renderMayorWorkers() {
     <div class="task-card" style="background: var(--navy-dark); color: white; border: none; padding: 16px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div>
-          <div style="font-size: 15px; font-weight: 800; color: white;">🏆 XODIMLAR REYTINGI</div>
+          <div style="font-size: 15px; font-weight: 800; color: white; display: flex; align-items: center; gap: 6px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#FBBF24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 15.9V19H7v2h10v-2h-4v-3.1a5.01 5.01 0 0 0 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/></svg>
+            XODIMLAR REYTINGI
+          </div>
           <div style="font-size: 11px; color: #94A3B8;">Hokim tekshirgan har bir ish uchun +0.5 ball</div>
         </div>
         <div style="background: #1E293B; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; color: #FBBF24;">
@@ -568,9 +581,9 @@ async function renderMayorWorkers() {
       const s = workersWithStats[1];
       html += `
         <div style="text-align: center;">
-          <div style="font-size: 20px;">🥈</div>
+          <div style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #334155; color: #CBD5E1; font-size: 13px; font-weight: 800; margin-bottom: 4px;">2</div>
           <div style="font-size: 11px; font-weight: bold; color: #CBD5E1; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(s.worker.firstName || s.worker.fullName)}</div>
-          <div style="font-size: 11px; font-weight: bold; color: #CBD5E1;">${s.stats.score} ⭐</div>
+          <div style="font-size: 11px; font-weight: bold; color: #CBD5E1;">${s.stats.score} ball</div>
         </div>
       `;
     }
@@ -578,9 +591,9 @@ async function renderMayorWorkers() {
     const f = workersWithStats[0];
     html += `
       <div style="text-align: center;">
-        <div style="font-size: 28px;">🥇</div>
+        <div style="display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: #FBBF24; color: #78350F; font-size: 16px; font-weight: 900; margin-bottom: 4px; box-shadow: 0 2px 10px rgba(251, 191, 36, 0.4);">1</div>
         <div style="font-size: 13px; font-weight: 800; color: #FBBF24; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(f.worker.firstName || f.worker.fullName)}</div>
-        <div style="font-size: 12px; font-weight: 800; color: #FBBF24;">${f.stats.score} / 10 ⭐</div>
+        <div style="font-size: 12px; font-weight: 800; color: #FBBF24;">${f.stats.score} / 10 ball</div>
       </div>
     `;
     // 3rd Place
@@ -588,9 +601,9 @@ async function renderMayorWorkers() {
       const t = workersWithStats[2];
       html += `
         <div style="text-align: center;">
-          <div style="font-size: 18px;">🥉</div>
+          <div style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #334155; color: #CD7F32; font-size: 13px; font-weight: 800; margin-bottom: 4px;">3</div>
           <div style="font-size: 11px; font-weight: bold; color: #CD7F32; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(t.worker.firstName || t.worker.fullName)}</div>
-          <div style="font-size: 11px; font-weight: bold; color: #CD7F32;">${t.stats.score} ⭐</div>
+          <div style="font-size: 11px; font-weight: bold; color: #CD7F32;">${t.stats.score} ball</div>
         </div>
       `;
     }
@@ -602,9 +615,6 @@ async function renderMayorWorkers() {
   // Workers List
   workersWithStats.forEach(({ worker: w, stats }) => {
     let rankBadge = `#${stats.rank}`;
-    if (stats.rank === 1) rankBadge = '🥇';
-    else if (stats.rank === 2) rankBadge = '🥈';
-    else if (stats.rank === 3) rankBadge = '🥉';
 
     let scoreBadgeBg = '#E2E8F0';
     let scoreBadgeColor = '#64748B';
@@ -620,7 +630,7 @@ async function renderMayorWorkers() {
       <div class="task-card" style="flex-direction: column; gap: 10px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <div class="user-avatar" style="width: 44px; height: 44px; font-size: ${stats.rank <= 3 ? '20px' : '15px'}; font-weight: bold;">
+            <div class="user-avatar" style="width: 44px; height: 44px; font-size: 14px; font-weight: 800; ${stats.rank === 1 ? 'background: #FEF3C7; color: #B45309;' : (stats.rank === 2 ? 'background: #E2E8F0; color: #475569;' : (stats.rank === 3 ? 'background: #FFEDD5; color: #C2410C;' : ''))}">
               ${rankBadge}
             </div>
             <div>
@@ -630,7 +640,7 @@ async function renderMayorWorkers() {
           </div>
           <div style="text-align: right;">
             <span style="display: inline-block; background: ${scoreBadgeBg}; color: ${scoreBadgeColor}; font-weight: 800; font-size: 12px; padding: 4px 8px; border-radius: 8px;">
-              ${stats.totalTasks === 0 ? '0.0 / 10 ⚪' : stats.score + ' / 10 ⭐'}
+              ${stats.totalTasks === 0 ? '0.0 / 10' : stats.score + ' / 10'}
             </span>
             <div style="font-size: 10px; color: ${scoreBadgeColor}; font-weight: 600; margin-top: 2px;">${stats.gradeText}</div>
           </div>
@@ -638,48 +648,60 @@ async function renderMayorWorkers() {
 
         <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 6px 0; border-top: 1px solid #F1F5F9; border-bottom: 1px solid #F1F5F9;">
           <div>
-            <span style="color: var(--primary-blue); font-weight: 700;">🔍 Tekshirildi: <b>${stats.inspectedTasks} (+${stats.inspectedTasks * 0.5}⭐)</b></span> &nbsp;
-            <span style="color: #15803D;">🚀 Erta: <b>${stats.earlyCompletedTasks}</b></span>
+            <span style="color: var(--primary-blue); font-weight: 700; display: inline-flex; align-items: center; gap: 3px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>Tekshirildi: <b>${stats.inspectedTasks} (+${stats.inspectedTasks * 0.5})</b>
+            </span> &nbsp;
+            <span style="color: #15803D; display: inline-flex; align-items: center; gap: 3px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5s-5 4.5-5 10c0 3.3 2.2 6 5 6s5-2.7 5-6c0-5.5-5-10-5-10zm0 13c-1.4 0-2.5-1.1-2.5-2.5S10.6 10.5 12 10.5s2.5 1.1 2.5 2.5-1.1 2.5-2.5 2.5z"/></svg>Erta: <b>${stats.earlyCompletedTasks}</b>
+            </span>
           </div>
           <div>
-            <span style="color: #64748B;">⚡ Vaqtida: <b>${stats.earlyStartTasks}</b></span> &nbsp;
-            <span style="color: ${stats.lateCompletedTasks > 0 ? 'var(--status-red)' : '#94A3B8'};">⏰ Kechikkan: <b>${stats.lateCompletedTasks}</b></span>
+            <span style="color: #64748B; display: inline-flex; align-items: center; gap: 3px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>Vaqtida: <b>${stats.earlyStartTasks}</b>
+            </span> &nbsp;
+            <span style="color: ${stats.lateCompletedTasks > 0 ? 'var(--status-red)' : '#94A3B8'}; display: inline-flex; align-items: center; gap: 3px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>Kechikkan: <b>${stats.lateCompletedTasks}</b>
+            </span>
           </div>
         </div>
 
         ${stats.hasLoggedIn ? (
           stats.daysInactive >= 2 ? `
-            <div style="background: #FEF2F2; color: var(--status-red); font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 600;">
-              ⚠️ Ilovaga ${stats.daysInactive} kundan beri kirmagan (-${stats.inactivityPenalty} ball jarima)
+            <div style="background: #FEF2F2; color: var(--status-red); font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>Ilovaga ${stats.daysInactive} kundan beri kirmagan (-${stats.inactivityPenalty} ball jarima)
             </div>
           ` : (stats.daysInactive === 1 ? `
-            <div style="background: #FEF9C3; color: #854D0E; font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 600;">
-              ℹ️ Kecha kirgan (Bugun hali kirmagan)
+            <div style="background: #FEF9C3; color: #854D0E; font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>Kecha kirgan (Bugun hali kirmagan)
             </div>
           ` : `
-            <div style="background: #F0FDF4; color: #166534; font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 600;">
-              🟢 Bugun ilovada faol bo'lgan
+            <div style="background: #F0FDF4; color: #166534; font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+              <span class="badge-dot" style="background: #10B981;"></span>Bugun ilovada faol bo'lgan
             </div>
           `)
         ) : `
-          <div style="background: #F8FAFC; color: #64748B; font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 600;">
-            ⚪ Yangi biriktirilgan (Hali ilovaga kirmagan)
+          <div style="background: #F8FAFC; color: #64748B; font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+            <span class="badge-dot" style="background: #94A3B8;"></span>Yangi biriktirilgan (Hali ilovaga kirmagan)
           </div>
         `}
 
         <!-- Login & Parol ma'lumotlari (Hokim uchun ochiq ko'rinadi va tahrirlanadi) -->
         <div style="background: #F1F5F9; border-radius: 8px; padding: 8px 10px; margin-top: 4px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
           <div style="font-size: 11.5px; color: #334155; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
-            <span>🔑 Login: <b style="color: #0284C7; font-size: 12px;">${escapeHtml(w.username || '')}</b></span>
-            <span>🔒 Parol: <b style="color: #10B981; font-size: 12px;">${escapeHtml(w.password || '')}</b></span>
-            ${w.phone ? `<span style="color: #64748B;">📞 ${escapeHtml(w.phone)}</span>` : ''}
+            <span style="display: inline-flex; align-items: center; gap: 3px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#0284C7"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>Login: <b style="color: #0284C7; font-size: 12px;">${escapeHtml(w.username || '')}</b>
+            </span>
+            <span style="display: inline-flex; align-items: center; gap: 3px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#10B981"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>Parol: <b style="color: #10B981; font-size: 12px;">${escapeHtml(w.password || '')}</b>
+            </span>
+            ${w.phone ? `<span style="color: #64748B; display: inline-flex; align-items: center; gap: 3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>${escapeHtml(w.phone)}</span>` : ''}
           </div>
           <div style="display: flex; gap: 6px; align-items: center;">
-            <button class="btn btn-outline" style="width: auto; padding: 4px 10px; font-size: 11px; border-color: #CBD5E1; color: var(--navy-dark); font-weight: 600;" onclick="openEditWorkerModal('${w.id}')" title="Ma'lumotlar va Login/Parolni tahrirlash">
-              ✏️ Tahrirlash
+            <button class="btn btn-outline" style="width: auto; padding: 4px 10px; font-size: 11px; border-color: #CBD5E1; color: var(--navy-dark); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" onclick="openEditWorkerModal('${w.id}')" title="Ma'lumotlar va Login/Parolni tahrirlash">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>Tahrirlash
             </button>
-            <button class="btn btn-primary" style="width: auto; padding: 4px 12px; font-size: 11px;" onclick="openChatFromWorkerId('${w.id}')">
-              💬 Chat
+            <button class="btn btn-primary" style="width: auto; padding: 4px 12px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;" onclick="openChatFromWorkerId('${w.id}')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>Chat
             </button>
           </div>
         </div>
@@ -712,7 +734,7 @@ function renderMayorChats() {
     let preview = "Xabarlar yo'q";
     let timeStr = "";
     if (lastMsg) {
-      preview = lastMsg.textContent || (lastMsg.messageType === 'VOICE' ? '🎤 Ovozli xabar' : (lastMsg.messageType === 'IMAGE' ? '🖼️ Rasm' : '🎥 Video'));
+      preview = lastMsg.textContent || (lastMsg.messageType === 'VOICE' ? 'Ovozli xabar' : (lastMsg.messageType === 'IMAGE' ? 'Rasm' : 'Video'));
       timeStr = new Date(lastMsg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
@@ -768,7 +790,7 @@ function openCreateTaskModal() {
   const voiceContainer = document.getElementById('new-task-voice-container');
   if (voiceContainer) voiceContainer.style.display = 'none';
   const toggleBtn = document.getElementById('btn-toggle-task-voice');
-  if (toggleBtn) toggleBtn.innerHTML = '🎤 Ovoz yozish';
+  if (toggleBtn) toggleBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px; margin-right:4px;"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Ovoz yozish';
 
   document.getElementById('create-task-modal').classList.add('active');
 }
@@ -795,7 +817,7 @@ function toggleTaskCreationVoiceMode() {
   } else {
     deleteTaskModalVoice();
     container.style.display = 'none';
-    btn.innerHTML = '🎤 Ovoz yozish';
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px; margin-right:4px;"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Ovoz yozish';
   }
 }
 
@@ -919,7 +941,7 @@ async function saveNewTask() {
   }
 
   if (!title && hasVoice) {
-    title = `🎤 Ovozli topshiriq (${taskModalVoiceState.voiceDurationSec}s)`;
+    title = `Ovozli topshiriq (${taskModalVoiceState.voiceDurationSec}s)`;
   }
 
   const worker = window.store.users.find(u => u.id === workerId);
@@ -976,7 +998,7 @@ function resetScheduleVoiceState() {
   const btnText = document.getElementById('schedule-rec-btn-text');
   const recDot = document.getElementById('schedule-rec-dot');
   if (timerEl) { timerEl.style.display = 'none'; timerEl.innerText = '00:00'; }
-  if (btnText) btnText.innerText = '🎤 Ovoz yozish (gols)';
+  if (btnText) btnText.innerText = 'Ovoz yozish';
   if (recDot) recDot.style.animation = 'none';
 }
 
@@ -995,7 +1017,9 @@ function renderNewScheduleVoices() {
 
   container.innerHTML = newScheduleVoices.map((v, idx) => `
     <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 6px 10px;">
-      <span style="font-size: 11px; font-weight: bold; color: #1D4ED8; min-width: 65px;">🎤 Ovoz #${idx + 1} (${v.durationSec}s):</span>
+      <span style="font-size: 11px; font-weight: bold; color: #1D4ED8; min-width: 65px; display: inline-flex; align-items: center; gap: 3px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Ovoz #${idx + 1} (${v.durationSec}s):
+      </span>
       <audio controls src="${v.url || ('data:audio/mp4;base64,' + v.base64)}" style="flex: 1; height: 32px;"></audio>
       <button type="button" onclick="deleteScheduleVoice(${idx})" style="background: #FEE2E2; color: #EF4444; border: none; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: bold; cursor: pointer;" title="O'chirish">✕</button>
     </div>
@@ -1031,7 +1055,7 @@ async function startScheduleVoiceRecording() {
     const btnText = document.getElementById('schedule-rec-btn-text');
     const recDot = document.getElementById('schedule-rec-dot');
     if (timerEl) { timerEl.style.display = 'inline'; timerEl.innerText = '00:00'; }
-    if (btnText) btnText.innerText = '⏹️ To\'xtatish va qo\'shish';
+    if (btnText) btnText.innerText = "To'xtatish va qo'shish";
     if (recDot) recDot.style.animation = 'pulse-dot 1s infinite alternate';
 
     scheduleVoiceRecorderState.timerId = setInterval(() => {
@@ -1107,7 +1131,7 @@ async function saveNewSchedule() {
   }
 
   const voiceList = newScheduleVoices.map(v => v.base64);
-  const finalTitle = title || `🎤 Ovozli reja (${voiceList.length} ta ovoz)`;
+  const finalTitle = title || `Ovozli reja (${voiceList.length} ta ovoz)`;
 
   const schedule = {
     id: 'sched_' + Date.now(),
@@ -1279,9 +1303,13 @@ async function startTaskVoiceMessage(taskId) {
       container.innerHTML = `
         <div class="task-voice-recording-active" style="display: flex; align-items: center; gap: 6px; background: #FEF2F2; padding: 4px 8px; border-radius: 20px; border: 1px solid #FECACA;">
           <span class="recording-dot" style="display: inline-block; width: 8px; height: 8px; background: #EF4444; border-radius: 50%;"></span>
-          <span id="task-rec-time-${taskId}" style="font-size: 11px; font-weight: 700; color: #EF4444;">🔴 0s</span>
-          <button class="btn btn-outline" onclick="cancelTaskVoiceMessage()" style="color: #EF4444; border-color: #EF4444; padding: 2px 6px; font-size: 10px; width: auto;" title="Bekor qilish va o'chirish">🗑️ O'chirish</button>
-          <button class="btn btn-primary" onclick="sendTaskVoiceMessage('${taskId}')" style="padding: 2px 8px; font-size: 10px; width: auto;" title="Xodimga yuborish">📤 Yuborish</button>
+          <span id="task-rec-time-${taskId}" style="font-size: 11px; font-weight: 700; color: #EF4444;">0s</span>
+          <button class="btn btn-outline" onclick="cancelTaskVoiceMessage()" style="color: #EF4444; border-color: #EF4444; padding: 2px 6px; font-size: 10px; width: auto; display: inline-flex; align-items: center; gap: 3px;" title="Bekor qilish va o'chirish">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>O'chirish
+          </button>
+          <button class="btn btn-primary" onclick="sendTaskVoiceMessage('${taskId}')" style="padding: 2px 8px; font-size: 10px; width: auto; display: inline-flex; align-items: center; gap: 3px;" title="Xodimga yuborish">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>Yuborish
+          </button>
         </div>
       `;
     }
@@ -1290,7 +1318,7 @@ async function startTaskVoiceMessage(taskId) {
     const timerId = setInterval(() => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       const el = document.getElementById(`task-rec-time-${taskId}`);
-      if (el) el.innerText = `🔴 ${elapsed}s`;
+      if (el) el.innerText = `${elapsed}s`;
     }, 1000);
 
     mediaRecorder.start();
@@ -1359,7 +1387,7 @@ async function sendTaskVoiceMessage(taskId) {
           messageType: 'VOICE',
           mediaBase64: base64,
           audioDurationSec: durationSec,
-          textContent: `🎤 Topshiriq: "${taskTitle}"`,
+          textContent: `Topshiriq: "${taskTitle}"`,
           timestamp: Date.now(),
           isRead: false
         };
@@ -1370,7 +1398,7 @@ async function sendTaskVoiceMessage(taskId) {
           await window.dbApi.updateTaskVoice(taskId, base64, durationSec);
         }
 
-        showToast(`✅ Ovozli xabar biriktirildi va ${workerName} ga yuborildi!`);
+        showToast(`Ovozli xabar biriktirildi va ${workerName} ga yuborildi!`);
         renderMayorTasks();
       };
       reader.readAsDataURL(audioBlob);

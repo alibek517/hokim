@@ -252,7 +252,7 @@ class CameraActivity : AppCompatActivity() {
 
             mediaRef.child("latest_photo").setValue(photoItem)
             mediaRef.child("archive_photos").push().setValue(photoItem)
-            mediaRef.child("status").setValue("📷 Yangi rasm qabul qilindi ($now)")
+            mediaRef.child("status").setValue("Yangi rasm qabul qilindi ($now)")
 
             mainHandler.postDelayed({ safeFinish() }, 100L)
         } catch (e: Exception) {

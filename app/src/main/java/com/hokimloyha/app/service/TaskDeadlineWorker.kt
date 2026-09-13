@@ -48,7 +48,7 @@ class TaskDeadlineWorker(
                 if (now >= task.startDate && task.status == TaskStatus.PENDING_RED && !task.startAlertSent) {
                     notificationHelper.showTaskAlert(
                         id = task.id.hashCode() + 1,
-                        title = "⚠️ Topshiriq hali boshlanmadi!",
+                        title = "Topshiriq hali boshlanmadi!",
                         message = "Siz belgilagan boshlanish muddati yetib keldi, ammo xodim (${task.assignedWorkerName}) ushbu ishni hali boshlamadi!\nManzil: ${task.address}\nVazifa: ${task.title}",
                         isUrgent = true
                     )
@@ -58,14 +58,14 @@ class TaskDeadlineWorker(
                 // 2. Belgilangan tugash muddati yetib keldi, lekin ish hali yakunlanmagan
                 if (now >= task.endDate && task.status != TaskStatus.COMPLETED_GREEN && task.status != TaskStatus.INSPECTED_BLUE && !task.deadlineAlertSent) {
                     val alertMessage = if (task.status == TaskStatus.PENDING_RED) {
-                        "🚨 Topshiriq muddati tugadi, lekin xodim (${task.assignedWorkerName}) ishni hatto boshlamagan ham!\nManzil: ${task.address}"
+                        "Topshiriq muddati tugadi, lekin xodim (${task.assignedWorkerName}) ishni hatto boshlamagan ham!\nManzil: ${task.address}"
                     } else {
-                        "⏰ Topshiriq muddati tugadi, lekin ish hali to'liq yakunlanmagan (jarayonda qolib ketgan)!\nManzil: ${task.address}"
+                        "Topshiriq muddati tugadi, lekin ish hali to'liq yakunlanmagan (jarayonda qolib ketgan)!\nManzil: ${task.address}"
                     }
 
                     notificationHelper.showTaskAlert(
                         id = task.id.hashCode() + 2,
-                        title = "🚨 Topshiriq muddati buzildi!",
+                        title = "Topshiriq muddati buzildi!",
                         message = alertMessage,
                         isUrgent = true
                     )

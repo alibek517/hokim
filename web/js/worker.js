@@ -181,38 +181,45 @@ function renderWorkerTasks() {
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
               <div style="font-size: 11px; color: #94A3B8; font-weight: 600;">SIZNING REYTINGINGIZ</div>
-              <div style="font-size: 22px; font-weight: 800; color: white;">${stats.totalTasks === 0 ? '0.0 / 10 ⚪' : stats.score + ' / 10 ⭐'}</div>
+              <div style="font-size: 22px; font-weight: 800; color: white;">${stats.totalTasks === 0 ? '0.0 / 10' : stats.score + ' / 10'}</div>
             </div>
             <div style="background: ${scoreBadgeBg}; color: ${scoreBadgeColor}; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 800;">
               ${stats.gradeText}
             </div>
           </div>
           <div style="display: flex; justify-content: space-between; font-size: 11px; margin-top: 10px; padding-top: 8px; border-top: 1px solid #334155;">
-            <span style="color: #38BDF8;">🔍 Tekshirildi: <b>${stats.inspectedTasks} ta (+${stats.inspectedTasks * 0.5}⭐)</b></span>
-            <span style="color: #4ADE80;">🚀 Erta: <b>${stats.earlyCompletedTasks} ta</b></span>
-            <span style="color: ${stats.lateCompletedTasks > 0 ? '#F87171' : '#94A3B8'};">⏰ Kech: <b>${stats.lateCompletedTasks} ta</b></span>
+            <span style="color: #38BDF8; display: inline-flex; align-items: center; gap: 3px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>Tekshirildi: <b>${stats.inspectedTasks} ta (+${stats.inspectedTasks * 0.5})</b>
+            </span>
+            <span style="color: #4ADE80; display: inline-flex; align-items: center; gap: 3px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5s-5 4.5-5 10c0 3.3 2.2 6 5 6s5-2.7 5-6c0-5.5-5-10-5-10zm0 13c-1.4 0-2.5-1.1-2.5-2.5S10.6 10.5 12 10.5s2.5 1.1 2.5 2.5-1.1 2.5-2.5 2.5z"/></svg>Erta: <b>${stats.earlyCompletedTasks} ta</b>
+            </span>
+            <span style="color: ${stats.lateCompletedTasks > 0 ? '#F87171' : '#94A3B8'}; display: inline-flex; align-items: center; gap: 3px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>Kech: <b>${stats.lateCompletedTasks} ta</b>
+            </span>
           </div>
           ${stats.hasLoggedIn ? (
             stats.daysInactive >= 2 ? `
-              <div style="margin-top: 8px; background: #450A0A; color: #FCA5A5; font-size: 10px; padding: 4px 8px; border-radius: 6px;">
-                ⚠️ Ilovaga ${stats.daysInactive} kundan beri kirmagansiz (-${stats.inactivityPenalty} ball jarima)
+              <div style="margin-top: 8px; background: #450A0A; color: #FCA5A5; font-size: 10px; padding: 4px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>Ilovaga ${stats.daysInactive} kundan beri kirmagansiz (-${stats.inactivityPenalty} ball jarima)
               </div>
             ` : (stats.daysInactive === 1 ? `
-              <div style="margin-top: 8px; background: #713F12; color: #FEF08A; font-size: 10px; padding: 4px 8px; border-radius: 6px;">
-                ℹ️ Kecha kirgansiz (Bugungi faollik kutilmoqda)
+              <div style="margin-top: 8px; background: #713F12; color: #FEF08A; font-size: 10px; padding: 4px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>Kecha kirgansiz (Bugungi faollik kutilmoqda)
               </div>
             ` : `
-              <div style="margin-top: 8px; background: #14532D; color: #BBF7D0; font-size: 10px; padding: 4px 8px; border-radius: 6px;">
-                🟢 Bugun ilovada faol bo'ldingiz
+              <div style="margin-top: 8px; background: #14532D; color: #BBF7D0; font-size: 10px; padding: 4px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;">
+                <span class="badge-dot" style="background: #4ADE80;"></span>Bugun ilovada faol bo'ldingiz
               </div>
             `)
           ) : `
-            <div style="margin-top: 8px; background: #334155; color: #CBD5E1; font-size: 10px; padding: 4px 8px; border-radius: 6px;">
-              ⚪ Yangi biriktirilgan (Hali ilovaga kirmagan)
+            <div style="margin-top: 8px; background: #334155; color: #CBD5E1; font-size: 10px; padding: 4px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;">
+              <span class="badge-dot" style="background: #94A3B8;"></span>Yangi biriktirilgan (Hali ilovaga kirmagan)
             </div>
           `}
-          <div style="font-size: 10px; color: #94A3B8; margin-top: 6px;">
-            💡 Eslatma: Ball faqat Hokim topshiriqni tekshirib tasdiqlaganida (+0.5 ball) beriladi! Boshlash yoki tugatishning o'ziga ball berilmaydi.
+          <div style="font-size: 10px; color: #94A3B8; margin-top: 6px; display: flex; align-items: center; gap: 4px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#FBBF24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg>
+            Eslatma: Ball faqat Hokim topshiriqni tekshirib tasdiqlaganida (+0.5 ball) beriladi! Boshlash yoki tugatishning o'ziga ball berilmaydi.
           </div>
         </div>
 
@@ -267,7 +274,7 @@ function renderWorkerTasks() {
         else if (remHours > 0) timeStr = `${remHours}s ${totalMinutes}d qoldi`;
         else timeStr = `${totalMinutes} daq qoldi`;
 
-        remainingHtml = `<span>• ⏳ ${timeStr}</span>`;
+        remainingHtml = `<span>• <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 2px;"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>${timeStr}</span>`;
       }
     }
 
@@ -279,16 +286,18 @@ function renderWorkerTasks() {
     let seenStatusHtml = '';
     if (!task.seenAt) {
       seenStatusHtml = `
-        <button class="btn btn-primary" style="margin-top: 4px; padding: 8px 12px; font-size: 13px;" onclick="openTaskSeenModal('${task.id}')">
-          👁️ Topshiriqni ko'rdim deb tasdiqlash
+        <button class="btn btn-primary" style="margin-top: 4px; padding: 8px 12px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" onclick="openTaskSeenModal('${task.id}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>Topshiriqni ko'rdim deb tasdiqlash
         </button>
       `;
     } else {
       const seenTimeStr = new Date(task.seenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
       seenStatusHtml = `
         <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 6px 10px; font-size: 11.5px; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px;">
-          <span style="font-weight: 600; color: #15803D;">👁️ Ko'rdingiz: ${seenTimeStr}</span>
-          ${task.seenResponseText ? `<span style="color: #475569; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;">💬 "${escapeHtml(task.seenResponseText)}"</span>` : ''}
+          <span style="font-weight: 600; color: #15803D; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>Ko'rdingiz: ${seenTimeStr}
+          </span>
+          ${task.seenResponseText ? `<span style="color: #475569; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;">"${escapeHtml(task.seenResponseText)}"</span>` : ''}
           ${task.seenResponseVoiceBase64 ? `<audio controls src="data:audio/mp4;base64,${task.seenResponseVoiceBase64}" class="compact-audio-player" style="max-width: 120px; height: 26px;"></audio>` : ''}
         </div>
       `;
@@ -298,26 +307,26 @@ function renderWorkerTasks() {
     let actionBtnHtml = seenStatusHtml;
     if (task.status === 'PENDING_RED') {
       actionBtnHtml += `
-        <button class="btn btn-yellow" onclick="workerStartTask('${task.id}')" style="margin-top: 4px; padding: 8px 12px; font-size: 13px;">
-          ▶ Ishni Boshladim (Sariq)
+        <button class="btn btn-yellow" onclick="workerStartTask('${task.id}')" style="margin-top: 4px; padding: 8px 12px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Ishni Boshladim
         </button>
       `;
     } else if (task.status === 'IN_PROGRESS_YELLOW') {
       actionBtnHtml += `
-        <button class="btn btn-green" onclick="openWorkerCompleteModal('${task.id}')" style="margin-top: 4px; padding: 8px 12px; font-size: 13px;">
-          ✓ Ishni Tugatdim (Yashil)
+        <button class="btn btn-green" onclick="openWorkerCompleteModal('${task.id}')" style="margin-top: 4px; padding: 8px 12px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Ishni Tugatdim
         </button>
       `;
     } else if (task.status === 'COMPLETED_GREEN') {
       actionBtnHtml += `
-        <div style="background: var(--status-green-bg); color: var(--status-green); padding: 6px 10px; border-radius: 6px; font-weight: 600; font-size: 11.5px; text-align: center; margin-top: 4px;">
-          🟢 Ish tugatildi! Hokim tekshiruvi kutilmoqda.
+        <div style="background: var(--status-green-bg); color: var(--status-green); padding: 6px 10px; border-radius: 6px; font-weight: 600; font-size: 11.5px; text-align: center; margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span class="badge-dot" style="background: var(--status-green);"></span>Ish tugatildi! Hokim tekshiruvi kutilmoqda.
         </div>
       `;
     } else if (task.status === 'INSPECTED_BLUE') {
       actionBtnHtml += `
-        <div style="background: var(--status-blue-bg); color: var(--status-blue); padding: 6px 10px; border-radius: 6px; font-weight: 600; font-size: 11.5px; text-align: center; margin-top: 4px;">
-          🔵 Hokim tekshirdi va tasdiqladi!
+        <div style="background: var(--status-blue-bg); color: var(--status-blue); padding: 6px 10px; border-radius: 6px; font-weight: 600; font-size: 11.5px; text-align: center; margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span class="badge-dot" style="background: var(--status-blue);"></span>Hokim tekshirdi va tasdiqladi!
         </div>
       `;
     }
@@ -341,7 +350,9 @@ function renderWorkerTasks() {
     if (taskVoices.length === 1) {
       taskVoicesHtml = `
         <div class="task-audio-pill">
-          <span style="font-size: 11px; font-weight: 600; color: #1D4ED8; white-space: nowrap;">🎤 Rahbar ovozi:</span>
+          <span style="font-size: 11px; font-weight: 600; color: #1D4ED8; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Rahbar ovozi:
+          </span>
           <audio controls src="data:audio/mp4;base64,${taskVoices[0]}" class="compact-audio-player"></audio>
         </div>
       `;
@@ -350,7 +361,9 @@ function renderWorkerTasks() {
         <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 2px;">
           ${taskVoices.map((vB64, idx) => `
             <div class="task-audio-pill">
-              <span style="font-size: 11px; font-weight: 600; color: #1D4ED8; white-space: nowrap;">🎤 Rahbar ovozi #${idx + 1}:</span>
+              <span style="font-size: 11px; font-weight: 600; color: #1D4ED8; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Rahbar ovozi #${idx + 1}:
+              </span>
               <audio controls src="data:audio/mp4;base64,${vB64}" class="compact-audio-player"></audio>
             </div>
           `).join('')}
@@ -363,10 +376,10 @@ function renderWorkerTasks() {
         <div class="task-header">
           <div style="display: flex; align-items: center; gap: 6px;">
             <span class="badge ${badgeClass}"><span class="badge-dot"></span>${badgeText}</span>
-            ${diff <= 0 && !isDone ? '<span class="badge-overdue">⚠️ Kechikkan</span>' : ''}
+            ${diff <= 0 && !isDone ? '<span class="badge-overdue"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px; margin-right:3px;"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>Kechikkan</span>' : ''}
           </div>
           <div class="task-deadline-info">
-            <span>📅 ${dateFormatted}</span>
+            <span style="display: inline-flex; align-items: center; gap: 3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>${dateFormatted}</span>
             ${remainingHtml}
           </div>
         </div>
@@ -375,7 +388,7 @@ function renderWorkerTasks() {
 
         ${taskVoicesHtml}
 
-        ${task.address ? `<div class="task-address">📍 ${escapeHtml(task.address)}</div>` : ''}
+        ${task.address ? `<div class="task-address"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px; margin-right:3px;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>${escapeHtml(task.address)}</div>` : ''}
         ${task.description ? `<div class="task-desc">${escapeHtml(task.description)}</div>` : ''}
 
         ${completionNoteHtml}
@@ -418,7 +431,7 @@ async function confirmWorkerComplete() {
   const mayor = window.store.users.find(u => u.id === (task ? task.mayorId : (worker.mayorId || '')));
   if (mayor) {
     const reportText = notes ? 
-      `Hurmatli Hokim! '${task.title}' bo'yicha ishlar muvaffaqiyatli yakunlandi.\n\n📝 Xodim izohi: ${notes}\n📍 Manzil: ${task.address}` :
+      `Hurmatli Hokim! '${task.title}' bo'yicha ishlar muvaffaqiyatli yakunlandi.\n\nXodim izohi: ${notes}\nManzil: ${task.address}` :
       `Hurmatli Hokim! '${task.title}' bo'yicha ishlar muvaffaqiyatli yakunlandi va topshirishga tayyor. (Manzil: ${task.address})`;
 
     const chatMsg = {
@@ -472,7 +485,7 @@ function openTaskSeenModal(taskId) {
   if (!task) return;
 
   document.getElementById('seen-task-title').innerText = task.title || 'Topshiriq';
-  document.getElementById('seen-task-address').innerText = '📍 ' + (task.address || '');
+  document.getElementById('seen-task-address').innerText = task.address ? ('Manzil: ' + task.address) : '';
   document.getElementById('seen-task-text').value = '';
 
   // Reset voice
@@ -485,7 +498,7 @@ function openTaskSeenModal(taskId) {
   if (previewEl) { previewEl.style.display = 'none'; previewEl.src = ''; }
   const btnEl = document.getElementById('seen-voice-btn');
   if (btnEl) {
-    btnEl.innerText = "🎤 Ovoz yozish";
+    btnEl.innerText = "Ovoz yozish";
     btnEl.className = "btn btn-outline";
   }
   const delBtn = document.getElementById('seen-voice-del-btn');
@@ -509,7 +522,7 @@ function deleteSeenVoiceRecording() {
   const delBtn = document.getElementById('seen-voice-del-btn');
 
   if (btn) {
-    btn.innerText = "🎤 Ovoz yozish";
+    btn.innerText = "Ovoz yozish";
     btn.className = "btn btn-outline";
   }
   if (statusEl) statusEl.innerText = "Ovoz yozilmagan";
@@ -531,7 +544,7 @@ async function toggleSeenVoiceRecording() {
     // Stop recording
     seenMediaRecorder.stop();
     clearInterval(seenRecordingTimer);
-    btn.innerText = "🎤 Qayta yozish";
+    btn.innerText = "Qayta yozish";
     btn.classList.remove('btn-red');
     btn.classList.add('btn-outline');
     if (delBtn) delBtn.style.display = 'inline-flex';
@@ -559,7 +572,7 @@ async function toggleSeenVoiceRecording() {
           preview.src = reader.result;
           preview.style.display = 'block';
         }
-        if (statusEl) statusEl.innerText = `✅ Yozildi (${seenRecordingSeconds}s)`;
+        if (statusEl) statusEl.innerText = `Yozildi (${seenRecordingSeconds}s)`;
         if (delBtn) delBtn.style.display = 'inline-flex';
       };
       stream.getTracks().forEach(t => t.stop());
@@ -567,15 +580,15 @@ async function toggleSeenVoiceRecording() {
 
     seenMediaRecorder.start();
     seenRecordingSeconds = 0;
-    if (statusEl) statusEl.innerText = "🔴 Yozilmoqda: 0s";
-    btn.innerText = "⏹️ To'xtatish";
+    if (statusEl) statusEl.innerText = "Yozilmoqda: 0s";
+    btn.innerText = "To'xtatish";
     btn.classList.remove('btn-outline');
     btn.classList.add('btn-red');
     if (delBtn) delBtn.style.display = 'inline-flex';
 
     seenRecordingTimer = setInterval(() => {
       seenRecordingSeconds++;
-      if (statusEl) statusEl.innerText = `🔴 Yozilmoqda: ${seenRecordingSeconds}s`;
+      if (statusEl) statusEl.innerText = `Yozilmoqda: ${seenRecordingSeconds}s`;
     }, 1000);
 
   } catch (err) {
@@ -615,8 +628,8 @@ async function confirmTaskSeen() {
 
   // Also send message to Mayor in Chat
   if (task.mayorId && worker) {
-    let chatText = `👁️ Topshiriq ko'rildi: "${task.title}"`;
-    if (text) chatText += `\n💬 Javob: ${text}`;
+    let chatText = `Topshiriq ko'rildi: "${task.title}"`;
+    if (text) chatText += `\nJavob: ${text}`;
 
     const textMsg = {
       id: 'msg_' + Date.now(),
@@ -641,7 +654,7 @@ async function confirmTaskSeen() {
         receiverId: task.mayorId,
         senderName: worker.fullName || (worker.firstName + ' ' + worker.lastName),
         messageType: 'VOICE',
-        textContent: `🎤 Topshiriq bo'yicha ovozli javob: "${task.title}"`,
+        textContent: `Topshiriq bo'yicha ovozli javob: "${task.title}"`,
         mediaBase64: seenVoiceBase64,
         audioDurationSec: seenVoiceDuration,
         timestamp: now + 1,
