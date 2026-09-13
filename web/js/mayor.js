@@ -137,6 +137,31 @@ function renderMayorTasks() {
       `;
     }
 
+    const taskVoices = (task.voiceList && Array.isArray(task.voiceList) && task.voiceList.length > 0)
+      ? task.voiceList
+      : (task.voiceBase64 ? [task.voiceBase64] : []);
+
+    let taskVoicesHtml = '';
+    if (taskVoices.length === 1) {
+      taskVoicesHtml = `
+        <div class="task-audio-pill">
+          <span style="font-size: 11px; font-weight: 600; color: #1D4ED8; white-space: nowrap;">🎤 Ovozli topshiriq:</span>
+          <audio controls src="data:audio/mp4;base64,${taskVoices[0]}" class="compact-audio-player"></audio>
+        </div>
+      `;
+    } else if (taskVoices.length > 1) {
+      taskVoicesHtml = `
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 2px;">
+          ${taskVoices.map((vB64, idx) => `
+            <div class="task-audio-pill">
+              <span style="font-size: 11px; font-weight: 600; color: #1D4ED8; white-space: nowrap;">🎤 Ovoz #${idx + 1}:</span>
+              <audio controls src="data:audio/mp4;base64,${vB64}" class="compact-audio-player"></audio>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
     cardsHtml += `
       <div class="task-card">
         <div class="task-header">
@@ -159,12 +184,7 @@ function renderMayorTasks() {
           </div>
         </div>
 
-        ${task.voiceBase64 ? `
-          <div class="task-audio-pill">
-            <span style="font-size: 11px; font-weight: 600; color: #1D4ED8; white-space: nowrap;">🎤 Ovozli topshiriq:</span>
-            <audio controls src="data:audio/mp4;base64,${task.voiceBase64}" class="compact-audio-player"></audio>
-          </div>
-        ` : ''}
+        ${taskVoicesHtml}
 
         ${task.address ? `<div class="task-address">📍 ${escapeHtml(task.address)}</div>` : ''}
         ${task.description ? `<div class="task-desc">${escapeHtml(task.description)}</div>` : ''}

@@ -1031,45 +1031,62 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                     }
                                 }
 
-                                if (!task.voiceBase64.isNullOrBlank() || !task.voicePath.isNullOrBlank()) {
+                                val taskVoices = if (task.voiceList.isNotEmpty()) {
+                                    task.voiceList
+                                } else if (!task.voiceBase64.isNullOrBlank()) {
+                                    listOf(task.voiceBase64!!)
+                                } else if (!task.voicePath.isNullOrBlank()) {
+                                    listOf(task.voicePath!!)
+                                } else {
+                                    emptyList()
+                                }
+
+                                if (taskVoices.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(6.dp))
-                                    val isPlayingOrderVoice = currentlyPlayingVoiceTaskId == "order_${task.id}"
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(PrimaryBlue.copy(alpha = 0.1f))
-                                            .clickable {
-                                                if (isPlayingOrderVoice) {
-                                                    voicePlayer.stop()
-                                                    currentlyPlayingVoiceTaskId = null
-                                                } else {
-                                                    val p = task.voicePath ?: storage.restoreVoiceAudioBase64("voice_order_${task.id}.m4a", task.voiceBase64 ?: "")
-                                                    if (p != null && File(p).exists()) {
-                                                        currentlyPlayingVoiceTaskId = "order_${task.id}"
-                                                        voicePlayer.play(p) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        taskVoices.forEachIndexed { vIdx, vData ->
+                                            val voiceKey = "order_${task.id}_$vIdx"
+                                            val isPlayingThisVoice = currentlyPlayingVoiceTaskId == voiceKey
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(PrimaryBlue.copy(alpha = 0.08f))
+                                                    .clickable {
+                                                        if (isPlayingThisVoice) {
+                                                            voicePlayer.stop()
                                                             currentlyPlayingVoiceTaskId = null
+                                                        } else {
+                                                            currentlyPlayingVoiceTaskId = voiceKey
+                                                            if (vData.length < 256 && File(vData).exists()) {
+                                                                voicePlayer.play(vData) {
+                                                                    currentlyPlayingVoiceTaskId = null
+                                                                }
+                                                            } else {
+                                                                voicePlayer.playBase64(context, vData, voiceKey) {
+                                                                    currentlyPlayingVoiceTaskId = null
+                                                                }
+                                                            }
                                                         }
-                                                    } else {
-                                                        Toast.makeText(context, "Ovoz yuklanmoqda...", Toast.LENGTH_SHORT).show()
                                                     }
-                                                }
+                                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isPlayingThisVoice) Icons.Default.Close else Icons.Default.PlayArrow,
+                                                    contentDescription = null,
+                                                    tint = PrimaryBlue,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                val label = if (taskVoices.size > 1) "🎤 Ovoz #${vIdx + 1}" else "🎤 Ovozli topshiriq"
+                                                Text(
+                                                    if (isPlayingThisVoice) "Tinglanmoqda..." else label,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = PrimaryBlue
+                                                )
                                             }
-                                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = if (isPlayingOrderVoice) Icons.Default.Close else Icons.Default.PlayArrow,
-                                            contentDescription = null,
-                                            tint = PrimaryBlue,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            if (isPlayingOrderVoice) "Topshiriq tinglanmoqda..." else "🎤 Ovozli topshiriq (${task.voiceDurationSec}s)",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = PrimaryBlue
-                                        )
+                                        }
                                     }
                                 }
 

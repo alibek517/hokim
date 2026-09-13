@@ -32,5 +32,6 @@ data class TaskItem(
     val voicePath: String? = null,               // Topshiriqning ovozli fayli (agar ovozli topshiriq bo'lsa)
     val voiceBase64: String? = null,             // Firebase orqali uzatiladigan topshiriq ovozi (Base64)
     val voiceDurationSec: Int = 0,               // Topshiriq ovozi davomiyligi
+    val voiceList: List<String> = emptyList(),   // Barcha ovozli xabarlar ro'yxati (Base64)
     val createdAt: Long = System.currentTimeMillis()
 )

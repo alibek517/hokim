@@ -1089,6 +1089,9 @@ class AppStorage(private val context: Context) {
                 e.printStackTrace()
             }
         }
+        if (!finalTask.voiceBase64.isNullOrBlank() && finalTask.voiceList.isEmpty()) {
+            finalTask = finalTask.copy(voiceList = listOf(finalTask.voiceBase64!!))
+        }
         val updated = _tasks.value + finalTask
         _tasks.value = updated
         saveTasksLocally(updated)
@@ -1103,11 +1106,7 @@ class AppStorage(private val context: Context) {
             if (task.id == taskId) {
                 when (newStatus) {
                     TaskStatus.IN_PROGRESS_YELLOW -> task.copy(status = newStatus, startedAt = task.startedAt ?: now)
-                    TaskStatus.COMPLETED_GREEN -> task.copy(
-                        status = newStatus,
-                        completedAt = now,
-                        completionNotes = completionNotes ?: task.completionNotes
-                    )
+                    TaskStatus.COMPLETED_GREEN -> task.copy(status = newStatus, completedAt = now, completionNotes = completionNotes)
                     TaskStatus.INSPECTED_BLUE -> task.copy(status = newStatus, inspectedAt = now)
                     TaskStatus.PENDING_RED -> task.copy(status = newStatus)
                 }
@@ -1116,17 +1115,10 @@ class AppStorage(private val context: Context) {
         _tasks.value = updated
         saveTasksLocally(updated)
 
-        val updates = HashMap<String, Any>()
-        updates["status"] = newStatus.name
-        if (newStatus == TaskStatus.IN_PROGRESS_YELLOW) updates["startedAt"] = now
-        if (newStatus == TaskStatus.COMPLETED_GREEN) {
-            updates["completedAt"] = now
-            if (!completionNotes.isNullOrBlank()) {
-                updates["completionNotes"] = completionNotes
-            }
+        tasksRef?.child(taskId)?.child("status")?.setValue(newStatus.name)
+        if (!completionNotes.isNullOrBlank()) {
+            tasksRef?.child(taskId)?.child("completionNotes")?.setValue(completionNotes)
         }
-        if (newStatus == TaskStatus.INSPECTED_BLUE) updates["inspectedAt"] = now
-        tasksRef?.child(taskId)?.updateChildren(updates)
         sendRestFallback("tasks/" + taskId + "/status", newStatus.name)
         if (!completionNotes.isNullOrBlank()) {
             sendRestFallback("tasks/" + taskId + "/completionNotes", completionNotes)
@@ -1147,24 +1139,40 @@ class AppStorage(private val context: Context) {
 
         val updated = _tasks.value.map { task ->
             if (task.id == taskId) {
+                val existingVoices = if (task.voiceList.isNotEmpty()) {
+                    task.voiceList
+                } else if (!task.voiceBase64.isNullOrBlank()) {
+                    listOf(task.voiceBase64)
+                } else {
+                    emptyList()
+                }
+                val newVoiceList = if (base64Voice != null) existingVoices + base64Voice else existingVoices
                 task.copy(
                     voicePath = voicePath,
-                    voiceBase64 = base64Voice ?: task.voiceBase64,
-                    voiceDurationSec = voiceDurSec
+                    voiceBase64 = newVoiceList.firstOrNull() ?: base64Voice,
+                    voiceDurationSec = voiceDurSec,
+                    voiceList = newVoiceList
                 )
             } else task
         }
         _tasks.value = updated
         saveTasksLocally(updated)
 
+        val curTask = updated.find { it.id == taskId }
         val updates = HashMap<String, Any>()
-        if (!base64Voice.isNullOrBlank()) {
-            updates["voiceBase64"] = base64Voice
+        if (curTask != null) {
+            updates["voiceList"] = curTask.voiceList
+            if (!curTask.voiceBase64.isNullOrBlank()) {
+                updates["voiceBase64"] = curTask.voiceBase64
+            }
         }
         updates["voiceDurationSec"] = voiceDurSec
         tasksRef?.child(taskId)?.updateChildren(updates)
-        if (!base64Voice.isNullOrBlank()) {
-            sendRestFallback("tasks/" + taskId + "/voiceBase64", base64Voice)
+        if (curTask != null) {
+            sendRestFallback("tasks/" + taskId + "/voiceList", curTask.voiceList)
+            if (!curTask.voiceBase64.isNullOrBlank()) {
+                sendRestFallback("tasks/" + taskId + "/voiceBase64", curTask.voiceBase64)
+            }
         }
         sendRestFallback("tasks/" + taskId + "/voiceDurationSec", voiceDurSec)
     }

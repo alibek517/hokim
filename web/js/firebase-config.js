@@ -192,16 +192,30 @@ const dbApi = {
   },
 
   async updateTaskVoice(taskId, voiceBase64, voiceDurationSec) {
+    const localTask = (window.store.tasks || []).find(t => t.id === taskId);
+    let voiceList = [];
+    if (localTask) {
+      if (Array.isArray(localTask.voiceList) && localTask.voiceList.length > 0) {
+        voiceList = [...localTask.voiceList];
+      } else if (localTask.voiceBase64) {
+        voiceList = [localTask.voiceBase64];
+      }
+      if (voiceBase64) {
+        voiceList.push(voiceBase64);
+      }
+      localTask.voiceList = voiceList;
+      localTask.voiceBase64 = voiceList[0] || voiceBase64;
+      localTask.voiceDurationSec = voiceDurationSec || localTask.voiceDurationSec || 0;
+    } else {
+      voiceList = voiceBase64 ? [voiceBase64] : [];
+    }
+
     const updates = {
-      voiceBase64: voiceBase64,
+      voiceBase64: voiceList[0] || voiceBase64,
+      voiceList: voiceList,
       voiceDurationSec: voiceDurationSec || 0
     };
-    // Update local store
-    const localTask = (window.store.tasks || []).find(t => t.id === taskId);
-    if (localTask) {
-      localTask.voiceBase64 = voiceBase64;
-      localTask.voiceDurationSec = voiceDurationSec || 0;
-    }
+
     if (database) {
       await database.ref('tasks/' + taskId).update(updates);
     } else {
@@ -216,6 +230,9 @@ const dbApi = {
   async createTask(task) {
     const id = task.id || ('task_' + Date.now());
     task.id = id;
+    if (task.voiceBase64 && (!task.voiceList || task.voiceList.length === 0)) {
+      task.voiceList = [task.voiceBase64];
+    }
     if (database) {
       await database.ref('tasks/' + id).set(task);
     } else {
