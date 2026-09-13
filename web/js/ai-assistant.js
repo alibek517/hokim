@@ -5,17 +5,28 @@
   'use strict';
 
   let isListening = false;
+  let shouldKeepListening = false;
   let isSpeaking = false;
   let isTemporarilyPausedForTts = false;
   let ignoreSpeechUntil = 0;
   let recognition = null;
-  let aiState = 'IDLE'; // 'IDLE' | 'DRAFTING_TASK' | 'CONFIRMING_TASK'
+  let aiState = 'IDLE'; // 'IDLE' | 'DRAFTING_TASK' | 'CONFIRMING_TASK' | 'DRAFTING_SCHEDULE' | 'CONFIRMING_SCHEDULE' | 'DRAFTING_WORKER' | 'CONFIRMING_WORKER'
   let draftTask = {
     title: '',
     workerId: '',
     workerName: '',
     startDate: '',
     endDate: ''
+  };
+  let draftSchedule = {
+    title: '',
+    time: ''
+  };
+  let draftWorker = {
+    fullName: '',
+    position: '',
+    username: '',
+    password: ''
   };
 
   // Check Web Speech Recognition support
@@ -83,9 +94,10 @@
 
     recognition.onerror = (event) => {
       console.warn("Speech recognition error:", event.error);
-      if (event.error !== 'no-speech') {
-        updateAiStatus('idle', 'Kutilmoqda');
+      if (event.error === 'not-allowed') {
+        shouldKeepListening = false;
         isListening = false;
+        updateAiStatus('idle', 'Kutilmoqda');
       }
     };
 
@@ -93,12 +105,18 @@
       if (isTemporarilyPausedForTts || isSpeaking) {
         return; // AI nutqi tugaguncha kutadi
       }
-      if (isListening) {
-        try { recognition.start(); } catch (e) {
-          isListening = false;
-          updateAiStatus('idle', 'Kutilmoqda');
-        }
+      if (shouldKeepListening) {
+        setTimeout(() => {
+          if (shouldKeepListening && !isSpeaking && !isTemporarilyPausedForTts) {
+            try {
+              recognition.start();
+              isListening = true;
+              updateAiStatus('listening', 'Eshitmoqda...');
+            } catch (e) {}
+          }
+        }, 150);
       } else {
+        isListening = false;
         updateAiStatus('idle', 'Kutilmoqda');
       }
     };
@@ -114,13 +132,17 @@
       return;
     }
 
-    if (isListening) {
+    if (isListening || shouldKeepListening) {
+      shouldKeepListening = false;
       isListening = false;
-      recognition.stop();
+      try { recognition.stop(); } catch(_) {}
       updateAiStatus('idle', 'Kutilmoqda');
     } else {
+      shouldKeepListening = true;
       try {
         recognition.start();
+        isListening = true;
+        updateAiStatus('listening', 'Eshitmoqda...');
       } catch (e) {
         console.warn("Recognition start failed:", e);
       }
@@ -168,11 +190,16 @@
   function finishSpeechCleanup(callback) {
     isSpeaking = false;
     ignoreSpeechUntil = Date.now() + 600; // 600ms aks-sado to'xtashini kutish
-    updateAiStatus(isListening ? 'listening' : 'idle', isListening ? 'Eshitmoqda...' : 'Kutilmoqda');
+    const willListen = shouldKeepListening || isListening;
+    updateAiStatus(willListen ? 'listening' : 'idle', willListen ? 'Eshitmoqda...' : 'Kutilmoqda');
     setTimeout(() => {
       isTemporarilyPausedForTts = false;
-      if (isListening && !isSpeaking && recognition) {
-        try { recognition.start(); } catch (_) {}
+      if (shouldKeepListening && !isSpeaking && recognition) {
+        try {
+          recognition.start();
+          isListening = true;
+          updateAiStatus('listening', 'Eshitmoqda...');
+        } catch (_) {}
       }
     }, 600);
     if (callback) callback();
@@ -646,6 +673,28 @@
     return defaultLater.toISOString().slice(0, 10);
   }
 
+  // Helper: Extract date and time from speech for datetime-local input (YYYY-MM-DDTHH:MM)
+  function parseDateTimeFromSpeech(text) {
+    const lower = (text || '').toLowerCase();
+    const dateStr = parseDateFromSpeech(text);
+    let hours = 10;
+    let minutes = 0;
+    const timeMatch = lower.match(/(?:soat\s*)(\d{1,2})(?:[:.-](\d{2}))?\s*(?:da|ga|da\b|ga\b)?/i) ||
+                      lower.match(/\b(\d{1,2})[:.](\d{2})\s*(?:da|ga)?\b/i);
+    if (timeMatch) {
+      const h = parseInt(timeMatch[1], 10);
+      if (h >= 0 && h <= 23) {
+        hours = h;
+        if (timeMatch[2]) {
+          minutes = parseInt(timeMatch[2], 10);
+        }
+      }
+    }
+    const hh = String(hours).padStart(2, '0');
+    const mm = String(minutes).padStart(2, '0');
+    return `${dateStr}T${hh}:${mm}`;
+  }
+
   // Helper: Find matching worker from storage with suffix stripping
   function findWorkerInSpeech(text) {
     if (!text) return null;
@@ -752,7 +801,7 @@ MUHIM QOIDALAR:
     const text = (rawText || '').toLowerCase().trim();
 
     // 0. To'xtatish va o'zini o'zi yopish (Stop / Dismiss)
-    const stopWords = ["to'xta", "toxta", "to'xtat", "toxtat", "jim bo'l", "jim bol", "jim", "bas", "yetadi", "yopil", "yop", "chiq", "stop", "xayr"];
+    const stopWords = ["to'xta", "toxta", "to'xtat", "toxtat", "jim bo'l", "jim bol", "jim", "bas", "yetadi", "yopil", "stop", "xayr"];
     if (stopWords.some(w => text === w || text.startsWith(w + ' ') || text.endsWith(' ' + w) || text.includes(' ' + w + ' '))) {
       return {
         intent: 'STOP',
@@ -760,7 +809,15 @@ MUHIM QOIDALAR:
       };
     }
 
-    // 0.1. Qidiruv / Inputni tozalash ("inputni tozala", "qidiruvni tozala", "tozala", "inputni o'chir", "qidiruvni bekor qil")
+    // 0.1. Oynalarni yopish / Orqaga (Close Modals)
+    if (text.includes('modalni yop') || text.includes('oynani yop') || text.includes('oynani bekor') || text.includes('orqaga') || text.includes('yopib qoy') || text.includes('yopib qo\'y') || text === 'yop' || text === 'chiqish') {
+      return {
+        intent: 'CLOSE_MODAL',
+        message: "Oyna yopildi."
+      };
+    }
+
+    // 0.2. Qidiruv / Inputni tozalash
     const isClearCmd = (
       text.includes('inputni tozala') ||
       text.includes('inputni ochir') ||
@@ -791,7 +848,97 @@ MUHIM QOIDALAR:
       };
     }
 
-    // 1. Salomlashish va hol-ahvol (Greeting)
+    // 0.3. Topshiriqni tekshirish va qabul qilish (Inspect / Accept completed task)
+    if (text.includes('tekshir') || text.includes('qabul qil') || text.includes('tasdiqla') || text.includes('tekshirdim')) {
+      if (!text.includes('saqla') && !text.includes('yarat') && !text.includes('reja')) {
+        return {
+          intent: 'INSPECT_TASK',
+          message: "Topshiriq tekshirilmoqda..."
+        };
+      }
+    }
+
+    // 0.4. Chatni ochish (Open Chat with worker)
+    if (text.includes('chat') || text.includes('xabar') || text.includes('yozish')) {
+      const worker = findWorkerInSpeech(text);
+      if (worker || text.includes('chatni och') || text.includes('chatga o\'t')) {
+        return {
+          intent: 'OPEN_CHAT',
+          worker: worker,
+          message: worker ? `${worker.fullName || (worker.firstName + ' ' + worker.lastName)} bilan chat ochilmoqda...` : "Chatlar bo'limi ochildi."
+        };
+      }
+    }
+
+    // 1. Yangi topshiriq yaratish (Create Task - MUST BE CHECKED BEFORE NAVIGATE)
+    const isExplicitTaskCreate = (
+      text.includes('yangi topshiriq') ||
+      text.includes('topshiriq yarat') ||
+      text.includes('topshiriq ber') ||
+      text.includes('topshiriq qo\'sh') ||
+      text.includes('topshiriq qosh') ||
+      text.includes('vazifa ber') ||
+      text.includes('vazifa yarat') ||
+      text.includes('yangi vazifa') ||
+      text.includes('plyusni bos') ||
+      text.includes('plyus bos') ||
+      text.includes('ish ber') ||
+      text.includes('zadaniya sozdat')
+    );
+    if (isExplicitTaskCreate) {
+      const detectedWorker = findWorkerInSpeech(text);
+      const cleanTitle = extractTaskTitle(rawText);
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const endStr = parseDateFromSpeech(text);
+      return {
+        intent: 'CREATE_TASK',
+        worker: detectedWorker,
+        title: cleanTitle,
+        startDate: todayStr,
+        endDate: endStr
+      };
+    }
+
+    // 2. Yangi reja tuzish (Create Schedule)
+    const isExplicitScheduleCreate = (
+      text.includes('yangi reja') ||
+      text.includes('reja tuz') ||
+      text.includes('reja yarat') ||
+      text.includes('reja qo\'sh') ||
+      text.includes('reja qosh') ||
+      text.includes('uchrashuv belgil') ||
+      text.includes('kun tartibi') ||
+      text.includes('reja kirit')
+    );
+    if (isExplicitScheduleCreate) {
+      let title = text.replace(/\b(?:yangi\s+)?(?:reja|uchrashuv)\s+(?:tuz(?:ish)?|yarat(?:ish)?|qo['ʻ`]?sh(?:ish)?|belgil(?:ash)?|kirit(?:ish)?)\b/gi, '')
+                      .replace(/\byangi reja\b|\breja tuz\b|\breja qo['ʻ`]?sh\b/gi, '')
+                      .trim();
+      const dt = parseDateTimeFromSpeech(text);
+      return {
+        intent: 'CREATE_SCHEDULE',
+        title: title ? (title.charAt(0).toUpperCase() + title.slice(1)) : '',
+        time: dt
+      };
+    }
+
+    // 3. Yangi xodim qo'shish (Create Worker)
+    const isExplicitWorkerCreate = (
+      text.includes('yangi xodim') ||
+      text.includes('xodim qo\'sh') ||
+      text.includes('xodim qosh') ||
+      text.includes('ishchi qo\'sh') ||
+      text.includes('ishchi qosh') ||
+      text.includes('xodim yarat') ||
+      text.includes('ishchi ol')
+    );
+    if (isExplicitWorkerCreate) {
+      return {
+        intent: 'CREATE_WORKER'
+      };
+    }
+
+    // 4. Salomlashish va hol-ahvol (Greeting)
     const greetings = ['salom', 'assalomu alaykum', 'assalom', 'qandaysiz', 'qalaysiz', 'charchamang', 'hormang', 'salomatmisiz', 'privet', 'hello'];
     if (greetings.some(g => text === g || text.startsWith(g + ' ') || text.endsWith(' ' + g) || text === g + '!' || text === g + '?')) {
       return {
@@ -800,7 +947,7 @@ MUHIM QOIDALAR:
       };
     }
 
-    // 2. Tasdiqlash javoblari (Confirmation)
+    // 5. Tasdiqlash javoblari (Confirmation)
     const confirmWords = [
       'ha', 'xa', 'albatta', 'bo\'ldi', 'boldi', 'to\'g\'ri', 'tasdiqlayman', 'tasdiqla',
       'saqla', 'saqlab qo\'y', 'saqlansin', 'yubor', 'tamom', 'tayyor', 'yaxshi',
@@ -810,16 +957,16 @@ MUHIM QOIDALAR:
       return { intent: 'CONFIRM' };
     }
 
-    // 3. Bekor qilish (Cancel)
+    // 6. Bekor qilish (Cancel)
     const cancelWords = [
-      'yo\'q', 'yoq', 'no', 'kerakmas', 'kerak emas', 'bekor', 'bekor qil', 'to\'xtat',
+      'yo\'q', 'yoq', 'no', 'kerakmas', 'kerak emas', 'bekor', 'bekor qil',
       'o\'chir', 'ochir', 'tashla', 'tashlab ket', 'net', 'otmena'
     ];
     if (cancelWords.some(w => text === w || text.startsWith(w + ' ') || text.includes(' ' + w))) {
       return { intent: 'CANCEL' };
     }
 
-    // 4. Xatolikni tuzatish (Correction / Xorazm "duzot")
+    // 7. Xatolikni tuzatish (Correction / Xorazm "duzot")
     if (text.includes('xatosi bor') || text.includes('duzot') || text.includes('tuzat') || text.includes('o\'zgartir') || text.includes('emas') || text.includes('o\'rniga') || text.includes('almashtir') || text.includes('xato qilding') || text.includes('xato qilibsan')) {
       const worker = findWorkerInSpeech(text);
       const hasDate = text.includes('sentabr') || text.includes('sentyabr') || text.includes('oktabr') || text.includes('oktyabr') || text.includes('noyabr') || text.includes('dekabr') || text.includes('ertaga') || text.includes('bugun') || text.includes('juma') || text.includes('shanba');
@@ -830,32 +977,33 @@ MUHIM QOIDALAR:
       };
     }
 
-    // 5. Sahifalarga o'tish (Navigation - Tab 0, 1, 2, 3)
-    // Tab 0: Topshiriqlar ("1-pej", "1-page", "birinchi pej", "birinchi sahifa", "topshiriqlar", "bosh sahifa", "asosiy")
-    if (/\b(?:1[- ]?(?:pej|peyj|page|sahifa)\w*|birinchi\s+(?:pej|peyj|page|sahifa)\w*|topshiriq\w*|bosh\s+sahifa|asosiy|glavniy)\b/i.test(text) ||
-        (text.includes('topshiriq') && (text.includes('och') || text.includes("o't") || text.includes('ko\'rsat') || text.includes('korsat')))) {
+    // 8. Sahifalarga o'tish (Navigation - Tab 0, 1, 2, 3)
+    // FAQAT sahifa ochish yoki ko'rish so'ralganda
+    // Tab 0: Topshiriqlar ("1-pej", "1-page", "birinchi pej", "birinchi sahifa", "topshiriqlar sahifasi", "asosiy sahifa")
+    if (/\b(?:1[- ]?(?:pej|peyj|page|sahifa)\w*|birinchi\s+(?:pej|peyj|page|sahifa)\w*|bosh\s+sahifa|asosiy\s+sahifa)\b/i.test(text) ||
+        (text.includes('topshiriq') && (text.includes('sahifas') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('och')))) {
       return { intent: 'NAVIGATE', tab: 0, message: "1-sahifa: Topshiriqlar bo'limi ochildi." };
     }
 
-    // Tab 1: Rejalar ("2-pej", "2-page", "ikkinchi pej", "ikkinchi sahifa", "reja", "rejalar", "plan")
-    if (/\b(?:2[- ]?(?:pej|peyj|page|sahifa)\w*|ikkinchi\s+(?:pej|peyj|page|sahifa)\w*|reja\w*|plan\w*)\b/i.test(text) ||
-        (text.includes('reja') && (text.includes('och') || text.includes("o't") || text.includes('ko\'rsat') || text.includes('korsat')))) {
+    // Tab 1: Rejalar ("2-pej", "2-page", "ikkinchi pej", "ikkinchi sahifa", "rejalar sahifasi")
+    if (/\b(?:2[- ]?(?:pej|peyj|page|sahifa)\w*|ikkinchi\s+(?:pej|peyj|page|sahifa)\w*)\b/i.test(text) ||
+        (text.includes('reja') && (text.includes('sahifas') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('och')))) {
       return { intent: 'NAVIGATE', tab: 1, message: "2-sahifa: Rejalar bo'limi ochildi." };
     }
 
-    // Tab 2: Xodimlar va reyting ("3-pej", "3-page", "uchinchi pej", "uchinchi sahifa", "xodimlar", "ishchilar", "reyting")
-    if (/\b(?:3[- ]?(?:pej|peyj|page|sahifa)\w*|uchinchi\s+(?:pej|peyj|page|sahifa)\w*|xodim\w*|ishchi\w*|reyting\w*)\b/i.test(text) ||
-        ((text.includes('xodim') || text.includes('reyting')) && (text.includes('och') || text.includes("o't") || text.includes('ko\'rsat') || text.includes('korsat')))) {
+    // Tab 2: Xodimlar va reyting ("3-pej", "3-page", "uchinchi pej", "uchinchi sahifa", "xodimlar sahifasi", "reyting")
+    if (/\b(?:3[- ]?(?:pej|peyj|page|sahifa)\w*|uchinchi\s+(?:pej|peyj|page|sahifa)\w*|reyting\w*)\b/i.test(text) ||
+        (text.includes('xodim') && (text.includes('sahifas') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('och')))) {
       return { intent: 'NAVIGATE', tab: 2, message: "3-sahifa: Xodimlar va ularning reytingi sahifasiga o'tdik." };
     }
 
-    // Tab 3: Chatlar ("4-pej", "4-page", "to'rtinchi pej", "to'rtinchi sahifa", "chatlar", "chat", "xabarlar")
-    if (/\b(?:4[- ]?(?:pej|peyj|page|sahifa)\w*|to['ʻ`]?rtinchi\s+(?:pej|peyj|page|sahifa)\w*|chat\w*|xabar\w*)\b/i.test(text) ||
-        (text.includes('chat') && (text.includes('och') || text.includes("o't") || text.includes('ko\'rsat') || text.includes('korsat')))) {
+    // Tab 3: Chatlar ("4-pej", "4-page", "to'rtinchi pej", "to'rtinchi sahifa", "chat sahifasi")
+    if (/\b(?:4[- ]?(?:pej|peyj|page|sahifa)\w*|to['ʻ`]?rtinchi\s+(?:pej|peyj|page|sahifa)\w*)\b/i.test(text) ||
+        (text.includes('chat') && (text.includes('sahifas') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('och')))) {
       return { intent: 'NAVIGATE', tab: 3, message: "4-sahifa: Chatlar bo'limi ochildi." };
     }
 
-    // 6. Filtrlash (Filter)
+    // 9. Filtrlash (Filter)
     if (text.includes('qizil') || text.includes('boshlanmagan')) {
       return { intent: 'FILTER_STATUS', statusIdx: 1, message: "Boshlanmagan topshiriqlar saralandi." };
     }
@@ -872,7 +1020,7 @@ MUHIM QOIDALAR:
       return { intent: 'FILTER_STATUS', statusIdx: 1, message: "Kechikkan va boshlanmagan topshiriqlar ko'rsatilmoqda." };
     }
 
-    // 7. Minnatdorchilik va umumiy savollar
+    // 10. Minnatdorchilik va umumiy savollar
     if (text.includes('rahmat') || text.includes('barakalla') || text.includes('balli') || text.includes('tashakkur')) {
       return {
         intent: 'GREETING',
@@ -882,11 +1030,11 @@ MUHIM QOIDALAR:
     if (text.includes('kimsan') || text.includes('nima qila olasan') || text.includes('yordam ber')) {
       return {
         intent: 'GREETING',
-        message: "Men sizning shaxsiy sun'iy intellekt yordamchingizman. Topshiriq biriktirish, rejalarni ochish yoki xodimlar reytingini ko'rsatishim mumkin."
+        message: "Men sizning shaxsiy sun'iy intellekt yordamchingizman. Topshiriq yaratish, rejalarni belgilash, xodimlar qo'shish yoki chatlarni ochishim mumkin."
       };
     }
 
-    // 8. Qidiruv (Search) - FAQAT VA FAQAT foydalanuvchi "qidir", "izla", "top" deb buyurgandagina!
+    // 11. Qidiruv (Search) - FAQAT VA FAQAT foydalanuvchi "qidir", "izla", "top" deb buyurgandagina!
     const isSearchWord = /\b(?:qidir|qidirgin|izla|izlagin|top|topib ber)\b/i.test(text);
     if (isSearchWord && !text.includes('tozala') && !text.includes('o\'chir') && !text.includes('ochir') && !text.includes('bekor')) {
       const searchMatch = text.match(/\b(?:qidir|qidirgin|izla|izlagin|top|topib ber)\s+(.*)/i) || text.match(/(.*)\s+(?:qidir|qidirgin|izla|izlagin|top|topib ber)\b/i);
@@ -901,16 +1049,14 @@ MUHIM QOIDALAR:
       }
     }
 
-    // 9. Yangi topshiriq yaratish (Xorazm "ish ber", "topshiriq ber", "vazifa yukla", "kerak", "asfaltlash", "biriktir", "qilsin", "etsin")
-    const isCreateCommand = text.includes('ish ber') || text.includes('topshiriq') || text.includes('vazifa') || text.includes('yangi ish') || text.includes('biriktir') || text.includes('zadaniya') || text.includes('sozdat') || text.includes('naznachit') || text.includes('buyur') || text.includes('kerak') || text.includes('asfaltlash') || text.includes('tozalash') || text.includes('ta\'mirlash') || text.includes('qurish');
+    // 12. Implitsit (bevosita) topshiriq topshirish: "Yo'lni asfaltlash kerak", "Chiroqlarni tuzatishsin"
     const detectedWorker = findWorkerInSpeech(text);
+    const isTaskContext = text.includes('kerak') || text.includes('asfaltlash') || text.includes('tozalash') || text.includes('ta\'mirlash') || text.includes('qurish') || text.includes('qilsin') || text.includes('etsin') || text.includes('biriktir');
 
-    if (isCreateCommand || detectedWorker) {
+    if (detectedWorker || isTaskContext) {
       const cleanTitle = extractTaskTitle(rawText);
       const todayStr = new Date().toISOString().slice(0, 10);
-      const endStr = (text.includes('sentabr') || text.includes('sentyabr') || text.includes('oktabr') || text.includes('ertaga') || text.includes('juma'))
-        ? parseDateFromSpeech(text)
-        : null;
+      const endStr = parseDateFromSpeech(text);
 
       return {
         intent: 'CREATE_TASK',
@@ -921,7 +1067,7 @@ MUHIM QOIDALAR:
       };
     }
 
-    // Begona yoki tushunarsiz buyruqlar (masalan: "videoni och") hech qachon qidiruvga berilmaydi!
+    // Begona yoki tushunarsiz buyruqlar hech qachon qidiruvga berilmaydi!
     return {
       intent: 'UNKNOWN',
       raw: rawText
@@ -969,7 +1115,7 @@ MUHIM QOIDALAR:
         if (window.mayorAiHelpers && window.mayorAiHelpers.saveCurrentTask) {
           await window.mayorAiHelpers.saveCurrentTask();
           aiState = 'IDLE';
-          const reply = `Topshiriq muvaffaqiyatli saqlandi va ${draftTask.workerName || 'xodim'}ga biriktirildi!`;
+          const reply = `Topshiriq muvaffaqiyatli saqlandi va ${draftTask.workerName || 'xodim'}ga biriktirildi! Keyingi topshiriqqa tayyorman.`;
           appendAiMessage('jarvis', reply);
           speakText(reply);
           return;
@@ -979,7 +1125,7 @@ MUHIM QOIDALAR:
           window.mayorAiHelpers.closeTaskModal();
         }
         aiState = 'IDLE';
-        const reply = "Topshiriq bekor qilindi.";
+        const reply = "Topshiriq bekor qilindi. Boshqa buyruq bormi?";
         appendAiMessage('jarvis', reply);
         speakText(reply);
         return;
@@ -1007,7 +1153,7 @@ MUHIM QOIDALAR:
       }
     }
 
-    // B. DRAFTING_TASK bosqichi (Hokim xodim yoki muddatni aytishi kutilmoqda)
+    // B. DRAFTING_TASK bosqichi
     if (aiState === 'DRAFTING_TASK') {
       const parsed = analyzeIntent(userSpeech);
 
@@ -1016,27 +1162,35 @@ MUHIM QOIDALAR:
           window.mayorAiHelpers.closeTaskModal();
         }
         aiState = 'IDLE';
-        const reply = "Topshiriq bekor qilindi.";
+        const reply = "Topshiriq bekor qilindi. Boshqa qanday vazifa bajaramiz?";
         appendAiMessage('jarvis', reply);
         speakText(reply);
         return;
       }
 
-      // Xodimni aniqlash
+      // 1. Agar topshiriq sarlavhasi hali kiritilmagan bo'lsa, nutqdan sarlavhani olamiz
+      if (!draftTask.title || draftTask.title === "Topshiriq ijrosini ta'minlash") {
+        const titleCandidate = extractTaskTitle(userSpeech);
+        if (titleCandidate && titleCandidate.length > 2) {
+          draftTask.title = titleCandidate;
+        }
+      }
+
+      // 2. Xodimni aniqlash
       const worker = findWorkerInSpeech(userSpeech) || parsed.worker;
       if (worker) {
         draftTask.workerId = worker.id;
         draftTask.workerName = worker.fullName || (worker.firstName + ' ' + worker.lastName);
       }
 
-      // Muddatni aniqlash
+      // 3. Muddatni aniqlash
       const date = parseDateFromSpeech(userSpeech);
       if (date) {
         draftTask.endDate = date;
       }
 
-      // Agar "u joyini kirgizmay qo'yaver", "kerakmas", "bo'ldi" desa - mavjud birinchi xodimni olamiz
-      if (cleanLower.includes('kirgizmay') || cleanLower.includes('bo\'sh') || cleanLower.includes('bosh qoldir') || cleanLower.includes('bo\'ldi') || cleanLower.includes('boldi')) {
+      // Agar xodim nomini topolmasa, lekin foydalanuvchi "istagan xodim", "birinchisiga", "o'zing tanla", "bo'ldi" desa
+      if (cleanLower.includes('kirgizmay') || cleanLower.includes('bo\'sh') || cleanLower.includes('bosh qoldir') || cleanLower.includes('o\'zing tanla') || cleanLower.includes('istagan')) {
         if (!draftTask.workerId) {
           const workers = (window.store && window.store.users || []).filter(u => u.role === 'WORKER');
           if (workers.length > 0) {
@@ -1049,45 +1203,321 @@ MUHIM QOIDALAR:
         }
       }
 
-      // Ekranni jonli yangilaymiz
+      // Modal maydonlarini yangilaymiz
       if (window.mayorAiHelpers && window.mayorAiHelpers.updateTaskFields) {
         window.mayorAiHelpers.updateTaskFields({
+          title: draftTask.title,
           workerId: draftTask.workerId,
           endDate: draftTask.endDate
         });
       }
 
-      if (draftTask.workerId) {
+      if (draftTask.title && draftTask.workerId) {
         if (!draftTask.endDate) {
-          draftTask.endDate = parseDateFromSpeech('indin');
+          draftTask.endDate = parseDateFromSpeech('ertaga');
           if (window.mayorAiHelpers && window.mayorAiHelpers.updateTaskFields) {
             window.mayorAiHelpers.updateTaskFields({ endDate: draftTask.endDate });
           }
         }
         aiState = 'CONFIRMING_TASK';
-        const reply = `${draftTask.workerName} ga "${draftTask.title}" topshirig'i tayyorlandi. Muddati: ${draftTask.endDate}. Topshiriqni tasdiqlaysizmi?`;
+        const reply = `"${draftTask.title}" topshirig'i ${draftTask.workerName}ga tayyorlandi. Muddati: ${draftTask.endDate}. Topshiriqni saqlashni tasdiqlaysizmi?`;
+        appendAiMessage('jarvis', reply);
+        speakText(reply);
+        return;
+      } else if (draftTask.title && !draftTask.workerId) {
+        const reply = `Topshiriq: "${draftTask.title}". Ushbu topshiriqni qaysi xodimga biriktiramiz?`;
         appendAiMessage('jarvis', reply);
         speakText(reply);
         return;
       } else {
-        const reply = `Topshiriq: "${draftTask.title}". Bu topshiriqni qaysi xodimga biriktiramiz?`;
+        const reply = "Topshiriq mazmuni va mas'ul xodimni ayting.";
         appendAiMessage('jarvis', reply);
         speakText(reply);
         return;
       }
     }
 
-    // C. IDLE bosqichi
-    // 1. Mahalliy tezkor va aniq Intent tahlili (Avval mahalliy aniq qoidalar tekshiriladi)
+    // C. CONFIRMING_SCHEDULE bosqichi
+    if (aiState === 'CONFIRMING_SCHEDULE') {
+      const parsed = analyzeIntent(userSpeech);
+
+      if (parsed.intent === 'CONFIRM') {
+        if (window.mayorAiHelpers && window.mayorAiHelpers.saveCurrentSchedule) {
+          await window.mayorAiHelpers.saveCurrentSchedule();
+          aiState = 'IDLE';
+          const reply = "Yangi reja muvaffaqiyatli saqlandi! Yana qanday buyrug'ingiz bor?";
+          appendAiMessage('jarvis', reply);
+          speakText(reply);
+          return;
+        }
+      } else if (parsed.intent === 'CANCEL') {
+        if (window.mayorAiHelpers && window.mayorAiHelpers.closeScheduleModal) {
+          window.mayorAiHelpers.closeScheduleModal();
+        }
+        aiState = 'IDLE';
+        const reply = "Reja tuzish bekor qilindi. Boshqa buyruq bormi?";
+        appendAiMessage('jarvis', reply);
+        speakText(reply);
+        return;
+      }
+    }
+
+    // D. DRAFTING_SCHEDULE bosqichi
+    if (aiState === 'DRAFTING_SCHEDULE') {
+      const parsed = analyzeIntent(userSpeech);
+
+      if (parsed.intent === 'CANCEL') {
+        if (window.mayorAiHelpers && window.mayorAiHelpers.closeScheduleModal) {
+          window.mayorAiHelpers.closeScheduleModal();
+        }
+        aiState = 'IDLE';
+        const reply = "Reja tuzish bekor qilindi.";
+        appendAiMessage('jarvis', reply);
+        speakText(reply);
+        return;
+      }
+
+      if (!draftSchedule.title) {
+        let t = userSpeech.replace(/\b(?:reja|uchrashuv|soat|da|ga|kuni|ertaga|bugun)\b/gi, '').trim();
+        draftSchedule.title = t ? (t.charAt(0).toUpperCase() + t.slice(1)) : "Muhim uchrashuv";
+      }
+      const dt = parseDateTimeFromSpeech(userSpeech);
+      draftSchedule.time = dt;
+
+      if (window.mayorAiHelpers && window.mayorAiHelpers.updateScheduleFields) {
+        window.mayorAiHelpers.updateScheduleFields({
+          title: draftSchedule.title,
+          time: draftSchedule.time
+        });
+      }
+
+      aiState = 'CONFIRMING_SCHEDULE';
+      const reply = `"${draftSchedule.title}" rejasi kiritildi. Vaqti: ${draftSchedule.time}. Ushbu rejani saqlashni tasdiqlaysizmi?`;
+      appendAiMessage('jarvis', reply);
+      speakText(reply);
+      return;
+    }
+
+    // E. CONFIRMING_WORKER bosqichi
+    if (aiState === 'CONFIRMING_WORKER') {
+      const parsed = analyzeIntent(userSpeech);
+
+      if (parsed.intent === 'CONFIRM') {
+        if (window.mayorAiHelpers && window.mayorAiHelpers.saveCurrentWorker) {
+          await window.mayorAiHelpers.saveCurrentWorker();
+          aiState = 'IDLE';
+          const reply = `"${draftWorker.fullName}" tizimga xodim sifatida muvaffaqiyatli qo'shildi! Keyingi buyruqqa tayyorman.`;
+          appendAiMessage('jarvis', reply);
+          speakText(reply);
+          return;
+        }
+      } else if (parsed.intent === 'CANCEL') {
+        if (window.mayorAiHelpers && window.mayorAiHelpers.closeWorkerModal) {
+          window.mayorAiHelpers.closeWorkerModal();
+        }
+        aiState = 'IDLE';
+        const reply = "Yangi xodim qo'shish bekor qilindi.";
+        appendAiMessage('jarvis', reply);
+        speakText(reply);
+        return;
+      }
+    }
+
+    // F. DRAFTING_WORKER bosqichi
+    if (aiState === 'DRAFTING_WORKER') {
+      const parsed = analyzeIntent(userSpeech);
+
+      if (parsed.intent === 'CANCEL') {
+        if (window.mayorAiHelpers && window.mayorAiHelpers.closeWorkerModal) {
+          window.mayorAiHelpers.closeWorkerModal();
+        }
+        aiState = 'IDLE';
+        const reply = "Yangi xodim qo'shish bekor qilindi.";
+        appendAiMessage('jarvis', reply);
+        speakText(reply);
+        return;
+      }
+
+      // Xodim ismi va lavozimini ajratish
+      let name = userSpeech.replace(/\b(?:yangi\s+)?(?:xodim|ishchi|qo['ʻ`]?sh|qosh|yarat|lavozimi|mutaxassis|boshliq)\b/gi, '').trim();
+      if (name.length > 2) {
+        draftWorker.fullName = name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      } else {
+        draftWorker.fullName = "Yangi Mutaxassis";
+      }
+
+      let position = "Yetakchi mutaxassis";
+      if (cleanLower.includes('boshliq') || cleanLower.includes('rahbar')) position = "Bo'lim boshlig'i";
+      else if (cleanLower.includes('muhandis')) position = "Bosh muhandis";
+      else if (cleanLower.includes('inspektor')) position = "Bosh inspektor";
+      else if (cleanLower.includes('iqtisodchi')) position = "Iqtisodchi";
+
+      draftWorker.position = position;
+      draftWorker.username = 'xodim_' + Math.floor(1000 + Math.random() * 9000);
+      draftWorker.password = 'ijro' + Math.floor(100 + Math.random() * 900);
+
+      if (window.mayorAiHelpers && window.mayorAiHelpers.updateWorkerFields) {
+        window.mayorAiHelpers.updateWorkerFields({
+          fullName: draftWorker.fullName,
+          position: draftWorker.position,
+          username: draftWorker.username,
+          password: draftWorker.password
+        });
+      }
+
+      aiState = 'CONFIRMING_WORKER';
+      const reply = `"${draftWorker.fullName}" (${draftWorker.position}) kiritildi. Tizimga xodim sifatida qo'shishni tasdiqlaysizmi?`;
+      appendAiMessage('jarvis', reply);
+      speakText(reply);
+      return;
+    }
+
+    // G. IDLE bosqichi
     const localAction = analyzeIntent(userSpeech);
+
+    if (localAction.intent === 'CLOSE_MODAL') {
+      if (window.mayorAiHelpers && window.mayorAiHelpers.closeAllModals) {
+        window.mayorAiHelpers.closeAllModals();
+      }
+      const reply = "Barcha ochiq oynalar yopildi. Yana qanday buyruq bajaramiz?";
+      appendAiMessage('jarvis', reply);
+      speakText(reply);
+      return;
+    }
 
     if (localAction.intent === 'CLEAR_SEARCH') {
       if (window.mayorAiHelpers && window.mayorAiHelpers.clearSearch) {
         window.mayorAiHelpers.clearSearch();
       }
-      appendAiMessage('jarvis', localAction.message);
-      speakText(localAction.message);
+      const reply = "Qidiruv maydoni tozalandi.";
+      appendAiMessage('jarvis', reply);
+      speakText(reply);
       return;
+    }
+
+    if (localAction.intent === 'INSPECT_TASK') {
+      if (window.mayorAiHelpers && window.mayorAiHelpers.inspectCompletedTask) {
+        const inspected = await window.mayorAiHelpers.inspectCompletedTask();
+        if (inspected) {
+          const reply = "Bajarilgan topshiriq muvaffaqiyatli tekshirildi va qabul qilindi!";
+          appendAiMessage('jarvis', reply);
+          speakText(reply);
+          return;
+        } else {
+          const reply = "Hozirda tekshirish uchun topshirilgan yangi hisobotlar mavjud emas.";
+          appendAiMessage('jarvis', reply);
+          speakText(reply);
+          return;
+        }
+      }
+    }
+
+    if (localAction.intent === 'OPEN_CHAT') {
+      if (localAction.worker && window.mayorAiHelpers && window.mayorAiHelpers.openChatForWorker) {
+        window.mayorAiHelpers.openChatForWorker(localAction.worker.id);
+        const reply = `${localAction.worker.fullName || (localAction.worker.firstName + ' ' + localAction.worker.lastName)} bilan chat ochildi.`;
+        appendAiMessage('jarvis', reply);
+        speakText(reply);
+        return;
+      } else {
+        if (window.mayorAiHelpers && window.mayorAiHelpers.switchToTab) {
+          window.mayorAiHelpers.switchToTab(3);
+        }
+        const reply = "Chatlar bo'limi ochildi. Qaysi xodim bilan xabarlashamiz?";
+        appendAiMessage('jarvis', reply);
+        speakText(reply);
+        return;
+      }
+    }
+
+    if (localAction.intent === 'CREATE_SCHEDULE') {
+      const timeStr = localAction.time || parseDateTimeFromSpeech(userSpeech);
+      const titleStr = localAction.title || "Yangi reja";
+
+      if (window.mayorAiHelpers && window.mayorAiHelpers.openScheduleModalWithData) {
+        window.mayorAiHelpers.openScheduleModalWithData({
+          title: titleStr,
+          time: timeStr
+        });
+      }
+
+      draftSchedule = {
+        title: titleStr,
+        time: timeStr
+      };
+
+      if (localAction.title) {
+        aiState = 'CONFIRMING_SCHEDULE';
+        const reply = `"${draftSchedule.title}" rejasi kiritildi. Vaqti: ${draftSchedule.time}. Saqlashni tasdiqlaysizmi?`;
+        appendAiMessage('jarvis', reply);
+        speakText(reply);
+        return;
+      } else {
+        aiState = 'DRAFTING_SCHEDULE';
+        const reply = "Reja tuzish oynasi ochildi. Ichiga nimalarni yozamiz? Reja nomi va vaqtini ayting.";
+        appendAiMessage('jarvis', reply);
+        speakText(reply);
+        return;
+      }
+    }
+
+    if (localAction.intent === 'CREATE_WORKER') {
+      if (window.mayorAiHelpers && window.mayorAiHelpers.openWorkerModalWithData) {
+        window.mayorAiHelpers.openWorkerModalWithData({});
+      }
+      draftWorker = { fullName: '', position: '', username: '', password: '' };
+      aiState = 'DRAFTING_WORKER';
+      const reply = "Yangi xodim qo'shish oynasi ochildi. Xodimning ism-familiyasi va lavozimini ayting.";
+      appendAiMessage('jarvis', reply);
+      speakText(reply);
+      return;
+    }
+
+    if (localAction.intent === 'CREATE_TASK') {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const worker = localAction.worker;
+      const endStr = localAction.endDate || parseDateFromSpeech(userSpeech);
+
+      if (window.mayorAiHelpers && window.mayorAiHelpers.openTaskModalWithData) {
+        window.mayorAiHelpers.openTaskModalWithData({
+          title: localAction.title,
+          workerId: worker ? worker.id : null,
+          startDate: todayStr,
+          endDate: endStr
+        });
+      }
+
+      // Agar xodim va aniq sarlavha ko'rsatilgan bo'lsa
+      if (worker && localAction.title && localAction.title !== "Topshiriq ijrosini ta'minlash") {
+        draftTask = {
+          title: localAction.title,
+          workerId: worker.id,
+          workerName: worker.fullName || (worker.firstName + ' ' + worker.lastName),
+          startDate: todayStr,
+          endDate: endStr
+        };
+        aiState = 'CONFIRMING_TASK';
+        const promptSpeech = `${draftTask.workerName} ga "${draftTask.title}" topshirig'i tayyorlandi. Muddati: ${draftTask.endDate}. Topshiriqni tasdiqlaysizmi?`;
+        appendAiMessage('jarvis', promptSpeech);
+        speakText(promptSpeech);
+        return;
+      } else {
+        // Hokim faqat "Yangi topshiriq yarat" yoki umumiy gap aytdi -> modal ochiladi va ichiga nima yozish so'raladi
+        draftTask = {
+          title: (localAction.title && localAction.title !== "Topshiriq ijrosini ta'minlash") ? localAction.title : '',
+          workerId: worker ? worker.id : '',
+          workerName: worker ? (worker.fullName || (worker.firstName + ' ' + worker.lastName)) : '',
+          startDate: todayStr,
+          endDate: endStr || ''
+        };
+        aiState = 'DRAFTING_TASK';
+        const promptSpeech = draftTask.title
+          ? `Topshiriq: "${draftTask.title}". Ushbu topshiriqni qaysi xodimga biriktiramiz va muddati qachongacha?`
+          : "Topshiriq yaratish oynasi ochildi. Ichiga nimalarni yozamiz? Topshiriq mazmuni va mas'ul xodimni ayting.";
+        appendAiMessage('jarvis', promptSpeech);
+        speakText(promptSpeech);
+        return;
+      }
     }
 
     if (localAction.intent === 'NAVIGATE') {
@@ -1116,8 +1546,8 @@ MUHIM QOIDALAR:
     }
 
     if (localAction.intent === 'CANCEL') {
-      if (window.mayorAiHelpers && window.mayorAiHelpers.closeTaskModal) {
-        window.mayorAiHelpers.closeTaskModal();
+      if (window.mayorAiHelpers && window.mayorAiHelpers.closeAllModals) {
+        window.mayorAiHelpers.closeAllModals();
       }
       if (window.mayorAiHelpers && window.mayorAiHelpers.clearSearch) {
         window.mayorAiHelpers.clearSearch();
@@ -1136,50 +1566,6 @@ MUHIM QOIDALAR:
       appendAiMessage('jarvis', reply);
       speakText(reply);
       return;
-    }
-
-    if (localAction.intent === 'CREATE_TASK') {
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const worker = localAction.worker;
-      const endStr = localAction.endDate || parseDateFromSpeech(userSpeech);
-
-      if (window.mayorAiHelpers && window.mayorAiHelpers.openTaskModalWithData) {
-        window.mayorAiHelpers.switchToTab(0);
-        window.mayorAiHelpers.openTaskModalWithData({
-          title: localAction.title,
-          workerId: worker ? worker.id : null,
-          startDate: todayStr,
-          endDate: endStr
-        });
-      }
-
-      if (worker) {
-        draftTask = {
-          title: localAction.title,
-          workerId: worker.id,
-          workerName: worker.fullName || (worker.firstName + ' ' + worker.lastName),
-          startDate: todayStr,
-          endDate: endStr
-        };
-        aiState = 'CONFIRMING_TASK';
-        const promptSpeech = `${draftTask.workerName} ga "${draftTask.title}" topshirig'i tayyorlandi. Muddati: ${draftTask.endDate}. Topshiriqni tasdiqlaysizmi?`;
-        appendAiMessage('jarvis', promptSpeech);
-        speakText(promptSpeech);
-        return;
-      } else {
-        draftTask = {
-          title: localAction.title,
-          workerId: '',
-          workerName: '',
-          startDate: todayStr,
-          endDate: ''
-        };
-        aiState = 'DRAFTING_TASK';
-        const promptSpeech = `Xo'p, tushunarli. Topshiriq: "${localAction.title}". Bu topshiriqni qaysi xodimga biriktiramiz va muddati qachongacha?`;
-        appendAiMessage('jarvis', promptSpeech);
-        speakText(promptSpeech);
-        return;
-      }
     }
 
     // 2. Agar mahalliy tahlil UNKNOWN bo'lsa, Gemini API ga murojaat qilamiz
@@ -1259,7 +1645,7 @@ MUHIM QOIDALAR:
               endDate: ''
             };
             aiState = 'DRAFTING_TASK';
-            const promptSpeech = `Xo'p, tushunarli. Topshiriq: "${cleanTitle}". Bu topshiriqni qaysi xodimga biriktiramiz va muddati qachongacha?`;
+            const promptSpeech = `Topshiriq ochildi. Ichiga nimalarni yozamiz? Topshiriq mazmuni va mas'ul xodimni ayting.`;
             appendAiMessage('jarvis', promptSpeech);
             speakText(promptSpeech);
             return;
@@ -1267,7 +1653,6 @@ MUHIM QOIDALAR:
         }
 
         if (geminiResult.intent === 'SEARCH') {
-          // FAQAT VA FAQAT foydalanuvchi qidiruv so'zini aytgan bo'lsa!
           const hasSearchWord = /\b(?:qidir|izla|top)\b/i.test(cleanLower);
           if (hasSearchWord && geminiResult.query && geminiResult.query.trim()) {
             if (window.mayorAiHelpers && window.mayorAiHelpers.searchTasks) {
@@ -1278,7 +1663,6 @@ MUHIM QOIDALAR:
             speakText(reply);
             return;
           }
-          // Agar qidiruv so'zi bo'lmasa, HECH QACHON inputga yozilmaydi!
         }
 
         if (geminiResult.intent === 'GREETING' || geminiResult.intent === 'CHAT' || geminiResult.speechReply) {
@@ -1292,8 +1676,8 @@ MUHIM QOIDALAR:
       console.warn("Gemini dispatch error:", e);
     }
 
-    // Noma'lum buyruq (masalan: "videoni och") hech qachon qidiruvga yo'naltirilmaydi va inputga yozilmaydi!
-    const defaultReply = "Kechirasiz, buyruqni tushunmadim. Masalan: '1-sahifaga o't', 'Yangi topshiriq ber' yoki 'Qidiruvni tozala' deb ayting.";
+    // Noma'lum buyruq: hech qachon qidiruvga yo'naltirilmaydi va inputga yozilmaydi!
+    const defaultReply = "Kechirasiz, buyruqni tushunmadim. Masalan: 'Yangi topshiriq yarat', '2-sahifaga o't', 'Reja tuz' yoki 'Qidiruvni tozala' deb ayting.";
     appendAiMessage('jarvis', defaultReply);
     speakText(defaultReply);
   }
@@ -1338,6 +1722,7 @@ MUHIM QOIDALAR:
     if (modal) {
       modal.classList.add('active');
       startOrbAnimation();
+      shouldKeepListening = true;
       if (!isListening) {
         toggleAiVoiceListening();
       }
@@ -1345,12 +1730,13 @@ MUHIM QOIDALAR:
   };
 
   window.closeAiAssistantModal = function() {
+    shouldKeepListening = false;
+    isListening = false;
     const modal = document.getElementById('ai-assistant-modal');
     document.querySelectorAll('.ai-header-btn').forEach(b => b.classList.remove('active'));
     if (modal) modal.classList.remove('active');
     stopOrbAnimation();
-    if (isListening && recognition) {
-      isListening = false;
+    if (recognition) {
       try { recognition.stop(); } catch(_) {}
     }
     if (activeAudioPlayer) {

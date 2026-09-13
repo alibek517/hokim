@@ -1731,6 +1731,105 @@ window.mayorAiHelpers = {
   closeTaskModal: () => {
     closeModal('create-task-modal');
   },
+  openScheduleModalWithData: (data) => {
+    switchMayorTab(1);
+    openCreateScheduleModal();
+    if (data) {
+      if (data.title) {
+        const el = document.getElementById('new-schedule-title');
+        if (el) el.value = data.title;
+      }
+      if (data.time) {
+        const el = document.getElementById('new-schedule-time');
+        if (el) el.value = data.time;
+      }
+    }
+  },
+  updateScheduleFields: (data) => {
+    if (data.title !== undefined) {
+      const el = document.getElementById('new-schedule-title');
+      if (el) el.value = data.title;
+    }
+    if (data.time !== undefined) {
+      const el = document.getElementById('new-schedule-time');
+      if (el) el.value = data.time;
+    }
+  },
+  saveCurrentSchedule: async () => {
+    await saveNewSchedule();
+  },
+  closeScheduleModal: () => {
+    closeModal('create-schedule-modal');
+  },
+  openWorkerModalWithData: (data) => {
+    switchMayorTab(2);
+    openCreateWorkerModal();
+    if (data) {
+      if (data.fullName) {
+        const el = document.getElementById('new-worker-name');
+        if (el) el.value = data.fullName;
+      }
+      if (data.position) {
+        const el = document.getElementById('new-worker-pos');
+        if (el) el.value = data.position;
+      }
+      if (data.username) {
+        const el = document.getElementById('new-worker-user');
+        if (el) el.value = data.username;
+      }
+      if (data.password) {
+        const el = document.getElementById('new-worker-pass');
+        if (el) el.value = data.password;
+      }
+    }
+  },
+  updateWorkerFields: (data) => {
+    if (data.fullName !== undefined) {
+      const el = document.getElementById('new-worker-name');
+      if (el) el.value = data.fullName;
+    }
+    if (data.position !== undefined) {
+      const el = document.getElementById('new-worker-pos');
+      if (el) el.value = data.position;
+    }
+    if (data.username !== undefined) {
+      const el = document.getElementById('new-worker-user');
+      if (el) el.value = data.username;
+    }
+    if (data.password !== undefined) {
+      const el = document.getElementById('new-worker-pass');
+      if (el) el.value = data.password;
+    }
+  },
+  saveCurrentWorker: async () => {
+    await saveNewWorker();
+  },
+  closeWorkerModal: () => {
+    closeModal('create-worker-modal');
+  },
+  inspectCompletedTask: async (taskId) => {
+    if (taskId) {
+      await inspectTask(taskId);
+      return true;
+    }
+    const mayor = window.store.currentUser;
+    const completed = (window.store.tasks || []).filter(t => t.mayorId === mayor.id && t.status === 'COMPLETED_GREEN');
+    if (completed.length > 0) {
+      await inspectTask(completed[0].id);
+      return completed[0];
+    }
+    return null;
+  },
+  openChatForWorker: (workerId) => {
+    openChatFromWorkerId(workerId);
+  },
+  closeAllModals: () => {
+    closeModal('create-task-modal');
+    closeModal('create-schedule-modal');
+    closeModal('create-worker-modal');
+    closeModal('edit-task-modal');
+    closeModal('edit-schedule-modal');
+  },
   switchToTab: (tabIdx) => {
     switchMayorTab(tabIdx);
   },
