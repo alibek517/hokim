@@ -9,15 +9,169 @@ window.addEventListener('resize', setAppViewportHeight);
 window.addEventListener('orientationchange', setAppViewportHeight);
 setAppViewportHeight();
 
-// Web ga kirish bilan srazi ruxsatnomalarni so'rash
+// ============================================================================
+// SPA PATH ROUTER ENGINE (URL Path-based Navigation: /login, /mayor/tasks, etc.)
+// ============================================================================
+
+function getAppBasePath() {
+  const p = window.location.pathname;
+  if (p === '/web' || p.startsWith('/web/')) {
+    return '/web';
+  }
+  return '';
+}
+
+function getCleanPath() {
+  let p = window.location.pathname;
+  const base = getAppBasePath();
+  if (base && p.startsWith(base)) {
+    p = p.substring(base.length);
+  }
+  // Check hash fallback if accessed like /web/#/mayor/tasks
+  if (!p || p === '/' || p === '/index.html') {
+    if (window.location.hash && window.location.hash.startsWith('#/')) {
+      return window.location.hash.substring(1);
+    }
+    return '/';
+  }
+  // Strip trailing slash
+  if (p.length > 1 && p.endsWith('/')) {
+    p = p.substring(0, p.length - 1);
+  }
+  return p;
+}
+
+function navigateTo(path, replace = false) {
+  const base = getAppBasePath();
+  if (!path.startsWith('/')) path = '/' + path;
+
+  const [cleanPath, search] = path.split('?');
+  const fullTarget = (base + cleanPath) + (search ? '?' + search : '');
+  const currentFull = window.location.pathname + window.location.search;
+
+  if (currentFull !== fullTarget) {
+    if (replace) {
+      window.history.replaceState({ path: cleanPath }, '', fullTarget);
+    } else {
+      window.history.pushState({ path: cleanPath }, '', fullTarget);
+    }
+  }
+
+  renderCurrentRoute(cleanPath, search ? '?' + search : '');
+}
+
+function renderCurrentRoute(cleanPath, search) {
+  if (!cleanPath) cleanPath = getCleanPath();
+  if (search === undefined) search = window.location.search;
+
+  const user = window.store.currentUser;
+
+  // 1. Agar foydalanuvchi tizimga kirmagan bo'lsa:
+  if (!user) {
+    if (cleanPath !== '/login') {
+      navigateTo('/login', true);
+      return;
+    }
+    showScreen('login-screen');
+    return;
+  }
+
+  // 2. Tizimga kirgan bo'lsa, lekin /login yoki / yo'lida tursa:
+  if (cleanPath === '/login' || cleanPath === '/') {
+    if (user.role === 'MAYOR') {
+      navigateTo('/mayor/tasks', true);
+    } else if (user.role === 'WORKER') {
+      navigateTo('/worker', true);
+    } else {
+      navigateTo('/admin', true);
+    }
+    return;
+  }
+
+  // 3. Hokim sahifalari (/mayor/...)
+  if (cleanPath.startsWith('/mayor')) {
+    if (user.role !== 'MAYOR') {
+      navigateTo(user.role === 'WORKER' ? '/worker' : '/admin', true);
+      return;
+    }
+    showScreen('mayor-screen');
+    initMayorView();
+    try { checkWebPermissions(user); } catch (_) {}
+
+    if (cleanPath === '/mayor/schedules' || cleanPath === '/mayor/rejalar') {
+      switchMayorTab(1, false);
+    } else if (cleanPath === '/mayor/workers' || cleanPath === '/mayor/ishchilar') {
+      switchMayorTab(2, false);
+    } else if (cleanPath === '/mayor/chats' || cleanPath === '/mayor/chat') {
+      switchMayorTab(3, false);
+    } else {
+      // Standart: Topshiriqlar
+      switchMayorTab(0, false);
+    }
+    return;
+  }
+
+  // 4. Ishchi sahifalari (/worker/...)
+  if (cleanPath.startsWith('/worker')) {
+    if (user.role !== 'WORKER') {
+      navigateTo(user.role === 'MAYOR' ? '/mayor/tasks' : '/admin', true);
+      return;
+    }
+    showScreen('worker-screen');
+    initWorkerView();
+    try { checkWebPermissions(user); } catch (_) {}
+    return;
+  }
+
+  // 5. Admin sahifasi (/admin/...)
+  if (cleanPath.startsWith('/admin')) {
+    if (user.role !== 'BIG_ADMIN' && user.role !== 'ADMIN') {
+      navigateTo(user.role === 'MAYOR' ? '/mayor/tasks' : '/worker', true);
+      return;
+    }
+    showScreen('admin-screen');
+    initAdminView();
+    return;
+  }
+
+  // 6. Chat sahifasi (/chat)
+  if (cleanPath === '/chat') {
+    const params = new URLSearchParams(search);
+    const peerId = params.get('userId');
+    if (peerId && window.store.users && window.store.users.length > 0) {
+      const peer = window.store.users.find(u => u.id === peerId);
+      if (peer) {
+        openChat(peer, false);
+        return;
+      }
+    }
+    showScreen('chat-screen');
+    return;
+  }
+
+  // Noma'lum yo'l bo'lsa:
+  if (user.role === 'MAYOR') navigateTo('/mayor/tasks', true);
+  else if (user.role === 'WORKER') navigateTo('/worker', true);
+  else navigateTo('/admin', true);
+}
+
+// Browser Back / Forward tugmalari
+window.addEventListener('popstate', () => {
+  renderCurrentRoute(getCleanPath(), window.location.search);
+});
+
+// Global qilib chiqarish
+window.navigateTo = navigateTo;
+window.getCleanPath = getCleanPath;
+window.renderCurrentRoute = renderCurrentRoute;
+
+// Web ochilishi bilanoq barcha ruxsatnomalarni so'rash va routerni ishga tushirish
 document.addEventListener('DOMContentLoaded', () => {
   setAppViewportHeight();
   window.initFirebase();
 
-  // Web ochilishi bilanoq barcha ruxsatnomalarni so'rash
   requestWebPermissions();
 
-  // Brauzerlar (ayniqsa Safari) foydalanuvchi teginishini talab qilishi mumkin
   const gesturePermissionHandler = () => {
     requestWebPermissions();
     window.removeEventListener('click', gesturePermissionHandler);
@@ -29,6 +183,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // Check saved session
   const savedUserId = localStorage.getItem('ijro_user_id');
   if (savedUserId) {
+    // REST orqali tezkor tekshirib darhol kirish
+    fetch(FIREBASE_DB_URL + '/users.json')
+      .then(res => res.json())
+      .then(data => {
+        if (data && !window.store.currentUser) {
+          window.store.users = Object.values(data);
+          const found = window.store.users.find(u => u.id === savedUserId);
+          if (found) {
+            window.store.currentUser = found;
+            routeUserToScreen(found);
+          }
+        }
+      })
+      .catch(() => {});
+
     window.onStoreChange('users', (users) => {
       if (!window.store.currentUser) {
         const found = users.find(u => u.id === savedUserId);
@@ -38,6 +207,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     });
+  } else {
+    renderCurrentRoute(getCleanPath());
   }
 });
 
@@ -63,7 +234,6 @@ async function handleLogin(e) {
   }
 
   try {
-    // Agar foydalanuvchilar hali xotiraga yuklanmagan bo'lsa, tezkor REST orqali olamiz
     if (!window.store.users || window.store.users.length === 0) {
       try {
         const res = await fetch(FIREBASE_DB_URL + '/users.json');
@@ -81,7 +251,6 @@ async function handleLogin(e) {
       u.username && u.username.toLowerCase() === username.toLowerCase() && String(u.password).trim() === pass
     );
 
-    // Agar topilmasa, bazadan yangi ma'lumotni yana bir bor tortib ko'ramiz
     if (!user) {
       try {
         const res = await fetch(FIREBASE_DB_URL + '/users.json');
@@ -115,7 +284,7 @@ function handleLogout() {
   if (confirm("Haqiqatan ham tizimdan chiqmoqchimisiz?")) {
     window.store.currentUser = null;
     localStorage.removeItem('ijro_user_id');
-    showScreen('login-screen');
+    navigateTo('/login');
     showToast("Tizimdan chiqildi");
   }
 }
@@ -142,17 +311,17 @@ function routeUserToScreen(user) {
     updateUserLastActive(user.id);
   } catch (_) {}
 
-  if (user.role === 'MAYOR') {
-    showScreen('mayor-screen');
-    initMayorView();
-    try { checkWebPermissions(user); } catch (_) {}
-  } else if (user.role === 'WORKER') {
-    showScreen('worker-screen');
-    initWorkerView();
-    try { checkWebPermissions(user); } catch (_) {}
-  } else if (user.role === 'BIG_ADMIN' || user.role === 'ADMIN') {
-    showScreen('admin-screen');
-    initAdminView();
+  const currentPath = getCleanPath();
+  if (currentPath && currentPath !== '/' && currentPath !== '/login') {
+    renderCurrentRoute(currentPath, window.location.search);
+  } else {
+    if (user.role === 'MAYOR') {
+      navigateTo('/mayor/tasks', true);
+    } else if (user.role === 'WORKER') {
+      navigateTo('/worker', true);
+    } else if (user.role === 'BIG_ADMIN' || user.role === 'ADMIN') {
+      navigateTo('/admin', true);
+    }
   }
 }
 

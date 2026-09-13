@@ -29,11 +29,13 @@ function initMayorView() {
   if (headerName) headerName.innerText = mayor.fullName || (mayor.firstName + ' ' + mayor.lastName);
   if (headerRegion) headerRegion.innerText = mayor.regionOrDistrict || 'Tuman Hokimi';
 
-  // Set default tab to 0 (Topshiriqlar)
-  switchMayorTab(0);
+  // Set default tab to 0 (Topshiriqlar) if not already set
+  if (mayorCurrentTab === undefined || mayorCurrentTab === null) {
+    switchMayorTab(0, false);
+  }
 }
 
-function switchMayorTab(tabIndex) {
+function switchMayorTab(tabIndex, updateUrl = true) {
   mayorCurrentTab = tabIndex;
   
   const navBtns = document.querySelectorAll('#mayor-bottom-nav .nav-item');
@@ -47,15 +49,19 @@ function switchMayorTab(tabIndex) {
   if (tabIndex === 0) {
     if (fab) { fab.style.display = 'flex'; fab.onclick = openCreateTaskModal; }
     renderMayorTasks();
+    if (updateUrl && typeof navigateTo === 'function') navigateTo('/mayor/tasks');
   } else if (tabIndex === 1) {
     if (fab) { fab.style.display = 'flex'; fab.onclick = openCreateScheduleModal; }
     renderMayorSchedules();
+    if (updateUrl && typeof navigateTo === 'function') navigateTo('/mayor/schedules');
   } else if (tabIndex === 2) {
     if (fab) { fab.style.display = 'flex'; fab.onclick = openCreateWorkerModal; }
     renderMayorWorkers();
+    if (updateUrl && typeof navigateTo === 'function') navigateTo('/mayor/workers');
   } else if (tabIndex === 3) {
     if (fab) fab.style.display = 'none';
     renderMayorChats();
+    if (updateUrl && typeof navigateTo === 'function') navigateTo('/mayor/chats');
   }
 }
 

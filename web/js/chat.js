@@ -6,7 +6,7 @@ let mediaRecorder = null;
 let audioChunks = [];
 let isRecording = false;
 
-function openChat(peer) {
+function openChat(peer, updateUrl = true) {
   activeChatPeer = peer;
   document.getElementById('chat-peer-name').innerText = peer.fullName || (peer.firstName + ' ' + peer.lastName);
   document.getElementById('chat-peer-role').innerText = peer.role === 'MAYOR' ? 'Tuman Hokimi' : (peer.position || 'Xodim');
@@ -17,12 +17,24 @@ function openChat(peer) {
   if (window.store.currentUser) {
     window.dbApi.markMessagesAsRead(window.store.currentUser.id, peer.id);
   }
+
+  if (updateUrl && typeof navigateTo === 'function') {
+    navigateTo('/chat?userId=' + encodeURIComponent(peer.id));
+  }
 }
 
-function closeChat() {
+function closeChat(updateUrl = true) {
   activeChatPeer = null;
   cancelEditing();
-  if (window.store.currentUser) {
+  if (updateUrl && typeof navigateTo === 'function') {
+    if (window.store.currentUser) {
+      if (window.store.currentUser.role === 'MAYOR') navigateTo('/mayor/chats');
+      else if (window.store.currentUser.role === 'WORKER') navigateTo('/worker');
+      else navigateTo('/admin');
+    } else {
+      navigateTo('/login');
+    }
+  } else if (window.store.currentUser) {
     if (window.store.currentUser.role === 'MAYOR') showScreen('mayor-screen');
     else if (window.store.currentUser.role === 'WORKER') showScreen('worker-screen');
     else showScreen('admin-screen');

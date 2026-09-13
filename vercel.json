@@ -2,12 +2,52 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/",
+      "source": "/web/assets/(.*)",
+      "destination": "/web/assets/$1"
+    },
+    {
+      "source": "/web/css/(.*)",
+      "destination": "/web/css/$1"
+    },
+    {
+      "source": "/web/js/(.*)",
+      "destination": "/web/js/$1"
+    },
+    {
+      "source": "/web/manifest.json",
+      "destination": "/web/manifest.json"
+    },
+    {
+      "source": "/web/sw.js",
+      "destination": "/web/sw.js"
+    },
+    {
+      "source": "/assets/(.*)",
+      "destination": "/web/assets/$1"
+    },
+    {
+      "source": "/css/(.*)",
+      "destination": "/web/css/$1"
+    },
+    {
+      "source": "/js/(.*)",
+      "destination": "/web/js/$1"
+    },
+    {
+      "source": "/manifest.json",
+      "destination": "/web/manifest.json"
+    },
+    {
+      "source": "/sw.js",
+      "destination": "/web/sw.js"
+    },
+    {
+      "source": "/web/(.*)",
       "destination": "/web/index.html"
     },
     {
       "source": "/(.*)",
-      "destination": "/web/$1"
+      "destination": "/web/index.html"
     }
   ],
   "headers": [

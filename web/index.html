@@ -2,6 +2,7 @@
 <html lang="uz">
 <head>
   <meta charset="UTF-8">
+  <base href="/web/">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>IJRO - Tezkor Boshqaruv va Nazorat</title>
 
@@ -511,19 +512,19 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="js/firebase-config.js?v=20260913_7"></script>
-  <script src="js/chat.js?v=20260913_7"></script>
-  <script src="js/mayor.js?v=20260913_7"></script>
-  <script src="js/ai-assistant.js?v=20260913_7"></script>
-  <script src="js/worker.js?v=20260913_7"></script>
-  <script src="js/admin.js?v=20260913_7"></script>
-  <script src="js/app.js?v=20260913_7"></script>
+  <script src="js/firebase-config.js?v=20260913_8"></script>
+  <script src="js/chat.js?v=20260913_8"></script>
+  <script src="js/mayor.js?v=20260913_8"></script>
+  <script src="js/ai-assistant.js?v=20260913_8"></script>
+  <script src="js/worker.js?v=20260913_8"></script>
+  <script src="js/admin.js?v=20260913_8"></script>
+  <script src="js/app.js?v=20260913_8"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=20260913_7')
+        navigator.serviceWorker.register('./sw.js?v=20260913_8')
           .then(reg => {
             reg.update();
           })
