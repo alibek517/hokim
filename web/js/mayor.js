@@ -10,13 +10,43 @@ function onMayorTaskSearch(val) {
   renderMayorTasks();
 }
 
+function clearMayorTaskSearch() {
+  mayorTaskSearchQuery = '';
+  const input = document.getElementById('mayor-task-search-input');
+  if (input) {
+    input.value = '';
+    input.focus();
+  }
+  renderMayorTasks();
+}
+
 function onMayorScheduleSearch(val) {
   mayorScheduleSearchQuery = val;
   renderMayorSchedules();
 }
 
+function clearMayorScheduleSearch() {
+  mayorScheduleSearchQuery = '';
+  const input = document.getElementById('mayor-schedule-search-input');
+  if (input) {
+    input.value = '';
+    input.focus();
+  }
+  renderMayorSchedules();
+}
+
 function onMayorWorkerSearch(val) {
   mayorWorkerSearchQuery = val;
+  renderMayorWorkers();
+}
+
+function clearMayorWorkerSearch() {
+  mayorWorkerSearchQuery = '';
+  const input = document.getElementById('mayor-worker-search-input');
+  if (input) {
+    input.value = '';
+    input.focus();
+  }
   renderMayorWorkers();
 }
 
@@ -98,21 +128,45 @@ function renderMayorTasks() {
     return (a.endDate || 0) - (b.endDate || 0);
   });
 
-  const filterTabsHtml = `
-    <div class="search-bar-container">
-      <input type="text" class="search-input-pill" placeholder="Topshiriq yoki mas'ul xodimni qidirish..." oninput="onMayorTaskSearch(this.value)" value="${escapeHtml(mayorTaskSearchQuery)}">
-    </div>
-    <div class="filter-tabs-wrapper">
-      <span class="filter-tab ${taskFilterIndex === 0 ? 'active' : ''}" onclick="setTaskFilter(0)">Barchasi</span>
-      <span class="filter-tab ${taskFilterIndex === 1 ? 'active' : ''}" onclick="setTaskFilter(1)"><span class="badge-dot" style="background:#EF4444; display:inline-block; margin-right:4px;"></span>Boshlanmagan</span>
-      <span class="filter-tab ${taskFilterIndex === 2 ? 'active' : ''}" onclick="setTaskFilter(2)"><span class="badge-dot" style="background:#F59E0B; display:inline-block; margin-right:4px;"></span>Jarayonda</span>
-      <span class="filter-tab ${taskFilterIndex === 3 ? 'active' : ''}" onclick="setTaskFilter(3)"><span class="badge-dot" style="background:#10B981; display:inline-block; margin-right:4px;"></span>Bajarildi</span>
-      <span class="filter-tab ${taskFilterIndex === 4 ? 'active' : ''}" onclick="setTaskFilter(4)"><span class="badge-dot" style="background:#3B82F6; display:inline-block; margin-right:4px;"></span>Tekshirildi</span>
-    </div>
-  `;
+  let header = document.getElementById('mayor-task-header-area');
+  let listContainer = document.getElementById('mayor-task-list-area');
+
+  if (!header || !listContainer) {
+    container.innerHTML = `
+      <div id="mayor-task-header-area">
+        <div class="search-bar-container" style="position: relative;">
+          <input type="text" id="mayor-task-search-input" class="search-input-pill" placeholder="Topshiriq yoki mas'ul xodimni qidirish..." oninput="onMayorTaskSearch(this.value)" value="${escapeHtml(mayorTaskSearchQuery)}">
+          <button id="mayor-task-search-clear" onclick="clearMayorTaskSearch()" style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94A3B8; cursor: pointer; display: ${mayorTaskSearchQuery ? 'flex' : 'none'}; align-items: center; justify-content: center; padding: 4px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <div class="filter-tabs-wrapper" id="mayor-task-filter-tabs">
+          <span class="filter-tab ${taskFilterIndex === 0 ? 'active' : ''}" onclick="setTaskFilter(0)">Barchasi</span>
+          <span class="filter-tab ${taskFilterIndex === 1 ? 'active' : ''}" onclick="setTaskFilter(1)"><span class="badge-dot" style="background:#EF4444; display:inline-block; margin-right:4px;"></span>Boshlanmagan</span>
+          <span class="filter-tab ${taskFilterIndex === 2 ? 'active' : ''}" onclick="setTaskFilter(2)"><span class="badge-dot" style="background:#F59E0B; display:inline-block; margin-right:4px;"></span>Jarayonda</span>
+          <span class="filter-tab ${taskFilterIndex === 3 ? 'active' : ''}" onclick="setTaskFilter(3)"><span class="badge-dot" style="background:#10B981; display:inline-block; margin-right:4px;"></span>Bajarildi</span>
+          <span class="filter-tab ${taskFilterIndex === 4 ? 'active' : ''}" onclick="setTaskFilter(4)"><span class="badge-dot" style="background:#3B82F6; display:inline-block; margin-right:4px;"></span>Tekshirildi</span>
+        </div>
+      </div>
+      <div id="mayor-task-list-area"></div>
+    `;
+    listContainer = document.getElementById('mayor-task-list-area');
+  } else {
+    const searchInput = document.getElementById('mayor-task-search-input');
+    const clearBtn = document.getElementById('mayor-task-search-clear');
+    if (clearBtn) clearBtn.style.display = mayorTaskSearchQuery ? 'flex' : 'none';
+    if (searchInput && document.activeElement !== searchInput) {
+      searchInput.value = mayorTaskSearchQuery;
+    }
+    const filterTabs = document.querySelectorAll('#mayor-task-filter-tabs .filter-tab');
+    filterTabs.forEach((tab, idx) => {
+      if (idx === taskFilterIndex) tab.classList.add('active');
+      else tab.classList.remove('active');
+    });
+  }
 
   if (tasks.length === 0) {
-    container.innerHTML = filterTabsHtml + `
+    listContainer.innerHTML = `
       <div class="main-content" style="align-items: center; justify-content: center; color: #94A3B8;">
         Topshiriqlar topilmadi. Yangi topshiriq qo'shish uchun (+) tugmasini bosing.
       </div>
@@ -268,7 +322,7 @@ function renderMayorTasks() {
     `;
   });
 
-  container.innerHTML = filterTabsHtml + `<div class="main-content">${cardsHtml}</div>`;
+  listContainer.innerHTML = `<div class="main-content">${cardsHtml}</div>`;
 }
 
 function setTaskFilter(idx) {
@@ -299,14 +353,33 @@ function renderMayorSchedules() {
     );
   }
 
-  const searchHeader = `
-    <div class="search-bar-container">
-      <input type="text" class="search-input-pill" placeholder="Rejalarni qidirish..." oninput="onMayorScheduleSearch(this.value)" value="${escapeHtml(mayorScheduleSearchQuery)}">
-    </div>
-  `;
+  let header = document.getElementById('mayor-schedule-header-area');
+  let listContainer = document.getElementById('mayor-schedule-list-area');
+
+  if (!header || !listContainer) {
+    container.innerHTML = `
+      <div id="mayor-schedule-header-area">
+        <div class="search-bar-container" style="position: relative;">
+          <input type="text" id="mayor-schedule-search-input" class="search-input-pill" placeholder="Rejalarni qidirish..." oninput="onMayorScheduleSearch(this.value)" value="${escapeHtml(mayorScheduleSearchQuery)}">
+          <button id="mayor-schedule-search-clear" onclick="clearMayorScheduleSearch()" style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94A3B8; cursor: pointer; display: ${mayorScheduleSearchQuery ? 'flex' : 'none'}; align-items: center; justify-content: center; padding: 4px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+      </div>
+      <div id="mayor-schedule-list-area"></div>
+    `;
+    listContainer = document.getElementById('mayor-schedule-list-area');
+  } else {
+    const searchInput = document.getElementById('mayor-schedule-search-input');
+    const clearBtn = document.getElementById('mayor-schedule-search-clear');
+    if (clearBtn) clearBtn.style.display = mayorScheduleSearchQuery ? 'flex' : 'none';
+    if (searchInput && document.activeElement !== searchInput) {
+      searchInput.value = mayorScheduleSearchQuery;
+    }
+  }
 
   if (schedules.length === 0) {
-    container.innerHTML = searchHeader + `
+    listContainer.innerHTML = `
       <div class="main-content" style="align-items: center; justify-content: center; color: #94A3B8;">
         Rejalar topilmadi. Yangi reja qo'shish uchun (+) tugmasini bosing.
       </div>
@@ -314,7 +387,7 @@ function renderMayorSchedules() {
     return;
   }
 
-  let html = searchHeader + '<div class="main-content">';
+  let html = '<div class="main-content">';
   schedules.forEach(s => {
     const timeFormatted = new Date(s.scheduledTime || Date.now()).toLocaleString([], {
       day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
@@ -365,7 +438,7 @@ function renderMayorSchedules() {
     `;
   });
   html += '</div>';
-  container.innerHTML = html;
+  listContainer.innerHTML = html;
 }
 
 async function deleteMayorSchedule(scheduleId) {
@@ -527,14 +600,33 @@ async function renderMayorWorkers() {
     );
   }
 
-  const searchHeader = `
-    <div class="search-bar-container">
-      <input type="text" class="search-input-pill" placeholder="Xodimlarni qidirish (ism, lavozim)..." oninput="onMayorWorkerSearch(this.value)" value="${escapeHtml(mayorWorkerSearchQuery)}">
-    </div>
-  `;
+  let header = document.getElementById('mayor-worker-header-area');
+  let listContainer = document.getElementById('mayor-worker-list-area');
+
+  if (!header || !listContainer) {
+    container.innerHTML = `
+      <div id="mayor-worker-header-area">
+        <div class="search-bar-container" style="position: relative;">
+          <input type="text" id="mayor-worker-search-input" class="search-input-pill" placeholder="Xodimlarni qidirish (ism, lavozim)..." oninput="onMayorWorkerSearch(this.value)" value="${escapeHtml(mayorWorkerSearchQuery)}">
+          <button id="mayor-worker-search-clear" onclick="clearMayorWorkerSearch()" style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94A3B8; cursor: pointer; display: ${mayorWorkerSearchQuery ? 'flex' : 'none'}; align-items: center; justify-content: center; padding: 4px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+      </div>
+      <div id="mayor-worker-list-area"></div>
+    `;
+    listContainer = document.getElementById('mayor-worker-list-area');
+  } else {
+    const searchInput = document.getElementById('mayor-worker-search-input');
+    const clearBtn = document.getElementById('mayor-worker-search-clear');
+    if (clearBtn) clearBtn.style.display = mayorWorkerSearchQuery ? 'flex' : 'none';
+    if (searchInput && document.activeElement !== searchInput) {
+      searchInput.value = mayorWorkerSearchQuery;
+    }
+  }
 
   if (rawWorkers.length === 0) {
-    container.innerHTML = searchHeader + `
+    listContainer.innerHTML = `
       <div class="main-content" style="align-items: center; justify-content: center; color: #94A3B8;">
         Xodimlar topilmadi. Yangi xodim qo'shish uchun (+) tugmasini bosing.
       </div>
@@ -561,7 +653,7 @@ async function renderMayorWorkers() {
     item.stats.rank = idx + 1;
   });
 
-  let html = searchHeader + '<div class="main-content">';
+  let html = '<div class="main-content">';
 
   // Header Rating Card
   html += `
@@ -717,7 +809,7 @@ async function renderMayorWorkers() {
   });
 
   html += '</div>';
-  container.innerHTML = html;
+  listContainer.innerHTML = html;
 }
 
 // 4. Chatlar (Chats) Tab

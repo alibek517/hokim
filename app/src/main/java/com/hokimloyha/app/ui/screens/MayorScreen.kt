@@ -449,6 +449,26 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
                     .fillMaxWidth()
                     .padding(bottom = 8.dp),
                 placeholder = { Text("Rejalarni qidirish...", fontSize = 12.sp) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = Color(0xFF94A3B8),
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                trailingIcon = {
+                    if (scheduleSearchQuery.isNotBlank()) {
+                        IconButton(onClick = { scheduleSearchQuery = "" }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Tozalash",
+                                tint = Color(0xFF94A3B8),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -1151,6 +1171,26 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp, vertical = 6.dp),
                 placeholder = { Text("Topshiriq yoki mas'ul xodimni qidirish...", fontSize = 12.sp) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = Color(0xFF94A3B8),
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                trailingIcon = {
+                    if (taskSearchQuery.isNotBlank()) {
+                        IconButton(onClick = { taskSearchQuery = "" }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Tozalash",
+                                tint = Color(0xFF94A3B8),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -2401,6 +2441,26 @@ fun MayorWorkersTab(
                     .fillMaxWidth()
                     .padding(bottom = 8.dp),
                 placeholder = { Text("Xodimlarni qidirish (ism, lavozim)...", fontSize = 12.sp) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = Color(0xFF94A3B8),
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                trailingIcon = {
+                    if (workerSearchQuery.isNotBlank()) {
+                        IconButton(onClick = { workerSearchQuery = "" }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Tozalash",
+                                tint = Color(0xFF94A3B8),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
