@@ -97,21 +97,18 @@ function renderMayorTasks() {
 
     let remainingHtml = '';
     if (!isDone) {
-      if (diff <= 0) {
-        remainingHtml = `<div class="time-remaining" style="color: var(--status-red);">⚠️ Muddat o'tgan!</div>`;
-      } else {
+      if (diff > 0) {
         const totalHours = Math.floor(diff / (1000 * 60 * 60));
         const totalMinutes = Math.floor((diff / (1000 * 60)) % 60);
         const days = Math.floor(totalHours / 24);
         const remHours = totalHours % 24;
 
         let timeStr = '';
-        if (days > 0) timeStr = `${days} kun ${remHours} soat qoldi`;
-        else if (remHours > 0) timeStr = `${remHours} soat ${totalMinutes} daq qoldi`;
-        else timeStr = `${totalMinutes} daqiqa qoldi`;
+        if (days > 0) timeStr = `${days}k ${remHours}s qoldi`;
+        else if (remHours > 0) timeStr = `${remHours}s ${totalMinutes}d qoldi`;
+        else timeStr = `${totalMinutes} daq qoldi`;
 
-        const color = diff < 12 * 3600 * 1000 ? 'var(--status-yellow)' : 'var(--primary-blue)';
-        remainingHtml = `<div class="time-remaining" style="color: ${color};">⏳ ${timeStr}</div>`;
+        remainingHtml = `<span>• ⏳ ${timeStr}</span>`;
       }
     }
 
@@ -123,8 +120,8 @@ function renderMayorTasks() {
     let completionNoteHtml = '';
     if (task.completionNotes) {
       completionNoteHtml = `
-        <div class="task-completion-note">
-          <span class="note-label">📝 Xodim hisoboti / izohi:</span>
+        <div class="task-completion-note" style="margin-top: 4px; padding: 6px 10px; font-size: 11.5px;">
+          <span class="note-label">📝 Xodim hisoboti:</span>
           <div>${escapeHtml(task.completionNotes)}</div>
         </div>
       `;
@@ -134,7 +131,7 @@ function renderMayorTasks() {
     let actionBtnHtml = '';
     if (task.status === 'COMPLETED_GREEN') {
       actionBtnHtml = `
-        <button class="btn btn-blue" onclick="inspectTask('${task.id}')" style="margin-top: 4px;">
+        <button class="btn btn-blue" onclick="inspectTask('${task.id}')" style="margin-top: 4px; padding: 7px 12px; font-size: 13px;">
           ✓ Borib Tekshirdim (Tasdiqlash)
         </button>
       `;
@@ -143,44 +140,58 @@ function renderMayorTasks() {
     cardsHtml += `
       <div class="task-card">
         <div class="task-header">
-          <span class="badge ${badgeClass}">${badgeText}</span>
-          <div class="task-deadline-box">
-            <div class="task-date">Muddat: ${dateFormatted}</div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="badge ${badgeClass}"><span class="badge-dot"></span>${badgeText}</span>
+            ${diff <= 0 && !isDone ? '<span class="badge-overdue">⚠️ Kechikkan</span>' : ''}
+          </div>
+          <div class="task-deadline-info">
+            <span>📅 ${dateFormatted}</span>
             ${remainingHtml}
           </div>
         </div>
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin: 4px 0;">
-          <div class="task-title" style="flex: 1;">${escapeHtml(task.title || '')}</div>
+
+        <div class="task-title-row">
+          <div class="task-title">${escapeHtml(task.title || '')}</div>
           <div class="task-voice-box" id="task-voice-box-${task.id}">
             <button class="icon-voice-action-btn" onclick="startTaskVoiceMessage('${task.id}')" title="Xodimga ovozli xabar yuborish">
-              <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+              <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
             </button>
           </div>
         </div>
+
         ${task.voiceBase64 ? `
-          <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 6px 10px; margin: 4px 0;">
-            <div style="font-size: 11px; font-weight: bold; color: var(--primary-blue); margin-bottom: 3px;">🎤 Ovozli topshiriq:</div>
-            <audio controls src="data:audio/mp4;base64,${task.voiceBase64}" style="width: 100%; height: 32px;"></audio>
+          <div class="task-audio-pill">
+            <span style="font-size: 11px; font-weight: 600; color: #1D4ED8; white-space: nowrap;">🎤 Ovozli topshiriq:</span>
+            <audio controls src="data:audio/mp4;base64,${task.voiceBase64}" class="compact-audio-player"></audio>
           </div>
         ` : ''}
+
         ${task.address ? `<div class="task-address">📍 ${escapeHtml(task.address)}</div>` : ''}
         ${task.description ? `<div class="task-desc">${escapeHtml(task.description)}</div>` : ''}
-        <div class="task-worker-box">
-          👤 <strong>Mas'ul:</strong> ${escapeHtml(task.assignedWorkerName || 'Biriktirilmagan')}
+
+        <!-- Birlashtirilgan ixcham Mas'ul va Ko'rildi footer paneli -->
+        <div class="task-footer-row">
+          <div class="task-worker-tag" title="Mas'ul xodim">
+            <span>👤</span>
+            <span style="font-weight: 600;">${escapeHtml(task.assignedWorkerName || 'Biriktirilmagan')}</span>
+          </div>
+
+          <div class="task-seen-pill ${task.seenAt ? 'is-seen' : 'is-unseen'}">
+            ${task.seenAt
+              ? `<span>👁️ Ko'rildi: ${new Date(task.seenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`
+              : `<span>⚠️ Ko'rilmagan</span>`
+            }
+          </div>
         </div>
-        ${task.seenAt ? `
-          <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 8px 10px; margin-top: 6px;">
-            <div style="font-weight: bold; color: #15803D; font-size: 11px;">
-              👁️ Xodim ko'rdi: ${new Date(task.seenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
-            </div>
-            ${task.seenResponseText ? `<div style="font-size: 11px; color: #0F172A; margin-top: 4px;">💬 Xodim javobi: "${escapeHtml(task.seenResponseText)}"</div>` : ''}
-            ${task.seenResponseVoiceBase64 ? `<audio controls src="data:audio/mp4;base64,${task.seenResponseVoiceBase64}" style="width: 100%; height: 32px; margin-top: 6px;"></audio>` : ''}
+
+        ${(task.seenResponseText || task.seenResponseVoiceBase64) ? `
+          <div class="task-worker-response">
+            <span style="font-size: 11px; font-weight: 600; color: #15803D; white-space: nowrap;">💬 Xodim:</span>
+            ${task.seenResponseText ? `<span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">"${escapeHtml(task.seenResponseText)}"</span>` : ''}
+            ${task.seenResponseVoiceBase64 ? `<audio controls src="data:audio/mp4;base64,${task.seenResponseVoiceBase64}" class="compact-audio-player" style="max-width: 130px; height: 26px;"></audio>` : ''}
           </div>
-        ` : `
-          <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 600; color: #B45309; margin-top: 6px;">
-            ⚠️ Xodim hali ko'rmagan (Tasdiqlanmagan)
-          </div>
-        `}
+        ` : ''}
+
         ${completionNoteHtml}
         ${actionBtnHtml}
       </div>

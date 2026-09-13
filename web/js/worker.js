@@ -256,21 +256,18 @@ function renderWorkerTasks() {
 
     let remainingHtml = '';
     if (!isDone) {
-      if (diff <= 0) {
-        remainingHtml = `<div class="time-remaining" style="color: var(--status-red);">⚠️ Muddat o'tgan!</div>`;
-      } else {
+      if (diff > 0) {
         const totalHours = Math.floor(diff / (1000 * 60 * 60));
         const totalMinutes = Math.floor((diff / (1000 * 60)) % 60);
         const days = Math.floor(totalHours / 24);
         const remHours = totalHours % 24;
 
         let timeStr = '';
-        if (days > 0) timeStr = `${days} kun ${remHours} soat qoldi`;
-        else if (remHours > 0) timeStr = `${remHours} soat ${totalMinutes} daq qoldi`;
-        else timeStr = `${totalMinutes} daqiqa qoldi`;
+        if (days > 0) timeStr = `${days}k ${remHours}s qoldi`;
+        else if (remHours > 0) timeStr = `${remHours}s ${totalMinutes}d qoldi`;
+        else timeStr = `${totalMinutes} daq qoldi`;
 
-        const color = diff < 12 * 3600 * 1000 ? 'var(--status-yellow)' : 'var(--primary-blue)';
-        remainingHtml = `<div class="time-remaining" style="color: ${color};">⏳ ${timeStr}</div>`;
+        remainingHtml = `<span>• ⏳ ${timeStr}</span>`;
       }
     }
 
@@ -282,17 +279,17 @@ function renderWorkerTasks() {
     let seenStatusHtml = '';
     if (!task.seenAt) {
       seenStatusHtml = `
-        <button class="btn btn-primary" style="margin-bottom: 8px;" onclick="openTaskSeenModal('${task.id}')">
+        <button class="btn btn-primary" style="margin-top: 4px; padding: 8px 12px; font-size: 13px;" onclick="openTaskSeenModal('${task.id}')">
           👁️ Topshiriqni ko'rdim deb tasdiqlash
         </button>
       `;
     } else {
       const seenTimeStr = new Date(task.seenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
       seenStatusHtml = `
-        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px; margin-bottom: 8px;">
-          <div style="font-weight: bold; color: #15803D; font-size: 12px;">👁️ Topshiriqni ko'rdingiz: ${seenTimeStr}</div>
-          ${task.seenResponseText ? `<div style="font-size: 12px; color: #0F172A; margin-top: 4px;">💬 Javobingiz: "${escapeHtml(task.seenResponseText)}"</div>` : ''}
-          ${task.seenResponseVoiceBase64 ? `<audio controls src="data:audio/mp4;base64,${task.seenResponseVoiceBase64}" style="width: 100%; height: 36px; margin-top: 6px;"></audio>` : ''}
+        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 6px 10px; font-size: 11.5px; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px;">
+          <span style="font-weight: 600; color: #15803D;">👁️ Ko'rdingiz: ${seenTimeStr}</span>
+          ${task.seenResponseText ? `<span style="color: #475569; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;">💬 "${escapeHtml(task.seenResponseText)}"</span>` : ''}
+          ${task.seenResponseVoiceBase64 ? `<audio controls src="data:audio/mp4;base64,${task.seenResponseVoiceBase64}" class="compact-audio-player" style="max-width: 120px; height: 26px;"></audio>` : ''}
         </div>
       `;
     }
@@ -301,26 +298,26 @@ function renderWorkerTasks() {
     let actionBtnHtml = seenStatusHtml;
     if (task.status === 'PENDING_RED') {
       actionBtnHtml += `
-        <button class="btn btn-yellow" onclick="workerStartTask('${task.id}')">
-          ▶ Ishni Boshladim (Sariq holatga o'tish)
+        <button class="btn btn-yellow" onclick="workerStartTask('${task.id}')" style="margin-top: 4px; padding: 8px 12px; font-size: 13px;">
+          ▶ Ishni Boshladim (Sariq)
         </button>
       `;
     } else if (task.status === 'IN_PROGRESS_YELLOW') {
-      actionBtnHtml = `
-        <button class="btn btn-green" onclick="openWorkerCompleteModal('${task.id}')">
-          ✓ Ishni Tugatdim (Yashil holatga o'tish)
+      actionBtnHtml += `
+        <button class="btn btn-green" onclick="openWorkerCompleteModal('${task.id}')" style="margin-top: 4px; padding: 8px 12px; font-size: 13px;">
+          ✓ Ishni Tugatdim (Yashil)
         </button>
       `;
     } else if (task.status === 'COMPLETED_GREEN') {
-      actionBtnHtml = `
-        <div style="background: var(--status-green-bg); color: var(--status-green); padding: 8px 12px; border-radius: 8px; font-weight: bold; font-size: 12px; text-align: center;">
+      actionBtnHtml += `
+        <div style="background: var(--status-green-bg); color: var(--status-green); padding: 6px 10px; border-radius: 6px; font-weight: 600; font-size: 11.5px; text-align: center; margin-top: 4px;">
           🟢 Ish tugatildi! Hokim tekshiruvi kutilmoqda.
         </div>
       `;
     } else if (task.status === 'INSPECTED_BLUE') {
-      actionBtnHtml = `
-        <div style="background: var(--status-blue-bg); color: var(--status-blue); padding: 8px 12px; border-radius: 8px; font-weight: bold; font-size: 12px; text-align: center;">
-          🔵 Hokim joyiga borib tekshirdi va tasdiqladi!
+      actionBtnHtml += `
+        <div style="background: var(--status-blue-bg); color: var(--status-blue); padding: 6px 10px; border-radius: 6px; font-weight: 600; font-size: 11.5px; text-align: center; margin-top: 4px;">
+          🔵 Hokim tekshirdi va tasdiqladi!
         </div>
       `;
     }
@@ -329,7 +326,7 @@ function renderWorkerTasks() {
     let completionNoteHtml = '';
     if (task.completionNotes) {
       completionNoteHtml = `
-        <div class="task-completion-note">
+        <div class="task-completion-note" style="margin-top: 4px; padding: 6px 10px; font-size: 11.5px;">
           <span class="note-label">Siz qoldirgan izoh:</span>
           <div>${escapeHtml(task.completionNotes)}</div>
         </div>
@@ -339,21 +336,28 @@ function renderWorkerTasks() {
     html += `
       <div class="task-card">
         <div class="task-header">
-          <span class="badge ${badgeClass}">${badgeText}</span>
-          <div class="task-deadline-box">
-            <div class="task-date">Muddat: ${dateFormatted}</div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="badge ${badgeClass}"><span class="badge-dot"></span>${badgeText}</span>
+            ${diff <= 0 && !isDone ? '<span class="badge-overdue">⚠️ Kechikkan</span>' : ''}
+          </div>
+          <div class="task-deadline-info">
+            <span>📅 ${dateFormatted}</span>
             ${remainingHtml}
           </div>
         </div>
+
         <div class="task-title">${escapeHtml(task.title || '')}</div>
+
         ${task.voiceBase64 ? `
-          <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 6px 10px; margin: 6px 0;">
-            <div style="font-size: 11px; font-weight: bold; color: var(--primary-blue); margin-bottom: 3px;">🎤 Rahbardan ovozli topshiriq:</div>
-            <audio controls src="data:audio/mp4;base64,${task.voiceBase64}" style="width: 100%; height: 32px;"></audio>
+          <div class="task-audio-pill">
+            <span style="font-size: 11px; font-weight: 600; color: #1D4ED8; white-space: nowrap;">🎤 Rahbar ovozi:</span>
+            <audio controls src="data:audio/mp4;base64,${task.voiceBase64}" class="compact-audio-player"></audio>
           </div>
         ` : ''}
+
         ${task.address ? `<div class="task-address">📍 ${escapeHtml(task.address)}</div>` : ''}
         ${task.description ? `<div class="task-desc">${escapeHtml(task.description)}</div>` : ''}
+
         ${completionNoteHtml}
         ${actionBtnHtml}
       </div>
