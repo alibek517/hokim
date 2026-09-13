@@ -34,8 +34,6 @@
     recognition.onstart = () => {
       isListening = true;
       updateAiStatus('listening', '🎤 Eshitmoqda...');
-      const btn = document.getElementById('ai-mic-btn');
-      if (btn) btn.classList.add('active');
     };
 
     recognition.onresult = (event) => {
@@ -65,8 +63,6 @@
       if (event.error !== 'no-speech') {
         updateAiStatus('idle', 'Kutilmoqda');
         isListening = false;
-        const btn = document.getElementById('ai-mic-btn');
-        if (btn) btn.classList.remove('active');
       }
     };
 
@@ -75,13 +71,9 @@
         try { recognition.start(); } catch (e) {
           isListening = false;
           updateAiStatus('idle', 'Kutilmoqda');
-          const btn = document.getElementById('ai-mic-btn');
-          if (btn) btn.classList.remove('active');
         }
       } else {
         updateAiStatus('idle', 'Kutilmoqda');
-        const btn = document.getElementById('ai-mic-btn');
-        if (btn) btn.classList.remove('active');
       }
     };
   }
@@ -92,7 +84,7 @@
       initSpeechRecognition();
     }
     if (!recognition) {
-      alert("Brauzeringiz ovozli tanib olishni qo'llab-quvvatlamaydi. Iltimos pastdagi maydonga yozing.");
+      alert("Brauzeringiz ovozli tanib olishni qo'llab-quvvatlamaydi.");
       return;
     }
 
@@ -100,8 +92,6 @@
       isListening = false;
       recognition.stop();
       updateAiStatus('idle', 'Kutilmoqda');
-      const btn = document.getElementById('ai-mic-btn');
-      if (btn) btn.classList.remove('active');
     } else {
       try {
         recognition.start();
@@ -188,42 +178,37 @@
   }
 
   // UI Updates in Transcript
+  // UI Updates in Animated Orb & Caption
   function appendAiMessage(role, text) {
-    const box = document.getElementById('ai-transcript-box');
-    if (!box) return;
-
-    const tempNode = document.getElementById('ai-temp-streaming-msg');
-    if (tempNode) tempNode.remove();
-
-    const bubble = document.createElement('div');
-    bubble.className = `ai-msg-bubble ${role === 'user' ? 'ai-msg-user' : 'ai-msg-jarvis'}`;
-    bubble.innerText = text;
-    box.appendChild(bubble);
-    box.scrollTop = box.scrollHeight;
+    const caption = document.getElementById('ai-orb-caption');
+    if (caption) {
+      caption.innerText = text;
+    }
   }
 
   function showTemporaryUserText(text) {
-    const box = document.getElementById('ai-transcript-box');
-    if (!box) return;
-
-    let tempNode = document.getElementById('ai-temp-streaming-msg');
-    if (!tempNode) {
-      tempNode = document.createElement('div');
-      tempNode.id = 'ai-temp-streaming-msg';
-      tempNode.className = 'ai-msg-bubble ai-msg-user';
-      tempNode.style.opacity = '0.7';
-      box.appendChild(tempNode);
+    const caption = document.getElementById('ai-orb-caption');
+    if (caption) {
+      caption.innerText = `"${text}..."`;
     }
-    tempNode.innerText = text + '...';
-    box.scrollTop = box.scrollHeight;
   }
 
   function updateAiStatus(state, label) {
-    const badge = document.getElementById('ai-status-badge');
-    if (!badge) return;
-    badge.className = `ai-status-badge ai-status-${state}`;
-    badge.innerText = label;
+    const badge = document.getElementById('ai-orb-status-badge');
+    if (badge) {
+      badge.innerText = label;
+    }
+    const orb = document.getElementById('ai-morph-orb');
+    if (orb) {
+      orb.className = 'ai-morph-orb ' + (state || 'idle');
+    }
   }
+
+  window.handleAiOverlayClick = function(event) {
+    if (event.target && event.target.id === 'ai-assistant-modal') {
+      closeAiAssistantModal();
+    }
+  };
 
   // Helper: Extract dates from speech (YYYY-MM-DD)
   function parseDateFromSpeech(text) {

@@ -20,6 +20,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.core.*
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -2569,86 +2576,130 @@ fun AiJarvisDialog(
         speak(fallback)
     }
 
+    var lastCaption by remember {
+        mutableStateOf("Assalomu alaykum, hurmatli Hokim! Buyrug'ingizni ayting...")
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "aiOrbAnim")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = if (isListening) 4000 else 8000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "orbRotation"
+    )
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = if (isListening) 1.12f else 1.04f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = if (isListening) 1200 else 2400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "orbScale"
+    )
+    val cornerRadiusPercent by infiniteTransition.animateFloat(
+        initialValue = 50f, // 1. Tomoloq
+        targetValue = 22f, // 2. 5/8 burchak geometrik
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "orbMorph"
+    )
+
     LaunchedEffect(inputText) {
         if (inputText.isNotBlank()) {
+            lastCaption = "\"$inputText\""
             handleCommand(inputText)
         }
     }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = {
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xF0090D1A))
+                .clickable { onDismiss() }
+                .padding(24.dp)
+        ) {
+            // Top Bar
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("✨", fontSize = 18.sp)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("O'zbek AI Yordamchisi", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NavyDark)
-                }
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isListening) Color(0xFFEFF6FF) else Color(0xFFF1F5F9)
-                ) {
+                    Text("✨", fontSize = 20.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        if (isListening) "🎤 Tinglanmoqda..." else "Kutilmoqda",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        fontSize = 11.sp,
-                        color = if (isListening) PrimaryBlue else TextSecondary,
-                        fontWeight = FontWeight.SemiBold
+                        "O'zbek AI Yordamchisi",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        color = Color.White
                     )
                 }
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 380.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFF0F172A),
+                IconButton(
+                    onClick = onDismiss,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF1E293B))
                 ) {
-                    LazyColumn(
-                        modifier = Modifier.padding(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(conversationHistory) { (role, msg) ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = if (role == "USER") Arrangement.End else Arrangement.Start
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = if (role == "USER") Color(0xFF334155) else Color(0xFF312E81),
-                                    border = if (role == "JARVIS") androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6366F1)) else null,
-                                    modifier = Modifier.widthIn(max = 240.dp)
-                                ) {
-                                    Text(
-                                        text = msg,
-                                        color = if (role == "USER") Color.White else Color(0xFFEDE9FE),
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    Icon(Icons.Default.Close, contentDescription = "Yopish", tint = Color.White, modifier = Modifier.size(18.dp))
                 }
+            }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    IconButton(
-                        onClick = {
+            // Center: Morphing Glowing AI Orb (Tomoloq -> 5/8 burchak -> Tomoloq)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(240.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // Outer glowing halo rings
+                Box(
+                    modifier = Modifier
+                        .size(230.dp)
+                        .scale(scale * 1.05f)
+                        .clip(CircleShape)
+                        .background(Color(0x336366F1))
+                )
+                Box(
+                    modifier = Modifier
+                        .size(195.dp)
+                        .scale(scale)
+                        .clip(CircleShape)
+                        .background(Color(0x443B82F6))
+                )
+
+                // Core Morphing Orb (Tomoloq -> 5 burchak -> 8 burchak -> Tomoloq)
+                Box(
+                    modifier = Modifier
+                        .size(160.dp)
+                        .scale(scale)
+                        .rotate(rotation)
+                        .clip(RoundedCornerShape(percent = cornerRadiusPercent.toInt()))
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    Color.White,
+                                    Color(0xFFBFDBFE),
+                                    Color(0xFF6366F1),
+                                    Color(0xFF3B82F6),
+                                    Color(0xFF1E1B4B)
+                                ),
+                                center = Offset(110f, 60f),
+                                radius = 220f
+                            )
+                        )
+                        .clickable {
                             val hasPerm = ContextCompat.checkSelfPermission(
                                 context,
                                 Manifest.permission.RECORD_AUDIO
@@ -2657,7 +2708,9 @@ fun AiJarvisDialog(
                                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uz-UZ")
-                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Hokim buyrug'ini ayting...")
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "uz-UZ")
+                                    putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
+                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "O'zbek tilida buyruq bering...")
                                 }
                                 try {
                                     isListening = true
@@ -2669,70 +2722,56 @@ fun AiJarvisDialog(
                             } else {
                                 audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                             }
-                        },
-                        modifier = Modifier
-                            .size(54.dp)
-                            .clip(CircleShape)
-                            .background(if (isListening) Color(0xFFEF4444) else Color(0xFF6366F1))
-                    ) {
-                        Icon(
-                            Icons.Default.PlayArrow,
-                            contentDescription = "Mikrofon",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    listOf("Rejalarga o't", "Topshiriqlar", "Kechikkanlar", "Xodimlar").forEach { chip ->
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFF1F5F9),
-                            modifier = Modifier.clickable { handleCommand(chip) }
-                        ) {
-                            Text(chip, fontSize = 10.sp, color = NavyDark, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                         }
-                    }
+                )
+            }
+
+            // Bottom: Live Status & Subtitle
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .clickable(enabled = false) {},
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0x336366F1),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x556366F1))
+                ) {
+                    Text(
+                        if (isListening) "🎤 Tinglanmoqda..." else "Kutilmoqda",
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        fontSize = 12.sp,
+                        color = if (isListening) Color(0xFF93C5FD) else Color(0xFFCBD5E1),
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
-                var typedCmd by remember { mutableStateOf("") }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color(0x991E293B),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x33FFFFFF)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    OutlinedTextField(
-                        value = typedCmd,
-                        onValueChange = { typedCmd = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("Buyruq yozing...", fontSize = 12.sp) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                    Text(
+                        lastCaption,
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+                        fontSize = 15.sp,
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        lineHeight = 22.sp
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Button(
-                        onClick = {
-                            if (typedCmd.isNotBlank()) {
-                                handleCommand(typedCmd)
-                                typedCmd = ""
-                            }
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1))
-                    ) {
-                        Text("Yuborish", fontSize = 11.sp, color = Color.White)
-                    }
                 }
-            }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Yopish")
+
+                Text(
+                    "Ovozli buyruq bering yoki to'xtatish uchun sharga bosing",
+                    fontSize = 12.sp,
+                    color = Color(0xFF94A3B8)
+                )
+                Spacer(modifier = Modifier.height(10.dp))
             }
         }
-    )
+    }
 }
