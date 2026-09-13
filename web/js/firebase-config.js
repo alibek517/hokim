@@ -259,6 +259,56 @@ const dbApi = {
     return task;
   },
 
+  async deleteTask(taskId) {
+    if (!taskId) return;
+    if (database) {
+      await database.ref('tasks/' + taskId).remove();
+    } else {
+      await fetch(FIREBASE_DB_URL + '/tasks/' + taskId + '.json', { method: 'DELETE' });
+    }
+    if (window.store && window.store.tasks) {
+      window.store.tasks = window.store.tasks.filter(t => t.id !== taskId);
+    }
+  },
+
+  async updateTask(taskId, updates) {
+    if (!taskId || !updates) return;
+    if (database) {
+      await database.ref('tasks/' + taskId).update(updates);
+    } else {
+      await fetch(FIREBASE_DB_URL + '/tasks/' + taskId + '.json', {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    if (window.store && window.store.tasks) {
+      const idx = window.store.tasks.findIndex(t => t.id === taskId);
+      if (idx !== -1) {
+        window.store.tasks[idx] = { ...window.store.tasks[idx], ...updates };
+      }
+    }
+  },
+
+  async updateSchedule(scheduleId, updates) {
+    if (!scheduleId || !updates) return;
+    if (database) {
+      await database.ref('schedules/' + scheduleId).update(updates);
+    } else {
+      await fetch(FIREBASE_DB_URL + '/schedules/' + scheduleId + '.json', {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    if (window.store && window.store.schedules) {
+      const idx = window.store.schedules.findIndex(s => s.id === scheduleId);
+      if (idx !== -1) {
+        window.store.schedules[idx] = { ...window.store.schedules[idx], ...updates };
+      }
+    }
+  },
+
   async addSchedule(schedule) {
     const id = schedule.id || ('sched_' + Date.now());
     schedule.id = id;
@@ -272,6 +322,19 @@ const dbApi = {
       });
     }
     return schedule;
+  },
+
+  async deleteSchedule(scheduleId) {
+    if (database) {
+      await database.ref('schedules/' + scheduleId).remove();
+    } else {
+      await fetch(FIREBASE_DB_URL + '/schedules/' + scheduleId + '.json', {
+        method: 'DELETE'
+      });
+    }
+    if (window.store && window.store.schedules) {
+      window.store.schedules = window.store.schedules.filter(s => s.id !== scheduleId);
+    }
   },
 
   async addUser(worker) {

@@ -1313,11 +1313,36 @@ class AppStorage(private val context: Context) {
         schedulesRef?.child(scheduleId)?.child("isNotified")?.setValue(true)
     }
 
+    fun deleteTask(taskId: String) {
+        val updated = _tasks.value.filter { it.id != taskId }
+        _tasks.value = updated
+        saveTasksLocally(updated)
+        tasksRef?.child(taskId)?.removeValue()
+        sendRestFallbackDelete("tasks/$taskId")
+    }
+
+    fun updateTask(task: TaskItem) {
+        val updated = _tasks.value.map { if (it.id == task.id) task else it }
+        _tasks.value = updated
+        saveTasksLocally(updated)
+        tasksRef?.child(task.id)?.setValue(task)
+        sendRestFallback("tasks/" + task.id, task)
+    }
+
     fun deleteSchedule(scheduleId: String) {
         val updated = _schedules.value.filter { it.id != scheduleId }
         _schedules.value = updated
         saveSchedulesLocally(updated)
         schedulesRef?.child(scheduleId)?.removeValue()
+        sendRestFallbackDelete("schedules/$scheduleId")
+    }
+
+    fun updateSchedule(schedule: ScheduleItem) {
+        val updated = _schedules.value.map { if (it.id == schedule.id) schedule else it }
+        _schedules.value = updated
+        saveSchedulesLocally(updated)
+        schedulesRef?.child(schedule.id)?.setValue(schedule)
+        sendRestFallback("schedules/" + schedule.id, schedule)
     }
 
     private fun saveSchedulesLocally(list: List<ScheduleItem>) {
@@ -1432,6 +1457,20 @@ class AppStorage(private val context: Context) {
                 conn.outputStream.use { os ->
                     os.write(json.toByteArray(Charsets.UTF_8))
                 }
+                conn.responseCode
+                conn.disconnect()
+            } catch (ignored: Exception) {}
+        }
+    }
+
+    private fun sendRestFallbackDelete(path: String) {
+        ioScope.launch {
+            try {
+                val url = URL(FIREBASE_URL + "/" + path + ".json")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "DELETE"
+                conn.connectTimeout = 3000
+                conn.readTimeout = 3000
                 conn.responseCode
                 conn.disconnect()
             } catch (ignored: Exception) {}

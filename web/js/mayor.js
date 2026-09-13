@@ -217,9 +217,17 @@ function renderMayorTasks() {
 
         <div class="task-title-row">
           <div class="task-title">${escapeHtml(task.title || '')}</div>
-          <div class="task-voice-box" id="task-voice-box-${task.id}">
-            <button class="icon-voice-action-btn" onclick="startTaskVoiceMessage('${task.id}')" title="Xodimga ovozli xabar yuborish">
-              <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+          <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+            <div class="task-voice-box" id="task-voice-box-${task.id}">
+              <button class="icon-voice-action-btn" onclick="startTaskVoiceMessage('${task.id}')" title="Xodimga ovozli xabar yuborish">
+                <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+              </button>
+            </div>
+            <button class="icon-btn" style="color: #2563EB; width: 28px; height: 28px; background: #DBEAFE; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;" onclick="openEditTaskModal('${task.id}')" title="Topshiriqni tahrirlash">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            </button>
+            <button class="icon-btn" style="color: #EF4444; width: 28px; height: 28px; background: #FEE2E2; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;" onclick="deleteMayorTask('${task.id}')" title="Topshiriqni bekor qilish">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </button>
           </div>
         </div>
@@ -339,9 +347,12 @@ function renderMayorSchedules() {
       <div class="task-card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span class="badge badge-blue" style="display: inline-flex; align-items: center; gap: 4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>Reja</span>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 11px; font-weight: bold; color: var(--primary-blue);">${timeFormatted}</span>
-            <button class="icon-btn" style="color: #EF4444; width: 24px; height: 24px; background: #FEE2E2; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;" onclick="deleteMayorSchedule('${s.id}')" title="O'chirish">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; font-weight: bold; color: var(--primary-blue); margin-right: 4px;">${timeFormatted}</span>
+            <button class="icon-btn" style="color: #2563EB; width: 26px; height: 26px; background: #DBEAFE; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;" onclick="openEditScheduleModal('${s.id}')" title="Rejani tahrirlash">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            </button>
+            <button class="icon-btn" style="color: #EF4444; width: 26px; height: 26px; background: #FEE2E2; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;" onclick="deleteMayorSchedule('${s.id}')" title="Rejani bekor qilish (o'chirish)">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </button>
           </div>
@@ -358,13 +369,9 @@ function renderMayorSchedules() {
 }
 
 async function deleteMayorSchedule(scheduleId) {
-  if (!confirm("Ushbu rejani o'chirmoqchimisiz?")) return;
-  if (window.firebaseRtdb) {
-    await window.firebaseRtdb.ref('schedules/' + scheduleId).remove();
-  } else {
-    await fetch(FIREBASE_DB_URL + '/schedules/' + scheduleId + '.json', { method: 'DELETE' });
-  }
-  showToast("Reja o'chirildi!");
+  if (!confirm("Haqiqatan ham ushbu rejani bekor qilib o'chirmoqchimisiz?")) return;
+  await window.dbApi.deleteSchedule(scheduleId);
+  showToast("Reja bekor qilindi va o'chirildi!");
 }
 
 
@@ -1256,6 +1263,163 @@ async function handleSaveEditedWorker(e) {
 
 window.openEditWorkerModal = openEditWorkerModal;
 window.handleSaveEditedWorker = handleSaveEditedWorker;
+
+// --- Task Edit & Delete (Cancellation) Handlers ---
+let currentEditingTaskId = null;
+
+function openEditTaskModal(taskId) {
+  const task = (window.store.tasks || []).find(t => t.id === taskId);
+  if (!task) {
+    showToast("Topshiriq topilmadi!");
+    return;
+  }
+  currentEditingTaskId = taskId;
+
+  const titleEl = document.getElementById('edit-task-title');
+  const addrEl = document.getElementById('edit-task-address');
+  const descEl = document.getElementById('edit-task-desc');
+  const workerSelect = document.getElementById('edit-task-worker');
+  const startEl = document.getElementById('edit-task-start');
+  const endEl = document.getElementById('edit-task-end');
+
+  if (titleEl) titleEl.value = task.title || '';
+  if (addrEl) addrEl.value = task.address || '';
+  if (descEl) descEl.value = task.description || '';
+  if (startEl) startEl.value = task.startDate || '';
+  if (endEl) endEl.value = task.endDate || '';
+
+  // Populate worker options
+  if (workerSelect) {
+    const workers = (window.store.users || []).filter(u => u.role === 'WORKER');
+    workerSelect.innerHTML = workers.map(w => `
+      <option value="${w.id}" ${w.id === task.assignedWorkerId ? 'selected' : ''}>
+        ${escapeHtml(w.fullName || ((w.firstName || '') + ' ' + (w.lastName || '')).trim())} (${escapeHtml(w.position || 'Xodim')})
+      </option>
+    `).join('');
+  }
+
+  const modal = document.getElementById('edit-task-modal');
+  if (modal) modal.classList.add('active');
+}
+
+async function saveEditedTask() {
+  if (!currentEditingTaskId) return;
+  const title = (document.getElementById('edit-task-title')?.value || '').trim();
+  const address = (document.getElementById('edit-task-address')?.value || '').trim();
+  const description = (document.getElementById('edit-task-desc')?.value || '').trim();
+  const workerSelect = document.getElementById('edit-task-worker');
+  const assignedWorkerId = workerSelect?.value || '';
+  const assignedWorkerName = workerSelect?.options[workerSelect.selectedIndex]?.text.split(' (')[0] || '';
+  const startDate = document.getElementById('edit-task-start')?.value || '';
+  const endDate = document.getElementById('edit-task-end')?.value || '';
+
+  if (!title) {
+    alert("Topshiriq nomini kiriting!");
+    return;
+  }
+
+  const updates = {
+    title,
+    address,
+    description,
+    assignedWorkerId,
+    assignedWorkerName,
+    startDate,
+    endDate
+  };
+
+  await window.dbApi.updateTask(currentEditingTaskId, updates);
+  closeModal('edit-task-modal');
+  currentEditingTaskId = null;
+  showToast("Topshiriq muvaffaqiyatli yangilandi!");
+  if (mayorCurrentTab === 0) renderMayorTasks();
+}
+
+async function deleteMayorTask(taskId) {
+  if (!confirm("Haqiqatan ham ushbu topshiriqni bekor qilib o'chirmoqchimisiz?")) return;
+  await window.dbApi.deleteTask(taskId);
+  showToast("Topshiriq bekor qilindi va o'chirildi!");
+  if (mayorCurrentTab === 0) renderMayorTasks();
+}
+
+// --- Schedule Edit Handlers ---
+let currentEditingScheduleId = null;
+
+function openEditScheduleModal(scheduleId) {
+  const schedule = (window.store.schedules || []).find(s => s.id === scheduleId);
+  if (!schedule) {
+    showToast("Reja topilmadi!");
+    return;
+  }
+  currentEditingScheduleId = scheduleId;
+
+  const titleEl = document.getElementById('edit-schedule-title');
+  const locEl = document.getElementById('edit-schedule-location');
+  const notesEl = document.getElementById('edit-schedule-notes');
+  const dateEl = document.getElementById('edit-schedule-date');
+  const timeEl = document.getElementById('edit-schedule-time');
+
+  if (titleEl) titleEl.value = schedule.title || '';
+  if (locEl) locEl.value = schedule.location || '';
+  if (notesEl) notesEl.value = schedule.notes || '';
+
+  if (schedule.scheduledTime) {
+    const d = new Date(schedule.scheduledTime);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    if (dateEl) dateEl.value = `${yyyy}-${mm}-${dd}`;
+    if (timeEl) timeEl.value = `${hh}:${min}`;
+  } else {
+    if (dateEl) dateEl.value = '';
+    if (timeEl) timeEl.value = '';
+  }
+
+  const modal = document.getElementById('edit-schedule-modal');
+  if (modal) modal.classList.add('active');
+}
+
+async function saveEditedSchedule() {
+  if (!currentEditingScheduleId) return;
+  const title = (document.getElementById('edit-schedule-title')?.value || '').trim();
+  const location = (document.getElementById('edit-schedule-location')?.value || '').trim();
+  const notes = (document.getElementById('edit-schedule-notes')?.value || '').trim();
+  const dateVal = document.getElementById('edit-schedule-date')?.value;
+  const timeVal = document.getElementById('edit-schedule-time')?.value;
+
+  if (!title) {
+    alert("Reja nomini kiriting!");
+    return;
+  }
+
+  let scheduledTime = Date.now();
+  if (dateVal && timeVal) {
+    scheduledTime = new Date(`${dateVal}T${timeVal}`).getTime();
+  } else if (dateVal) {
+    scheduledTime = new Date(dateVal).getTime();
+  }
+
+  const updates = {
+    title,
+    location,
+    notes,
+    scheduledTime
+  };
+
+  await window.dbApi.updateSchedule(currentEditingScheduleId, updates);
+  closeModal('edit-schedule-modal');
+  currentEditingScheduleId = null;
+  showToast("Reja muvaffaqiyatli yangilandi!");
+  if (mayorCurrentTab === 1) renderMayorSchedules();
+}
+
+window.openEditTaskModal = openEditTaskModal;
+window.saveEditedTask = saveEditedTask;
+window.deleteMayorTask = deleteMayorTask;
+window.openEditScheduleModal = openEditScheduleModal;
+window.saveEditedSchedule = saveEditedSchedule;
 
 // Auto update on store change
 window.onStoreChange('tasks', () => {

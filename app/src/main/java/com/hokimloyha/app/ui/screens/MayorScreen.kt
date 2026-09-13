@@ -350,6 +350,8 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
     val mayorSchedules = schedules.filter { it.mayorId == currentUser.id }
         .sortedBy { it.scheduledTime }
     var showAddDialog by remember { mutableStateOf(false) }
+    var scheduleToEdit by remember { mutableStateOf<ScheduleItem?>(null) }
+    var scheduleToDelete by remember { mutableStateOf<ScheduleItem?>(null) }
     var scheduleSearchQuery by remember { mutableStateOf("") }
     val timeFormat = remember { SimpleDateFormat("HH:mm, dd-MMMM", Locale("uz")) }
     val voicePlayer = remember { VoicePlayer() }
@@ -491,8 +493,16 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
 
                                         IconButton(
                                             onClick = {
-                                                storage.deleteSchedule(schedule.id)
-                                                Toast.makeText(context, "Reja o'chirildi", Toast.LENGTH_SHORT).show()
+                                                scheduleToEdit = schedule
+                                            },
+                                            modifier = Modifier.size(26.dp)
+                                        ) {
+                                            Icon(Icons.Default.Edit, contentDescription = "Tahrirlash", tint = PrimaryBlue, modifier = Modifier.size(16.dp))
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                scheduleToDelete = schedule
                                             },
                                             modifier = Modifier.size(26.dp)
                                         ) {
@@ -921,6 +931,129 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
             }
         )
     }
+
+    if (scheduleToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { scheduleToDelete = null },
+            title = { Text("Rejani o'chirish", fontWeight = FontWeight.Bold) },
+            text = { Text("\"${scheduleToDelete?.title}\" rejasini bekor qilib o'chirmoqchimisiz?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scheduleToDelete?.let { s ->
+                            storage.deleteSchedule(s.id)
+                            Toast.makeText(context, "Reja bekor qilindi va o'chirildi", Toast.LENGTH_SHORT).show()
+                        }
+                        scheduleToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
+                ) {
+                    Text("O'chirish", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { scheduleToDelete = null }) {
+                    Text("Bekor qilish")
+                }
+            }
+        )
+    }
+
+    if (scheduleToEdit != null) {
+        val target = scheduleToEdit!!
+        var editTitle by remember(target.id) { mutableStateOf(target.title) }
+        var editLocation by remember(target.id) { mutableStateOf(target.location) }
+        var editNotes by remember(target.id) { mutableStateOf(target.notes ?: "") }
+        var editTime by remember(target.id) { mutableLongStateOf(target.scheduledTime) }
+        val editFormat = remember { SimpleDateFormat("HH:mm, dd-MM-yyyy", Locale.getDefault()) }
+
+        AlertDialog(
+            onDismissRequest = { scheduleToEdit = null },
+            title = { Text("Rejani Tahrirlash", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        label = { Text("Reja nomi *") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 4
+                    )
+                    OutlinedTextField(
+                        value = editLocation,
+                        onValueChange = { editLocation = it },
+                        label = { Text("Joylashuv (Manzil)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = editNotes,
+                        onValueChange = { editNotes = it },
+                        label = { Text("Qo'shimcha eslatma") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 3
+                    )
+                    Button(
+                        onClick = {
+                            val c = Calendar.getInstance().apply { timeInMillis = editTime }
+                            DatePickerDialog(context, { _, year, month, day ->
+                                c.set(Calendar.YEAR, year)
+                                c.set(Calendar.MONTH, month)
+                                c.set(Calendar.DAY_OF_MONTH, day)
+                                TimePickerDialog(context, { _, hour, minute ->
+                                    c.set(Calendar.HOUR_OF_DAY, hour)
+                                    c.set(Calendar.MINUTE, minute)
+                                    editTime = c.timeInMillis
+                                }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show()
+                            }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = SlateBg)
+                    ) {
+                        Icon(Icons.Default.DateRange, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(editFormat.format(Date(editTime)), color = PrimaryBlue, fontSize = 13.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (editTitle.isBlank()) {
+                            Toast.makeText(context, "Reja matnini kiriting!", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        val updated = target.copy(
+                            title = editTitle.trim(),
+                            location = editLocation.trim(),
+                            notes = editNotes.trim().ifBlank { null },
+                            scheduledTime = editTime
+                        )
+                        storage.updateSchedule(updated)
+                        ScheduleScheduler.scheduleReminder(
+                            context,
+                            updated.id,
+                            updated.title,
+                            updated.location,
+                            updated.notificationTime
+                        )
+                        Toast.makeText(context, "Reja muvaffaqiyatli yangilandi!", Toast.LENGTH_SHORT).show()
+                        scheduleToEdit = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                ) {
+                    Text("Saqlash", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { scheduleToEdit = null }) {
+                    Text("Bekor qilish")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -955,6 +1088,8 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
     )
 
     var showCreateTaskDialog by remember { mutableStateOf(false) }
+    var taskToEdit by remember { mutableStateOf<TaskItem?>(null) }
+    var taskToDelete by remember { mutableStateOf<TaskItem?>(null) }
     var taskSearchQuery by remember { mutableStateOf("") }
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
@@ -1116,45 +1251,64 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
 
                                     Spacer(modifier = Modifier.width(8.dp))
 
-                                    // Zvuk / Ovozli topshiriq yuborish tugmasi
+                                    // Zvuk, Tahrirlash va Bekor qilish tugmalari
                                     if (!isThisTaskRecording) {
-                                        Surface(
-                                            shape = RoundedCornerShape(18.dp),
-                                            color = Color(0xFFEFF6FF),
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE)),
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(18.dp))
-                                                .clickable {
-                                                    if (recordingTaskId != null) {
-                                                        Toast.makeText(context, "Avval boshlangan ovoz yozishni yakunlang", Toast.LENGTH_SHORT).show()
-                                                        return@clickable
-                                                    }
-                                                    pendingRecordTask = task
-                                                    val hasPermission = ContextCompat.checkSelfPermission(
-                                                        context,
-                                                        Manifest.permission.RECORD_AUDIO
-                                                    ) == PackageManager.PERMISSION_GRANTED
-
-                                                    if (hasPermission) {
-                                                        val path = voiceRecorder.startRecording()
-                                                        if (path != null) {
-                                                            recordingTaskId = task.id
-                                                            recordingDuration = 0
-                                                        } else {
-                                                            Toast.makeText(context, "Ovoz yozishni boshlab bo'lmadi", Toast.LENGTH_SHORT).show()
-                                                        }
-                                                    } else {
-                                                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                                    }
-                                                }
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                                verticalAlignment = Alignment.CenterVertically
+                                            Surface(
+                                                shape = RoundedCornerShape(18.dp),
+                                                color = Color(0xFFEFF6FF),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(18.dp))
+                                                    .clickable {
+                                                        if (recordingTaskId != null) {
+                                                            Toast.makeText(context, "Avval boshlangan ovoz yozishni yakunlang", Toast.LENGTH_SHORT).show()
+                                                            return@clickable
+                                                        }
+                                                        pendingRecordTask = task
+                                                        val hasPermission = ContextCompat.checkSelfPermission(
+                                                            context,
+                                                            Manifest.permission.RECORD_AUDIO
+                                                        ) == PackageManager.PERMISSION_GRANTED
+
+                                                        if (hasPermission) {
+                                                            val path = voiceRecorder.startRecording()
+                                                            if (path != null) {
+                                                                recordingTaskId = task.id
+                                                                recordingDuration = 0
+                                                            } else {
+                                                                Toast.makeText(context, "Ovoz yozishni boshlab bo'lmadi", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        } else {
+                                                            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                                        }
+                                                    }
                                             ) {
-                                                Icon(Icons.Default.Phone, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Zvuk", color = PrimaryBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(Icons.Default.Phone, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(13.dp))
+                                                    Spacer(modifier = Modifier.width(3.dp))
+                                                    Text("Zvuk", color = PrimaryBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+
+                                            IconButton(
+                                                onClick = { taskToEdit = task },
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(Icons.Default.Edit, contentDescription = "Tahrirlash", tint = PrimaryBlue, modifier = Modifier.size(16.dp))
+                                            }
+
+                                            IconButton(
+                                                onClick = { taskToDelete = task },
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(Icons.Default.Delete, contentDescription = "Bekor qilish", tint = Color(0xFFEF4444), modifier = Modifier.size(16.dp))
                                             }
                                         }
                                     }
@@ -1553,6 +1707,46 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
             }
         )
     }
+
+    if (taskToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { taskToDelete = null },
+            title = { Text("Topshiriqni bekor qilish", fontWeight = FontWeight.Bold) },
+            text = { Text("\"${taskToDelete?.title}\" topshirig'ini bekor qilib o'chirmoqchimisiz?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        taskToDelete?.let { t ->
+                            storage.deleteTask(t.id)
+                            Toast.makeText(context, "Topshiriq bekor qilindi va o'chirildi", Toast.LENGTH_SHORT).show()
+                        }
+                        taskToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
+                ) {
+                    Text("O'chirish", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { taskToDelete = null }) {
+                    Text("Orqaga")
+                }
+            }
+        )
+    }
+
+    if (taskToEdit != null) {
+        EditTaskDialog(
+            task = taskToEdit!!,
+            workers = workers,
+            onDismiss = { taskToEdit = null },
+            onTaskUpdated = { updatedTask ->
+                storage.updateTask(updatedTask)
+                Toast.makeText(context, "Topshiriq muvaffaqiyatli yangilandi!", Toast.LENGTH_SHORT).show()
+                taskToEdit = null
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1875,6 +2069,158 @@ fun CreateTaskDialog(
                 if (isPlayingVoicePreview) voicePlayer.stop()
                 onDismiss()
             }) {
+                Text("Bekor qilish")
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditTaskDialog(
+    task: TaskItem,
+    workers: List<User>,
+    onDismiss: () -> Unit,
+    onTaskUpdated: (TaskItem) -> Unit
+) {
+    val context = LocalContext.current
+    var title by remember(task.id) { mutableStateOf(task.title) }
+    var description by remember(task.id) { mutableStateOf(task.description) }
+    var address by remember(task.id) { mutableStateOf(task.address) }
+    var selectedWorker by remember(task.id) {
+        mutableStateOf(workers.find { it.id == task.assignedWorkerId } ?: workers.firstOrNull() ?: User(id = task.assignedWorkerId, username = "", password = "", role = UserRole.WORKER, firstName = task.assignedWorkerName, lastName = ""))
+    }
+    var expanded by remember { mutableStateOf(false) }
+
+    var startDateMillis by remember(task.id) { mutableLongStateOf(task.startDate) }
+    var endDateMillis by remember(task.id) { mutableLongStateOf(task.endDate) }
+    val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Topshiriqni Tahrirlash", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Topshiriq nomi *") },
+                    placeholder = { Text("Topshiriq nomini yozing...") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = address,
+                    onValueChange = { address = it },
+                    label = { Text("Manzil (joylashuv)") },
+                    placeholder = { Text("Manzilni kiriting...") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Batafsil ma'lumot") },
+                    placeholder = { Text("Izoh yoki tavsif...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 3
+                )
+
+                if (workers.isNotEmpty()) {
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedWorker.fullName + " (" + (selectedWorker.position ?: "Xodim") + ")",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Biriktiriladigan Mas'ul Xodim") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            workers.forEach { worker ->
+                                DropdownMenuItem(
+                                    text = { Text(worker.fullName + " - " + (worker.position ?: "Xodim")) },
+                                    onClick = {
+                                        selectedWorker = worker
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    OutlinedButton(
+                        onClick = {
+                            val c = Calendar.getInstance().apply { timeInMillis = startDateMillis }
+                            DatePickerDialog(context, { _, y, m, d ->
+                                c.set(y, m, d, 0, 0, 0)
+                                startDateMillis = c.timeInMillis
+                            }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column {
+                            Text("Boshlanish sanasi:", fontSize = 10.sp, color = TextSecondary)
+                            Text(dateFormat.format(Date(startDateMillis)), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            val c = Calendar.getInstance().apply { timeInMillis = endDateMillis }
+                            DatePickerDialog(context, { _, y, m, d ->
+                                c.set(y, m, d, 23, 59, 59)
+                                endDateMillis = c.timeInMillis
+                            }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column {
+                            Text("Tugash sanasi:", fontSize = 10.sp, color = TextSecondary)
+                            Text(dateFormat.format(Date(endDateMillis)), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (title.isBlank()) {
+                        Toast.makeText(context, "Topshiriq nomini kiriting!", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    val updated = task.copy(
+                        title = title.trim(),
+                        description = description.trim(),
+                        address = address.trim(),
+                        assignedWorkerId = selectedWorker.id,
+                        assignedWorkerName = selectedWorker.fullName,
+                        startDate = startDateMillis,
+                        endDate = endDateMillis
+                    )
+                    onTaskUpdated(updated)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+            ) {
+                Text("Saqlash", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
                 Text("Bekor qilish")
             }
         }
