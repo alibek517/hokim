@@ -1689,22 +1689,29 @@ async function sendTaskVoiceMessage(taskId) {
 // AI Helper Functions for Jarvis integration
 window.mayorAiHelpers = {
   openTaskModalWithData: (data) => {
+    switchMayorTab(0);
+    closeModal('create-schedule-modal');
+    closeModal('create-worker-modal');
+    closeModal('edit-task-modal');
+    closeModal('edit-schedule-modal');
     openCreateTaskModal();
-    if (data.title) {
-      const el = document.getElementById('new-task-title');
-      if (el) el.value = data.title;
-    }
-    if (data.workerId) {
-      const el = document.getElementById('new-task-worker');
-      if (el) el.value = data.workerId;
-    }
-    if (data.startDate) {
-      const el = document.getElementById('new-task-start');
-      if (el) el.value = data.startDate;
-    }
-    if (data.endDate) {
-      const el = document.getElementById('new-task-end');
-      if (el) el.value = data.endDate;
+    if (data) {
+      if (data.title) {
+        const el = document.getElementById('new-task-title');
+        if (el) el.value = data.title;
+      }
+      if (data.workerId) {
+        const el = document.getElementById('new-task-worker');
+        if (el) el.value = data.workerId;
+      }
+      if (data.startDate) {
+        const el = document.getElementById('new-task-start');
+        if (el) el.value = data.startDate;
+      }
+      if (data.endDate) {
+        const el = document.getElementById('new-task-end');
+        if (el) el.value = data.endDate;
+      }
     }
   },
   updateTaskFields: (data) => {
@@ -1733,6 +1740,10 @@ window.mayorAiHelpers = {
   },
   openScheduleModalWithData: (data) => {
     switchMayorTab(1);
+    closeModal('create-task-modal');
+    closeModal('create-worker-modal');
+    closeModal('edit-task-modal');
+    closeModal('edit-schedule-modal');
     openCreateScheduleModal();
     if (data) {
       if (data.title) {
@@ -1763,6 +1774,10 @@ window.mayorAiHelpers = {
   },
   openWorkerModalWithData: (data) => {
     switchMayorTab(2);
+    closeModal('create-task-modal');
+    closeModal('create-schedule-modal');
+    closeModal('edit-task-modal');
+    closeModal('edit-schedule-modal');
     openCreateWorkerModal();
     if (data) {
       if (data.fullName) {
@@ -1821,6 +1836,12 @@ window.mayorAiHelpers = {
     return null;
   },
   openChatForWorker: (workerId) => {
+    switchMayorTab(3);
+    closeModal('create-task-modal');
+    closeModal('create-schedule-modal');
+    closeModal('create-worker-modal');
+    closeModal('edit-task-modal');
+    closeModal('edit-schedule-modal');
     openChatFromWorkerId(workerId);
   },
   closeAllModals: () => {
