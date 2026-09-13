@@ -50,6 +50,28 @@ function initFirebase() {
       }
       
       database = firebase.database();
+      window.firebaseRtdb = database;
+
+      // Polyfill setValue on Firebase Database Reference to prevent any runtime exceptions
+      try {
+        if (firebase.database.Reference && !firebase.database.Reference.prototype.setValue) {
+          firebase.database.Reference.prototype.setValue = function(val, onComplete) {
+            return this.set(val, onComplete);
+          };
+        }
+      } catch (_) {}
+
+      // Fast initial fetch of users for instant login capability
+      fetch(FIREBASE_DB_URL + '/users.json')
+        .then(r => r.json())
+        .then(val => {
+          if (val && (!window.store.users || window.store.users.length === 0)) {
+            const list = Object.values(val);
+            window.store.users = list;
+            notifyStore('users', list);
+          }
+        })
+        .catch(() => {});
       
       database.ref('.info/connected').on('value', snap => {
         isConnected = !!snap.val();
