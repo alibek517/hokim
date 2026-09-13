@@ -289,6 +289,30 @@ const dbApi = {
     return worker;
   },
 
+  async updateUser(userId, updates) {
+    if (!userId || !updates) return;
+    if (database) {
+      await database.ref('users/' + userId).update(updates);
+    } else {
+      await fetch(FIREBASE_DB_URL + '/users/' + userId + '.json', {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    // Synchronize local in-memory store
+    if (window.store && window.store.users) {
+      const idx = window.store.users.findIndex(u => u.id === userId);
+      if (idx !== -1) {
+        window.store.users[idx] = { ...window.store.users[idx], ...updates };
+      }
+    }
+    if (window.store && window.store.currentUser && window.store.currentUser.id === userId) {
+      window.store.currentUser = { ...window.store.currentUser, ...updates };
+      localStorage.setItem('ijro_user', JSON.stringify(window.store.currentUser));
+    }
+  },
+
   async sendMessage(msg) {
     const id = msg.id || ('msg_' + Date.now());
     msg.id = id;

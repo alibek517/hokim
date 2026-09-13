@@ -750,3 +750,112 @@ function showToast(message) {
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 2500);
 }
+
+function openModal(modalId) {
+  const el = document.getElementById(modalId);
+  if (el) el.classList.add('active');
+}
+window.openModal = openModal;
+
+function closeModal(modalId) {
+  const el = document.getElementById(modalId);
+  if (el) el.classList.remove('active');
+}
+window.closeModal = closeModal;
+
+// Profile and Password Settings Modal Handlers
+function openProfileSettingsModal() {
+  const user = window.store.currentUser;
+  if (!user) return;
+
+  const avatarEl = document.getElementById('profile-modal-avatar');
+  const nameEl = document.getElementById('profile-modal-fullname');
+  const roleEl = document.getElementById('profile-modal-role');
+  const userEl = document.getElementById('profile-input-username');
+  const passEl = document.getElementById('profile-input-password');
+
+  if (avatarEl) {
+    avatarEl.innerText = (user.firstName || user.fullName || user.username || 'U').charAt(0).toUpperCase();
+  }
+  if (nameEl) {
+    nameEl.innerText = user.fullName || ((user.firstName || '') + ' ' + (user.lastName || '')).trim() || user.username;
+  }
+  if (roleEl) {
+    let roleTitle = user.role === 'MAYOR' ? 'Tuman Hokimi' : (user.role === 'WORKER' ? (user.position || "Mas'ul Xodim") : 'Big Admin');
+    roleEl.innerText = roleTitle;
+  }
+  if (userEl) {
+    userEl.value = user.username || '';
+  }
+  if (passEl) {
+    passEl.value = user.password || '';
+    passEl.type = 'password';
+  }
+
+  openModal('profile-settings-modal');
+}
+
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (btn) btn.innerText = '🙈';
+  } else {
+    input.type = 'password';
+    if (btn) btn.innerText = '👁️';
+  }
+}
+
+async function handleSaveProfileSettings(e) {
+  if (e) e.preventDefault();
+  const user = window.store.currentUser;
+  if (!user) return;
+
+  const newUsername = (document.getElementById('profile-input-username').value || '').trim();
+  const newPassword = (document.getElementById('profile-input-password').value || '').trim();
+
+  if (!newUsername || !newPassword) {
+    alert("Login va parolni to'ldiring!");
+    return;
+  }
+  if (newUsername.length < 2 || newPassword.length < 3) {
+    alert("Login kamida 2 ta, parol kamida 3 ta belgidan iborat bo'lishi kerak!");
+    return;
+  }
+
+  // Check username uniqueness
+  const exists = (window.store.users || []).some(u => u.id !== user.id && (u.username || '').toLowerCase() === newUsername.toLowerCase());
+  if (exists) {
+    alert("Ushbu login band qilingan. Iltimos, boshqa login kiriting!");
+    return;
+  }
+
+  const updates = {
+    username: newUsername,
+    password: newPassword
+  };
+
+  try {
+    await window.dbApi.updateUser(user.id, updates);
+    closeModal('profile-settings-modal');
+    showToast("Profil va kirish ma'lumotlari muvaffaqiyatli saqlandi!");
+
+    // Update headers if visible
+    const mayorNameEl = document.getElementById('mayor-header-name');
+    if (mayorNameEl && user.role === 'MAYOR') {
+      mayorNameEl.innerText = user.fullName || newUsername;
+    }
+    const workerNameEl = document.getElementById('worker-header-name');
+    if (workerNameEl && user.role === 'WORKER') {
+      workerNameEl.innerText = user.fullName || newUsername;
+    }
+  } catch (err) {
+    console.error("Save profile error:", err);
+    alert("Saqlashda xatolik yuz berdi: " + err.message);
+  }
+}
+
+window.openProfileSettingsModal = openProfileSettingsModal;
+window.togglePasswordVisibility = togglePasswordVisibility;
+window.handleSaveProfileSettings = handleSaveProfileSettings;

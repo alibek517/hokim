@@ -30,7 +30,7 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0F172A">
 
-  <link rel="stylesheet" href="css/style.css?v=20260913_13">
+  <link rel="stylesheet" href="css/style.css?v=20260913_14">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -85,7 +85,7 @@
     <div id="mayor-screen" class="screen">
       <!-- Top Bar -->
       <div class="top-bar">
-        <div class="top-bar-left">
+        <div class="top-bar-left" onclick="openProfileSettingsModal()" style="cursor: pointer;" title="Profil va Login/Parol">
           <div class="user-avatar" id="mayor-avatar">H</div>
           <div class="user-info">
             <div class="user-name" id="mayor-header-name">Tuman Hokimi</div>
@@ -96,6 +96,9 @@
           <button class="ai-header-btn" onclick="toggleAiAssistantModal()" title="Sun'iy Intellekt Yordamchisi (Jarvis)">
             <span class="ai-sparkle-icon">✨</span>
             <span>AI Yordamchi</span>
+          </button>
+          <button class="icon-btn" onclick="openProfileSettingsModal()" title="Profil va Login/Parol">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
           </button>
           <button class="icon-btn" onclick="handleLogout()" title="Chiqish">
             <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
@@ -133,7 +136,7 @@
     <!-- 3. WORKER SCREEN -->
     <div id="worker-screen" class="screen">
       <div class="top-bar">
-        <div class="top-bar-left">
+        <div class="top-bar-left" onclick="openProfileSettingsModal()" style="cursor: pointer;" title="Profil va Login/Parol">
           <div class="user-avatar" id="worker-avatar">I</div>
           <div class="user-info">
             <div class="user-name" id="worker-header-name">Mas'ul Xodim</div>
@@ -141,6 +144,9 @@
           </div>
         </div>
         <div class="top-bar-actions">
+          <button class="icon-btn" onclick="openProfileSettingsModal()" title="Profil va Login/Parol">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </button>
           <button class="icon-btn" onclick="handleLogout()" title="Chiqish">
             <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
           </button>
@@ -152,7 +158,7 @@
     <!-- 4. BIG ADMIN SCREEN -->
     <div id="admin-screen" class="screen">
       <div class="top-bar">
-        <div class="top-bar-left">
+        <div class="top-bar-left" onclick="openProfileSettingsModal()" style="cursor: pointer;" title="Profil va Login/Parol">
           <div class="user-avatar" id="admin-avatar">A</div>
           <div class="user-info">
             <div class="user-name" id="admin-header-name">Big Admin</div>
@@ -160,6 +166,9 @@
           </div>
         </div>
         <div class="top-bar-actions">
+          <button class="icon-btn" onclick="openProfileSettingsModal()" title="Profil va Login/Parol">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </button>
           <button class="icon-btn" onclick="handleLogout()" title="Chiqish">
             <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
           </button>
@@ -344,6 +353,91 @@
       </div>
     </div>
 
+    <!-- Edit Worker Modal (Hokim ishchining login, parol va ma'lumotlarini ko'rish va o'zgartirishi uchun) -->
+    <div id="edit-worker-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('edit-worker-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title">✏️ Xodim Ma'lumotlarini Tahrirlash</div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('edit-worker-modal')">✕</button>
+        </div>
+        <input type="hidden" id="edit-worker-id">
+        <form onsubmit="handleSaveEditedWorker(event)" style="display: flex; flex-direction: column; gap: 10px;">
+          <div class="form-group">
+            <label class="form-label">F.I.SH (To'liq ism) *</label>
+            <input type="text" id="edit-worker-name" class="form-input" required placeholder="Masalan: Olim Hamidov">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Lavozimi / Mas'uliyati *</label>
+            <input type="text" id="edit-worker-pos" class="form-input" required placeholder="Masalan: Obodonlashtirish bo'lim boshlig'i">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Telefon raqami</label>
+            <input type="text" id="edit-worker-phone" class="form-input" placeholder="+998901234567">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="form-group">
+              <label class="form-label">Login *</label>
+              <input type="text" id="edit-worker-user" class="form-input" required placeholder="ishchi3">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Parol *</label>
+              <div style="position: relative; display: flex; align-items: center;">
+                <input type="password" id="edit-worker-pass" class="form-input" required placeholder="••••••••" style="padding-right: 36px;">
+                <button type="button" class="icon-btn" onclick="togglePasswordVisibility('edit-worker-pass', this)" style="position: absolute; right: 2px; color: #64748B; background: transparent; width: 32px; height: 32px;" title="Parolni ko'rsatish/yashirish">
+                  👁️
+                </button>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 6px;">
+            <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeModal('edit-worker-modal')">Bekor qilish</button>
+            <button type="submit" class="btn btn-primary" style="flex: 2;">O'zgarishlarni Saqlash</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Profile & Login/Password Settings Modal (Hokim & Ishchilar uchun o'z login/parolini ko'rish va o'zgartirish) -->
+    <div id="profile-settings-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('profile-settings-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title">👤 Profil va Kirish Ma'lumotlari</div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('profile-settings-modal')">✕</button>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 12px; background: #F8FAFC; border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; margin-bottom: 14px;">
+          <div class="user-avatar" id="profile-modal-avatar" style="width: 48px; height: 48px; font-size: 18px;">U</div>
+          <div>
+            <div style="font-weight: 700; font-size: 16px; color: var(--navy-dark);" id="profile-modal-fullname">Foydalanuvchi</div>
+            <div style="font-size: 12px; color: var(--primary-blue); font-weight: 600;" id="profile-modal-role">Lavozim</div>
+          </div>
+        </div>
+
+        <form onsubmit="handleSaveProfileSettings(event)" style="display: flex; flex-direction: column; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Foydalanuvchi nomi (Login) *</label>
+            <input type="text" id="profile-input-username" class="form-input" required placeholder="Login kiriting" autocomplete="username">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Maxfiy parol *</label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="password" id="profile-input-password" class="form-input" required placeholder="Parol kiriting" style="padding-right: 44px;" autocomplete="current-password">
+              <button type="button" class="icon-btn" onclick="togglePasswordVisibility('profile-input-password', this)" style="position: absolute; right: 4px; color: #64748B; background: transparent;" title="Parolni ko'rsatish/yashirish">
+                👁️
+              </button>
+            </div>
+            <div style="font-size: 11px; color: #64748B; margin-top: 4px;">Ushbu login va parol bilan ilovaga kirasiz</div>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 8px;">
+            <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeModal('profile-settings-modal')">Bekor qilish</button>
+            <button type="submit" class="btn btn-primary" style="flex: 2;">Saqlash</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Worker Completion Note Modal -->
     <div id="worker-complete-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('worker-complete-modal')">
       <div class="modal-sheet">
@@ -495,19 +589,19 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="js/firebase-config.js?v=20260913_13"></script>
-  <script src="js/chat.js?v=20260913_13"></script>
-  <script src="js/mayor.js?v=20260913_13"></script>
-  <script src="js/ai-assistant.js?v=20260913_13"></script>
-  <script src="js/worker.js?v=20260913_13"></script>
-  <script src="js/admin.js?v=20260913_13"></script>
-  <script src="js/app.js?v=20260913_13"></script>
+  <script src="js/firebase-config.js?v=20260913_14"></script>
+  <script src="js/chat.js?v=20260913_14"></script>
+  <script src="js/mayor.js?v=20260913_14"></script>
+  <script src="js/ai-assistant.js?v=20260913_14"></script>
+  <script src="js/worker.js?v=20260913_14"></script>
+  <script src="js/admin.js?v=20260913_14"></script>
+  <script src="js/app.js?v=20260913_14"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=20260913_13')
+        navigator.serviceWorker.register('./sw.js?v=20260913_14')
           .then(reg => {
             reg.update();
           })

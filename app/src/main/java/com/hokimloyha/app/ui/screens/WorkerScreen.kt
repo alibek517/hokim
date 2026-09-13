@@ -41,6 +41,8 @@ import com.hokimloyha.app.service.VoicePlayer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import java.io.File
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
@@ -53,6 +55,7 @@ fun WorkerScreen(
     onLogout: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    var showProfileDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var lastBackPressTime by remember { mutableStateOf(0L) }
 
@@ -86,7 +89,10 @@ fun WorkerScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { showProfileDialog = true }
+                    ) {
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
@@ -103,8 +109,14 @@ fun WorkerScreen(
                         }
                     }
 
-                    IconButton(onClick = onLogout) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = "Chiqish", tint = Color.White)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { showProfileDialog = true }) {
+                            Icon(Icons.Default.AccountCircle, contentDescription = "Profil va Parol", tint = Color.White)
+                        }
+
+                        IconButton(onClick = onLogout) {
+                            Icon(Icons.Default.ExitToApp, contentDescription = "Chiqish", tint = Color.White)
+                        }
                     }
                 }
             }
@@ -140,6 +152,91 @@ fun WorkerScreen(
         ) {
             WorkerTasksView(storage = storage, currentUser = currentUser, mayor = mayor)
         }
+    }
+
+    if (showProfileDialog) {
+        var myUsername by remember { mutableStateOf(currentUser.username) }
+        var myPassword by remember { mutableStateOf(currentUser.password) }
+        var isPasswordVisible by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { showProfileDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF0284C7))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Profil va Kirish Ma'lumotlari", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(currentUser.fullName, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = NavyDark)
+                            Text(currentUser.position ?: "Mas'ul Xodim", fontSize = 12.sp, color = Color(0xFF0284C7))
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = myUsername,
+                        onValueChange = { myUsername = it },
+                        label = { Text("Foydalanuvchi nomi (Login) *") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = myPassword,
+                        onValueChange = { myPassword = it },
+                        label = { Text("Maxfiy parol *") },
+                        singleLine = true,
+                        visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                                Icon(
+                                    imageVector = if (isPasswordVisible) Icons.Default.Lock else Icons.Default.Info,
+                                    contentDescription = "Ko'rsatish/Yashirish"
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val u = myUsername.trim()
+                        val p = myPassword.trim()
+                        if (u.isBlank() || p.isBlank()) {
+                            Toast.makeText(context, "Login va parolni kiriting!", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        val exists = storage.users.value.any { it.id != currentUser.id && it.username.equals(u, ignoreCase = true) }
+                        if (exists) {
+                            Toast.makeText(context, "Bu login boshqa foydalanuvchi tomonidan band qilingan!", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        val updated = currentUser.copy(username = u, password = p)
+                        storage.updateUser(updated)
+                        Toast.makeText(context, "Login va parol muvaffaqiyatli saqlandi!", Toast.LENGTH_SHORT).show()
+                        showProfileDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                ) {
+                    Text("Saqlash", color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showProfileDialog = false }) {
+                    Text("Bekor qilish")
+                }
+            }
+        )
     }
 }
 

@@ -11,6 +11,8 @@ import android.speech.tts.TextToSpeech
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,6 +35,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -75,6 +79,7 @@ fun MayorScreen(
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var showAiJarvisDialog by remember { mutableStateOf(false) }
+    var showProfileDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var lastBackPressTime by remember { mutableStateOf(0L) }
 
@@ -106,7 +111,10 @@ fun MayorScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { showProfileDialog = true }
+                    ) {
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
@@ -137,6 +145,10 @@ fun MayorScreen(
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Text("AI", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                             }
+                        }
+
+                        IconButton(onClick = { showProfileDialog = true }) {
+                            Icon(Icons.Default.AccountCircle, contentDescription = "Profil va Parol", tint = Color.White)
                         }
 
                         IconButton(onClick = {
@@ -204,6 +216,91 @@ fun MayorScreen(
             onDismiss = { showAiJarvisDialog = false },
             onSwitchTab = { tab ->
                 selectedTab = tab
+            }
+        )
+    }
+
+    if (showProfileDialog) {
+        var myUsername by remember { mutableStateOf(currentUser.username) }
+        var myPassword by remember { mutableStateOf(currentUser.password) }
+        var isPasswordVisible by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { showProfileDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryBlue)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Profil va Kirish Ma'lumotlari", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(currentUser.fullName, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = NavyDark)
+                            Text(currentUser.regionOrDistrict ?: "Hokimlik Paneli", fontSize = 12.sp, color = PrimaryBlue)
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = myUsername,
+                        onValueChange = { myUsername = it },
+                        label = { Text("Foydalanuvchi nomi (Login) *") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = myPassword,
+                        onValueChange = { myPassword = it },
+                        label = { Text("Maxfiy parol *") },
+                        singleLine = true,
+                        visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                                Icon(
+                                    imageVector = if (isPasswordVisible) Icons.Default.Lock else Icons.Default.Info,
+                                    contentDescription = "Ko'rsatish/Yashirish"
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val u = myUsername.trim()
+                        val p = myPassword.trim()
+                        if (u.isBlank() || p.isBlank()) {
+                            Toast.makeText(context, "Login va parolni kiriting!", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        val exists = storage.users.value.any { it.id != currentUser.id && it.username.equals(u, ignoreCase = true) }
+                        if (exists) {
+                            Toast.makeText(context, "Bu login boshqa foydalanuvchi tomonidan band qilingan!", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        val updated = currentUser.copy(username = u, password = p)
+                        storage.updateUser(updated)
+                        Toast.makeText(context, "Login va parol muvaffaqiyatli saqlandi!", Toast.LENGTH_SHORT).show()
+                        showProfileDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                ) {
+                    Text("Saqlash", color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showProfileDialog = false }) {
+                    Text("Bekor qilish")
+                }
             }
         )
     }
@@ -1752,6 +1849,7 @@ fun MayorWorkersTab(
     val tasks by storage.tasks.collectAsState()
     val workers = users.filter { it.role == UserRole.WORKER && it.mayorId == currentUser.id }
     var showAddWorkerDialog by remember { mutableStateOf(false) }
+    var editingWorker by remember { mutableStateOf<User?>(null) }
     var sortByRating by remember { mutableStateOf(true) }
     var workerSearchQuery by remember { mutableStateOf("") }
 
@@ -2090,18 +2188,38 @@ fun MayorWorkersTab(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         if (!worker.phone.isNullOrBlank()) {
-                                            Text("Tel: ${worker.phone}", fontSize = 11.sp, color = TextSecondary)
+                                            Text("📞 Tel: ${worker.phone}", fontSize = 11.sp, color = TextSecondary)
                                         }
-                                        Text("Login: ${worker.username} | Parol: ${worker.password}", fontSize = 11.sp, color = Color(0xFF0284C7))
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(top = 2.dp)
+                                        ) {
+                                            Text("🔑 Login: ", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+                                            Text(worker.username, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("🔒 Parol: ", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+                                            Text(worker.password, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                                        }
                                     }
 
-                                    IconButton(
-                                        onClick = { onOpenChat(worker) },
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .background(PrimaryBlue.copy(alpha = 0.1f), CircleShape)
-                                    ) {
-                                        Icon(Icons.Default.Email, contentDescription = "Chat", tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(
+                                            onClick = { editingWorker = worker },
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .background(Color(0xFFF1F5F9), CircleShape)
+                                        ) {
+                                            Icon(Icons.Default.Edit, contentDescription = "Tahrirlash", tint = NavyDark, modifier = Modifier.size(17.dp))
+                                        }
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        IconButton(
+                                            onClick = { onOpenChat(worker) },
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .background(PrimaryBlue.copy(alpha = 0.1f), CircleShape)
+                                        ) {
+                                            Icon(Icons.Default.Email, contentDescription = "Chat", tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                                        }
                                     }
                                 }
                             }
@@ -2219,6 +2337,124 @@ fun MayorWorkersTab(
             },
             dismissButton = {
                 TextButton(onClick = { showAddWorkerDialog = false }) {
+                    Text("Bekor qilish")
+                }
+            }
+        )
+    }
+
+    if (editingWorker != null) {
+        val worker = editingWorker!!
+        var wFirstName by remember(worker.id) { mutableStateOf(worker.firstName ?: "") }
+        var wLastName by remember(worker.id) { mutableStateOf(worker.lastName ?: "") }
+        var wPosition by remember(worker.id) { mutableStateOf(worker.position ?: "") }
+        var wPhone by remember(worker.id) { mutableStateOf(worker.phone ?: "") }
+        var wUsername by remember(worker.id) { mutableStateOf(worker.username) }
+        var wPassword by remember(worker.id) { mutableStateOf(worker.password) }
+        var isWPasswordVisible by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { editingWorker = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryBlue)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Xodimni Tahrirlash", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())
+                ) {
+                    OutlinedTextField(
+                        value = wFirstName,
+                        onValueChange = { wFirstName = it },
+                        label = { Text("Ism *") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = wLastName,
+                        onValueChange = { wLastName = it },
+                        label = { Text("Familiya") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = wPosition,
+                        onValueChange = { wPosition = it },
+                        label = { Text("Lavozimi *") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = wPhone,
+                        onValueChange = { wPhone = it },
+                        label = { Text("Telefon raqami") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = wUsername,
+                        onValueChange = { wUsername = it },
+                        label = { Text("Login *") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = wPassword,
+                        onValueChange = { wPassword = it },
+                        label = { Text("Parol *") },
+                        singleLine = true,
+                        visualTransformation = if (isWPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { isWPasswordVisible = !isWPasswordVisible }) {
+                                Icon(
+                                    imageVector = if (isWPasswordVisible) Icons.Default.Lock else Icons.Default.Info,
+                                    contentDescription = "Ko'rsatish/Yashirish"
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val fn = wFirstName.trim()
+                        val pos = wPosition.trim()
+                        val u = wUsername.trim()
+                        val p = wPassword.trim()
+                        if (fn.isBlank() || pos.isBlank() || u.isBlank() || p.isBlank()) {
+                            Toast.makeText(context, "Yulduzcha (*) maydonlarni to'ldiring!", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        val exists = storage.users.value.any { it.id != worker.id && it.username.equals(u, ignoreCase = true) }
+                        if (exists) {
+                            Toast.makeText(context, "Bu login boshqa foydalanuvchi tomonidan band qilingan!", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        val updated = worker.copy(
+                            firstName = fn,
+                            lastName = wLastName.trim(),
+                            position = pos,
+                            phone = wPhone.trim().ifBlank { null },
+                            username = u,
+                            password = p
+                        )
+                        storage.updateUser(updated)
+                        Toast.makeText(context, "Xodim ma'lumotlari yangilandi!", Toast.LENGTH_SHORT).show()
+                        editingWorker = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                ) {
+                    Text("Saqlash", color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { editingWorker = null }) {
                     Text("Bekor qilish")
                 }
             }

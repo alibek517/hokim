@@ -1071,6 +1071,32 @@ class AppStorage(private val context: Context) {
         sendRestFallback("users/" + user.id, user)
     }
 
+    fun updateUser(user: User) {
+        val updated = _users.value.map {
+            if (it.id == user.id) user else it
+        }
+        _users.value = updated
+        saveUsersLocally(updated)
+
+        if (_currentUser.value?.id == user.id) {
+            _currentUser.value = user
+            val userJson = gson.toJson(user)
+            prefs.edit()
+                .putString("current_username", user.username)
+                .putString("current_user", userJson)
+                .apply()
+            try {
+                context.getSharedPreferences("hokim_app_prefs", Context.MODE_PRIVATE).edit()
+                    .putString("current_username", user.username)
+                    .putString("current_user", userJson)
+                    .apply()
+            } catch (_: Exception) {}
+        }
+
+        usersRef?.child(user.id)?.setValue(user)
+        sendRestFallback("users/" + user.id, user)
+    }
+
     private fun saveUsersLocally(list: List<User>) {
         prefs.edit().putString("users_data", gson.toJson(list)).apply()
     }

@@ -667,13 +667,21 @@ async function renderMayorWorkers() {
           </div>
         `}
 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-          <div style="font-size: 11px; color: #64748B;">
-            📞 ${escapeHtml(w.phone || w.username)} &nbsp;|&nbsp; Login: <span style="color: #0284C7;">${escapeHtml(w.username)}</span>
+        <!-- Login & Parol ma'lumotlari (Hokim uchun ochiq ko'rinadi va tahrirlanadi) -->
+        <div style="background: #F1F5F9; border-radius: 8px; padding: 8px 10px; margin-top: 4px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <div style="font-size: 11.5px; color: #334155; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+            <span>🔑 Login: <b style="color: #0284C7; font-size: 12px;">${escapeHtml(w.username || '')}</b></span>
+            <span>🔒 Parol: <b style="color: #10B981; font-size: 12px;">${escapeHtml(w.password || '')}</b></span>
+            ${w.phone ? `<span style="color: #64748B;">📞 ${escapeHtml(w.phone)}</span>` : ''}
           </div>
-          <button class="btn btn-primary" style="width: auto; padding: 6px 12px; font-size: 12px;" onclick="openChatFromWorkerId('${w.id}')">
-            💬 Chat
-          </button>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button class="btn btn-outline" style="width: auto; padding: 4px 10px; font-size: 11px; border-color: #CBD5E1; color: var(--navy-dark); font-weight: 600;" onclick="openEditWorkerModal('${w.id}')" title="Ma'lumotlar va Login/Parolni tahrirlash">
+              ✏️ Tahrirlash
+            </button>
+            <button class="btn btn-primary" style="width: auto; padding: 4px 12px; font-size: 11px;" onclick="openChatFromWorkerId('${w.id}')">
+              💬 Chat
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -1160,6 +1168,70 @@ function closeModal(id) {
   const modal = document.getElementById(id);
   if (modal) modal.classList.remove('active');
 }
+
+function openEditWorkerModal(workerId) {
+  const worker = (window.store.users || []).find(u => u.id === workerId);
+  if (!worker) {
+    showToast("Xodim topilmadi!");
+    return;
+  }
+  const idEl = document.getElementById('edit-worker-id');
+  const nameEl = document.getElementById('edit-worker-name');
+  const posEl = document.getElementById('edit-worker-pos');
+  const phoneEl = document.getElementById('edit-worker-phone');
+  const userEl = document.getElementById('edit-worker-user');
+  const passEl = document.getElementById('edit-worker-pass');
+
+  if (idEl) idEl.value = worker.id || '';
+  if (nameEl) nameEl.value = worker.fullName || ((worker.firstName || '') + ' ' + (worker.lastName || '')).trim();
+  if (posEl) posEl.value = worker.position || '';
+  if (phoneEl) phoneEl.value = worker.phone || '';
+  if (userEl) userEl.value = worker.username || '';
+  if (passEl) passEl.value = worker.password || '';
+
+  openModal('edit-worker-modal');
+}
+
+async function handleSaveEditedWorker(e) {
+  if (e) e.preventDefault();
+  const workerId = document.getElementById('edit-worker-id').value;
+  const fullName = document.getElementById('edit-worker-name').value.trim();
+  const position = document.getElementById('edit-worker-pos').value.trim();
+  const phone = document.getElementById('edit-worker-phone').value.trim();
+  const username = document.getElementById('edit-worker-user').value.trim();
+  const password = document.getElementById('edit-worker-pass').value.trim();
+
+  if (!fullName || !username || !password) {
+    alert("Ism, login va parolni to'ldiring!");
+    return;
+  }
+
+  // Check username uniqueness among other users
+  const exists = (window.store.users || []).some(u => u.id !== workerId && (u.username || '').toLowerCase() === username.toLowerCase());
+  if (exists) {
+    alert("Bu login boshqa foydalanuvchi tomonidan band qilingan. Boshqa login tanlang!");
+    return;
+  }
+
+  const parts = fullName.split(' ');
+  const updates = {
+    fullName,
+    firstName: parts[0] || fullName,
+    lastName: parts.slice(1).join(' ') || '',
+    position,
+    phone,
+    username,
+    password
+  };
+
+  await window.dbApi.updateUser(workerId, updates);
+  closeModal('edit-worker-modal');
+  showToast("Xodim ma'lumotlari muvaffaqiyatli saqlandi!");
+  if (mayorCurrentTab === 2) renderMayorWorkers();
+}
+
+window.openEditWorkerModal = openEditWorkerModal;
+window.handleSaveEditedWorker = handleSaveEditedWorker;
 
 // Auto update on store change
 window.onStoreChange('tasks', () => {
