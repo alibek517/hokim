@@ -193,14 +193,214 @@
     }
   }
 
+  // ==========================================
+  // MATHEMATICAL MORPHING AI ORB CANVAS ENGINE
+  // Dumaloq (Circle) -> 5 burchak (Pentagon) -> 8 burchak (Octagon) -> Dumaloq
+  // ==========================================
+  let orbAnimId = null;
+  let currentVisualState = 'idle';
+
+  function getShapeRadius(theta, sides, weight, baseRadius, rotation) {
+    if (!sides || sides <= 0 || weight <= 0.01) {
+      return baseRadius;
+    }
+    const seg = (2 * Math.PI) / sides;
+    const phi = Math.abs((((theta - rotation) % seg) + seg) % seg - seg / 2);
+    const polyR = (baseRadius * Math.cos(seg / 2)) / Math.max(0.1, Math.cos(phi));
+    return baseRadius * (1 - weight) + polyR * weight;
+  }
+
+  function startOrbAnimation() {
+    if (orbAnimId) return;
+    const canvas = document.getElementById('ai-orb-canvas');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const displaySize = 320;
+    canvas.width = displaySize * dpr;
+    canvas.height = displaySize * dpr;
+    ctx.scale(dpr, dpr);
+
+    const cx = displaySize / 2;
+    const cy = displaySize / 2;
+    const baseR = 95;
+
+    // Orbiting particles
+    const particles = [
+      { angle: 0, dist: 125, speed: 0.018, size: 3.5, alpha: 0.7 },
+      { angle: 1.2, dist: 138, speed: -0.012, size: 2.5, alpha: 0.6 },
+      { angle: 2.8, dist: 120, speed: 0.022, size: 3.0, alpha: 0.8 },
+      { angle: 4.1, dist: 145, speed: -0.015, size: 2.0, alpha: 0.5 },
+      { angle: 5.3, dist: 130, speed: 0.014, size: 2.8, alpha: 0.65 }
+    ];
+
+    function render(time) {
+      ctx.clearRect(0, 0, displaySize, displaySize);
+
+      // Morph cycle: 9 seconds total (3s per stage)
+      const cycleDuration = 9000;
+      const progress = (time % cycleDuration) / cycleDuration;
+      const stageVal = progress * 3;
+      const stageIndex = Math.floor(stageVal);
+      const stageP = stageVal - stageIndex;
+      // Smooth cosine easing
+      const t = 0.5 - 0.5 * Math.cos(Math.PI * stageP);
+
+      let shapeA = { sides: 0, weight: 0 };   // Circle
+      let shapeB = { sides: 5, weight: 0.75 }; // Pentagon
+
+      if (stageIndex === 0) {
+        // Circle -> 5-gon (Pentagon)
+        shapeA = { sides: 0, weight: 0 };
+        shapeB = { sides: 5, weight: 0.75 };
+      } else if (stageIndex === 1) {
+        // 5-gon -> 8-gon (Octagon)
+        shapeA = { sides: 5, weight: 0.75 };
+        shapeB = { sides: 8, weight: 0.75 };
+      } else {
+        // 8-gon -> Circle
+        shapeA = { sides: 8, weight: 0.75 };
+        shapeB = { sides: 0, weight: 0 };
+      }
+
+      // Voice reactive dynamics
+      let pulseAmp = 1.0;
+      let breathWaveAmp = 2.0;
+      let glowColor = 'rgba(99, 102, 241, 0.4)';
+
+      if (isListening) {
+        pulseAmp = 1.05 + 0.03 * Math.sin(time * 0.008);
+        breathWaveAmp = 5.0;
+        glowColor = 'rgba(59, 130, 246, 0.6)';
+      } else if (isSpeaking) {
+        pulseAmp = 1.08 + 0.06 * Math.sin(time * 0.015) + 0.03 * Math.cos(time * 0.023);
+        breathWaveAmp = 7.0;
+        glowColor = 'rgba(129, 140, 248, 0.7)';
+      } else {
+        pulseAmp = 1.0 + 0.02 * Math.sin(time * 0.002);
+        breathWaveAmp = 2.5;
+      }
+
+      const activeRadius = baseR * pulseAmp;
+      const rot = time * 0.0006; // Slow rotation
+
+      // 1. Outer Pulsing Glow Halo
+      const haloGrad = ctx.createRadialGradient(cx, cy, activeRadius * 0.5, cx, cy, activeRadius * 1.55);
+      haloGrad.addColorStop(0, glowColor);
+      haloGrad.addColorStop(0.5, 'rgba(99, 102, 241, 0.15)');
+      haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = haloGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, activeRadius * 1.55, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // 2. Compute 120 points on morphed boundary
+      const steps = 120;
+      const points = [];
+      for (let i = 0; i < steps; i++) {
+        const theta = (i / steps) * 2 * Math.PI;
+        const rA = getShapeRadius(theta, shapeA.sides, shapeA.weight, activeRadius, rot);
+        const rB = getShapeRadius(theta, shapeB.sides, shapeB.weight, activeRadius, rot);
+        const interpolatedR = rA * (1 - t) + rB * t;
+        const wave = Math.sin(theta * 4 + time * 0.004) * breathWaveAmp;
+        const finalR = interpolatedR + wave;
+
+        points.push({
+          x: cx + finalR * Math.cos(theta),
+          y: cy + finalR * Math.sin(theta)
+        });
+      }
+
+      // 3. Morphing shape path
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < steps; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      ctx.closePath();
+
+      // 4. Fill with Radiant 3D sphere gradient (matches user Image 2 replica)
+      const lx = cx - activeRadius * 0.32;
+      const ly = cy - activeRadius * 0.30;
+      const bodyGrad = ctx.createRadialGradient(lx, ly, activeRadius * 0.05, cx, cy, activeRadius * 1.15);
+      bodyGrad.addColorStop(0.00, '#FFFFFF'); // Bright highlight
+      bodyGrad.addColorStop(0.18, '#C7D2FE'); // Soft lilac-blue
+      bodyGrad.addColorStop(0.48, '#6366F1'); // Vibrant Indigo
+      bodyGrad.addColorStop(0.74, '#3B82F6'); // Electric Blue
+      bodyGrad.addColorStop(1.00, '#0F172A'); // Deep space edge
+
+      ctx.fillStyle = bodyGrad;
+      ctx.shadowColor = 'rgba(99, 102, 241, 0.7)';
+      ctx.shadowBlur = 30;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // 5. Specular highlight sheen overlay on top
+      ctx.save();
+      ctx.clip();
+      const sheenGrad = ctx.createRadialGradient(lx, ly, 0, lx, ly, activeRadius * 0.85);
+      sheenGrad.addColorStop(0.0, 'rgba(255, 255, 255, 0.7)');
+      sheenGrad.addColorStop(0.3, 'rgba(255, 255, 255, 0.25)');
+      sheenGrad.addColorStop(0.7, 'rgba(255, 255, 255, 0.0)');
+      sheenGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = sheenGrad;
+      ctx.beginPath();
+      ctx.arc(lx, ly, activeRadius * 0.85, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Curved inner neon rim highlight
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, activeRadius * 0.94, -Math.PI * 0.8, -Math.PI * 0.2);
+      ctx.stroke();
+      ctx.restore();
+
+      // 6. Perimeter delicate neon accent stroke
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < steps; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = 'rgba(199, 210, 254, 0.55)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 7. Orbiting celestial motes
+      particles.forEach(p => {
+        p.angle += p.speed;
+        const px = cx + (activeRadius + (p.dist - baseR)) * Math.cos(p.angle);
+        const py = cy + (activeRadius + (p.dist - baseR)) * Math.sin(p.angle);
+
+        ctx.fillStyle = `rgba(224, 231, 255, ${p.alpha})`;
+        ctx.shadowColor = '#60A5FA';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(px, py, p.size, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+
+      orbAnimId = requestAnimationFrame(render);
+    }
+
+    orbAnimId = requestAnimationFrame(render);
+  }
+
+  function stopOrbAnimation() {
+    if (orbAnimId) {
+      cancelAnimationFrame(orbAnimId);
+      orbAnimId = null;
+    }
+  }
+
   function updateAiStatus(state, label) {
+    currentVisualState = state || 'idle';
     const badge = document.getElementById('ai-orb-status-badge');
     if (badge) {
       badge.innerText = label;
-    }
-    const orb = document.getElementById('ai-morph-orb');
-    if (orb) {
-      orb.className = 'ai-morph-orb ' + (state || 'idle');
     }
   }
 
@@ -508,6 +708,7 @@
     const modal = document.getElementById('ai-assistant-modal');
     if (modal) {
       modal.classList.add('active');
+      startOrbAnimation();
       if (!isListening) {
         toggleAiVoiceListening();
       }
@@ -517,6 +718,7 @@
   window.closeAiAssistantModal = function() {
     const modal = document.getElementById('ai-assistant-modal');
     if (modal) modal.classList.remove('active');
+    stopOrbAnimation();
     if (isListening && recognition) {
       isListening = false;
       recognition.stop();

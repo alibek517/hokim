@@ -476,25 +476,9 @@
         </div>
       </div>
 
-      <!-- Main Animated Morphing Orb Stage -->
+      <!-- Main Animated Morphing Orb Stage (Canvas 60fps Morph: Dumaloq -> 5 burchak -> 8 burchak -> Dumaloq) -->
       <div class="ai-orb-stage">
-        <div class="ai-orb-halo halo-1"></div>
-        <div class="ai-orb-halo halo-2"></div>
-        <div class="ai-orb-halo halo-3"></div>
-
-        <!-- The Morphing AI Core Orb (Tomoloq -> 5 burchak -> 8 burchak -> Tomoloq) -->
-        <div id="ai-morph-orb" class="ai-morph-orb" onclick="toggleAiVoiceListening()" title="Ovozni yoqish / to'xtatish uchun bosing">
-          <div class="ai-orb-inner-light"></div>
-          <div class="ai-orb-highlight"></div>
-        </div>
-
-        <div id="ai-sound-waves" class="ai-sound-waves">
-          <span class="wave-bar"></span>
-          <span class="wave-bar"></span>
-          <span class="wave-bar"></span>
-          <span class="wave-bar"></span>
-          <span class="wave-bar"></span>
-        </div>
+        <canvas id="ai-orb-canvas" width="320" height="320" class="ai-orb-canvas" onclick="toggleAiVoiceListening()" title="Ovozni yoqish / to'xtatish uchun bosing"></canvas>
       </div>
 
       <!-- Live Caption Subtitle & Status -->
