@@ -39,113 +39,172 @@
       return;
     }
 
-    recognition = new SpeechRecognition();
-    recognition.lang = 'uz-UZ';
-    recognition.continuous = true;
-    recognition.interimResults = true;
+    try {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'uz-UZ';
+      recognition.continuous = true;
+      recognition.interimResults = true;
 
-    recognition.onstart = () => {
-      isListening = true;
-      updateAiStatus('listening', 'Eshitmoqda...');
-    };
+      recognition.onstart = () => {
+        isListening = true;
+        updateAiStatus('listening', 'Eshitmoqda...');
+      };
 
-    recognition.onresult = (event) => {
-      // AI gapirayotganda yoki aks-sado davrida mikrofon quloq solmaydi!
-      if (isSpeaking || isTemporarilyPausedForTts || Date.now() < ignoreSpeechUntil) {
-        return;
-      }
-
-      let interim = '';
-      let finalTranscript = '';
-
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
-        } else {
-          interim += event.results[i][0].transcript;
-        }
-      }
-
-      const text = (finalTranscript || interim).trim();
-
-      // Shovqin va mikrofon g'o'ng'illashi filtri:
-      // Foydalanuvchi gapirmaganda akustik shovqin natijasida paydo bo'ladigan sonlar va vaqtlar (masalan: "30.00.24", "00.24.030.00", "30224030224", "00:24", "30.00")
-      if (aiState === 'IDLE') {
-        // Agar matnda birorta ham harf bo'lmasa (faqat raqam, nuqta, ikki nuqta, chiziqcha, bo'shliq bo'lsa)
-        if (!/[a-zA-Zа-яА-ЯўқғҳЎҚҒҲ]/.test(text) || /^[\d\s.:\-_/]+$/.test(text)) {
+      recognition.onresult = (event) => {
+        // AI gapirayotganda yoki aks-sado davrida mikrofon quloq solmaydi!
+        if (isSpeaking || isTemporarilyPausedForTts || Date.now() < ignoreSpeechUntil) {
           return;
         }
-      }
 
-      // Shovqin filtri 2: 2 tadan kam harfli shovqin
-      const lettersOnly = text.replace(/[^a-zA-Zа-яА-ЯўқғҳЎҚҒҲ]/g, '').toLowerCase();
-      if (lettersOnly.length < 2 && lettersOnly !== 'ha' && lettersOnly !== 'xa' && lettersOnly !== 'yo' && lettersOnly !== 'no') {
+        let interim = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+
+        const text = (finalTranscript || interim).trim();
+
+        // Shovqin va mikrofon g'o'ng'illashi filtri:
+        if (aiState === 'IDLE') {
+          if (!/[a-zA-Zа-яА-ЯўқғҳЎҚҒҲ]/.test(text) || /^[\d\s.:\-_/]+$/.test(text)) {
+            return;
+          }
+        }
+
+        // Shovqin filtri 2: 2 tadan kam harfli shovqin
+        const lettersOnly = text.replace(/[^a-zA-Zа-яА-ЯўқғҳЎҚҒҲ]/g, '').toLowerCase();
+        if (lettersOnly.length < 2 && lettersOnly !== 'ha' && lettersOnly !== 'xa' && lettersOnly !== 'yo' && lettersOnly !== 'no') {
+          return;
+        }
+
+        if (text) {
+          showTemporaryUserText(text);
+        }
+
+        if (finalTranscript.trim()) {
+          handleUserSpeech(finalTranscript.trim());
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.warn("Speech recognition error:", event.error);
+        if (event.error === 'not-allowed') {
+          shouldKeepListening = false;
+          isListening = false;
+          stopWatchdog();
+          updateAiStatus('idle', 'Kutilmoqda');
+        }
+      };
+
+      recognition.onend = () => {
+        isListening = false;
+        // Infinity continuous listening: agar to'xtash buyrug'i berilmagan bo'lsa, zudlik bilan qayta yoqiladi
+        if (shouldKeepListening && !isSpeaking) {
+          setTimeout(() => {
+            if (shouldKeepListening && !isSpeaking) {
+              safeStartRecognition();
+            }
+          }, 80);
+        } else if (!shouldKeepListening) {
+          updateAiStatus('idle', 'Kutilmoqda');
+        }
+      };
+    } catch (e) {
+      console.warn("initSpeechRecognition error:", e);
+    }
+  }
+
+  // Safe Start Recognition (Handles Chrome/Android state recovery)
+  function safeStartRecognition() {
+    if (!shouldKeepListening || isSpeaking) return;
+    if (!SpeechRecognition) return;
+
+    if (!recognition) {
+      initSpeechRecognition();
+    }
+    if (!recognition) return;
+
+    if (isListening) return;
+
+    try {
+      recognition.start();
+      isListening = true;
+      updateAiStatus('listening', 'Eshitmoqda...');
+    } catch (err) {
+      if (err && (err.name === 'InvalidStateError' || (err.message && err.message.includes('already started')))) {
+        isListening = true;
+        updateAiStatus('listening', 'Eshitmoqda...');
         return;
       }
+      console.warn("safeStartRecognition failed, recreating SpeechRecognition instance:", err);
+      try {
+        if (recognition) {
+          recognition.onstart = null;
+          recognition.onresult = null;
+          recognition.onerror = null;
+          recognition.onend = null;
+          try { recognition.abort(); } catch (_) {}
+        }
+        initSpeechRecognition();
+        if (recognition) {
+          recognition.start();
+          isListening = true;
+          updateAiStatus('listening', 'Eshitmoqda...');
+        }
+      } catch (e2) {
+        console.warn("Re-initialized SpeechRecognition start error:", e2);
+      }
+    }
+  }
 
-      if (text) {
-        showTemporaryUserText(text);
+  // Watchdog Timer for 100% Infinity Continuous Listening
+  let watchdogTimer = null;
+  function startWatchdog() {
+    if (watchdogTimer) clearInterval(watchdogTimer);
+    watchdogTimer = setInterval(() => {
+      if (shouldKeepListening && !isSpeaking && !isListening) {
+        safeStartRecognition();
       }
+    }, 800);
+  }
 
-      if (finalTranscript.trim()) {
-        handleUserSpeech(finalTranscript.trim());
-      }
-    };
+  function stopWatchdog() {
+    if (watchdogTimer) {
+      clearInterval(watchdogTimer);
+      watchdogTimer = null;
+    }
+  }
 
-    recognition.onerror = (event) => {
-      console.warn("Speech recognition error:", event.error);
-      if (event.error === 'not-allowed') {
-        shouldKeepListening = false;
-        isListening = false;
-        updateAiStatus('idle', 'Kutilmoqda');
-      }
-    };
+  function startListening() {
+    shouldKeepListening = true;
+    safeStartRecognition();
+    startWatchdog();
+  }
 
-    recognition.onend = () => {
-      if (isTemporarilyPausedForTts || isSpeaking) {
-        return; // AI nutqi tugaguncha kutadi
-      }
-      if (shouldKeepListening) {
-        setTimeout(() => {
-          if (shouldKeepListening && !isSpeaking && !isTemporarilyPausedForTts) {
-            try {
-              recognition.start();
-              isListening = true;
-              updateAiStatus('listening', 'Eshitmoqda...');
-            } catch (e) {}
-          }
-        }, 150);
-      } else {
-        isListening = false;
-        updateAiStatus('idle', 'Kutilmoqda');
-      }
-    };
+  function stopListening() {
+    shouldKeepListening = false;
+    stopWatchdog();
+    if (recognition) {
+      try {
+        recognition.onend = null;
+        recognition.stop();
+      } catch (_) {}
+    }
+    isListening = false;
+    updateAiStatus('idle', 'Kutilmoqda');
   }
 
   // Toggle Voice Listening
   window.toggleAiVoiceListening = function() {
-    if (!recognition) {
-      initSpeechRecognition();
-    }
-    if (!recognition) {
-      alert("Brauzeringiz ovozli tanib olishni qo'llab-quvvatlamaydi.");
-      return;
-    }
-
     if (isListening || shouldKeepListening) {
-      shouldKeepListening = false;
-      isListening = false;
-      try { recognition.stop(); } catch(_) {}
-      updateAiStatus('idle', 'Kutilmoqda');
+      stopListening();
     } else {
-      shouldKeepListening = true;
-      try {
-        recognition.start();
-        isListening = true;
-        updateAiStatus('listening', 'Eshitmoqda...');
-      } catch (e) {
-        console.warn("Recognition start failed:", e);
-      }
+      startListening();
     }
   };
 
@@ -189,19 +248,18 @@
   // Helper: finish speech and restore recognition cleanly after echo dissipation
   function finishSpeechCleanup(callback) {
     isSpeaking = false;
-    ignoreSpeechUntil = Date.now() + 600; // 600ms aks-sado to'xtashini kutish
-    const willListen = shouldKeepListening || isListening;
-    updateAiStatus(willListen ? 'listening' : 'idle', willListen ? 'Eshitmoqda...' : 'Kutilmoqda');
-    setTimeout(() => {
-      isTemporarilyPausedForTts = false;
-      if (shouldKeepListening && !isSpeaking && recognition) {
-        try {
-          recognition.start();
-          isListening = true;
-          updateAiStatus('listening', 'Eshitmoqda...');
-        } catch (_) {}
-      }
-    }, 600);
+    isTemporarilyPausedForTts = false;
+    ignoreSpeechUntil = Date.now() + 500; // 500ms aks-sado to'xtashini kutish
+    if (shouldKeepListening) {
+      updateAiStatus('listening', 'Eshitmoqda...');
+      setTimeout(() => {
+        if (shouldKeepListening && !isSpeaking) {
+          safeStartRecognition();
+        }
+      }, 150);
+    } else {
+      updateAiStatus('idle', 'Kutilmoqda');
+    }
     if (callback) callback();
   }
 
@@ -229,11 +287,7 @@
       return;
     }
 
-    // Nutq boshlanishidan oldin mikrofonni to'xtatamiz (o'z ovozini eshitib qolmasligi uchun!)
     isTemporarilyPausedForTts = true;
-    if (isListening && recognition) {
-      try { recognition.abort(); } catch (_) {}
-    }
     isSpeaking = true;
     ignoreSpeechUntil = Date.now() + 15000;
     updateAiStatus('speaking', 'Gapirmoqda...');
@@ -1718,27 +1772,26 @@ MUHIM QOIDALAR:
 
   window.openAiAssistantModal = function() {
     const modal = document.getElementById('ai-assistant-modal');
-    document.querySelectorAll('.ai-header-btn').forEach(b => b.classList.add('active'));
-    if (modal) {
-      modal.classList.add('active');
-      startOrbAnimation();
-      shouldKeepListening = true;
-      if (!isListening) {
-        toggleAiVoiceListening();
-      }
-    }
+    if (modal) modal.classList.add('active');
+    document.querySelectorAll('.ai-header-btn').forEach(b => {
+      b.classList.add('active');
+      const label = b.querySelector('span');
+      if (label) label.innerText = "AI to'xtatish";
+    });
+    startOrbAnimation();
+    startListening();
   };
 
   window.closeAiAssistantModal = function() {
-    shouldKeepListening = false;
-    isListening = false;
     const modal = document.getElementById('ai-assistant-modal');
-    document.querySelectorAll('.ai-header-btn').forEach(b => b.classList.remove('active'));
     if (modal) modal.classList.remove('active');
+    document.querySelectorAll('.ai-header-btn').forEach(b => {
+      b.classList.remove('active');
+      const label = b.querySelector('span');
+      if (label) label.innerText = "AI Yordamchi";
+    });
     stopOrbAnimation();
-    if (recognition) {
-      try { recognition.stop(); } catch(_) {}
-    }
+    stopListening();
     if (activeAudioPlayer) {
       try { activeAudioPlayer.pause(); activeAudioPlayer.src = ''; } catch (_) {}
       activeAudioPlayer = null;
@@ -1748,6 +1801,8 @@ MUHIM QOIDALAR:
       isSpeaking = false;
     }
     isSpeaking = false;
+    isTemporarilyPausedForTts = false;
+    aiState = 'IDLE';
     updateAiStatus('idle', 'Kutilmoqda');
   };
 

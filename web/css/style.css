@@ -896,6 +896,17 @@ html.user-authenticated #login-screen {
   transform: scale(0.95);
 }
 
+.ai-header-btn.active {
+  background: linear-gradient(135deg, #DC2626, #EF4444) !important;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.7) !important;
+  animation: ai-active-pulse 1.8s infinite ease-in-out;
+}
+
+@keyframes ai-active-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(239, 68, 68, 0.4); transform: scale(1); }
+  50% { box-shadow: 0 0 14px rgba(239, 68, 68, 0.9); transform: scale(1.02); }
+}
+
 .ai-sparkle-icon {
   font-size: 13px;
   animation: sparkle-glow 2s infinite ease-in-out;
