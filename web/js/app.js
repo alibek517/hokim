@@ -771,18 +771,28 @@ function openProfileSettingsModal() {
   const avatarEl = document.getElementById('profile-modal-avatar');
   const nameEl = document.getElementById('profile-modal-fullname');
   const roleEl = document.getElementById('profile-modal-role');
+  const fullNameInput = document.getElementById('profile-input-fullname');
+  const phoneInput = document.getElementById('profile-input-phone');
   const userEl = document.getElementById('profile-input-username');
   const passEl = document.getElementById('profile-input-password');
+
+  const curName = user.fullName || ((user.firstName || '') + ' ' + (user.lastName || '')).trim() || user.username;
 
   if (avatarEl) {
     avatarEl.innerText = (user.firstName || user.fullName || user.username || 'U').charAt(0).toUpperCase();
   }
   if (nameEl) {
-    nameEl.innerText = user.fullName || ((user.firstName || '') + ' ' + (user.lastName || '')).trim() || user.username;
+    nameEl.innerText = curName;
   }
   if (roleEl) {
     let roleTitle = user.role === 'MAYOR' ? 'Tuman Hokimi' : (user.role === 'WORKER' ? (user.position || "Mas'ul Xodim") : 'Big Admin');
     roleEl.innerText = roleTitle;
+  }
+  if (fullNameInput) {
+    fullNameInput.value = curName;
+  }
+  if (phoneInput) {
+    phoneInput.value = user.phone || '';
   }
   if (userEl) {
     userEl.value = user.username || '';
@@ -812,6 +822,8 @@ async function handleSaveProfileSettings(e) {
   const user = window.store.currentUser;
   if (!user) return;
 
+  const newFullName = (document.getElementById('profile-input-fullname')?.value || '').trim();
+  const newPhone = (document.getElementById('profile-input-phone')?.value || '').trim();
   const newUsername = (document.getElementById('profile-input-username').value || '').trim();
   const newPassword = (document.getElementById('profile-input-password').value || '').trim();
 
@@ -831,10 +843,19 @@ async function handleSaveProfileSettings(e) {
     return;
   }
 
+  const parts = newFullName ? newFullName.split(' ') : [];
   const updates = {
     username: newUsername,
     password: newPassword
   };
+  if (newFullName) {
+    updates.fullName = newFullName;
+    updates.firstName = parts[0] || newFullName;
+    updates.lastName = parts.slice(1).join(' ') || '';
+  }
+  if (newPhone !== undefined) {
+    updates.phone = newPhone;
+  }
 
   try {
     await window.dbApi.updateUser(user.id, updates);
@@ -844,11 +865,11 @@ async function handleSaveProfileSettings(e) {
     // Update headers if visible
     const mayorNameEl = document.getElementById('mayor-header-name');
     if (mayorNameEl && user.role === 'MAYOR') {
-      mayorNameEl.innerText = user.fullName || newUsername;
+      mayorNameEl.innerText = updates.fullName || newUsername;
     }
     const workerNameEl = document.getElementById('worker-header-name');
     if (workerNameEl && user.role === 'WORKER') {
-      workerNameEl.innerText = user.fullName || newUsername;
+      workerNameEl.innerText = updates.fullName || newUsername;
     }
   } catch (err) {
     console.error("Save profile error:", err);

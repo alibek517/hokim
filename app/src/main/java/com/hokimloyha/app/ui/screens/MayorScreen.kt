@@ -221,6 +221,9 @@ fun MayorScreen(
     }
 
     if (showProfileDialog) {
+        var myFirstName by remember { mutableStateOf(currentUser.firstName ?: "") }
+        var myLastName by remember { mutableStateOf(currentUser.lastName ?: "") }
+        var myPhone by remember { mutableStateOf(currentUser.phone ?: "") }
         var myUsername by remember { mutableStateOf(currentUser.username) }
         var myPassword by remember { mutableStateOf(currentUser.password) }
         var isPasswordVisible by remember { mutableStateOf(false) }
@@ -235,17 +238,44 @@ fun MayorScreen(
                 }
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())
+                ) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(currentUser.fullName, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = NavyDark)
-                            Text(currentUser.regionOrDistrict ?: "Hokimlik Paneli", fontSize = 12.sp, color = PrimaryBlue)
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(currentUser.fullName, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NavyDark)
+                            Text(currentUser.regionOrDistrict ?: "Hokimlik Paneli", fontSize = 11.5.sp, color = PrimaryBlue)
                         }
                     }
+
+                    OutlinedTextField(
+                        value = myFirstName,
+                        onValueChange = { myFirstName = it },
+                        label = { Text("Ism *") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = myLastName,
+                        onValueChange = { myLastName = it },
+                        label = { Text("Familiya") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = myPhone,
+                        onValueChange = { myPhone = it },
+                        label = { Text("Telefon raqami") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     OutlinedTextField(
                         value = myUsername,
@@ -276,10 +306,11 @@ fun MayorScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        val fn = myFirstName.trim()
                         val u = myUsername.trim()
                         val p = myPassword.trim()
-                        if (u.isBlank() || p.isBlank()) {
-                            Toast.makeText(context, "Login va parolni kiriting!", Toast.LENGTH_SHORT).show()
+                        if (fn.isBlank() || u.isBlank() || p.isBlank()) {
+                            Toast.makeText(context, "Ism, login va parolni kiriting!", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
                         val exists = storage.users.value.any { it.id != currentUser.id && it.username.equals(u, ignoreCase = true) }
@@ -287,9 +318,15 @@ fun MayorScreen(
                             Toast.makeText(context, "Bu login boshqa foydalanuvchi tomonidan band qilingan!", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
-                        val updated = currentUser.copy(username = u, password = p)
+                        val updated = currentUser.copy(
+                            firstName = fn,
+                            lastName = myLastName.trim(),
+                            phone = myPhone.trim().ifBlank { null },
+                            username = u,
+                            password = p
+                        )
                         storage.updateUser(updated)
-                        Toast.makeText(context, "Login va parol muvaffaqiyatli saqlandi!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Profil ma'lumotlari muvaffaqiyatli saqlandi!", Toast.LENGTH_SHORT).show()
                         showProfileDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
