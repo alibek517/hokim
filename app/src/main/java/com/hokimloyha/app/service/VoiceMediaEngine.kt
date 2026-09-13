@@ -189,6 +189,20 @@ class VoicePlayer {
         currentlyPlayingPath = null
     }
 
+    fun playBase64(context: Context, base64Data: String, tag: String = "temp", onComplete: () -> Unit) {
+        stop()
+        try {
+            val audioBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+            val tempFile = File(context.cacheDir, "schedule_voice_${tag.hashCode()}.m4a")
+            tempFile.writeBytes(audioBytes)
+            play(tempFile.absolutePath, onComplete)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            stop()
+            onComplete()
+        }
+    }
+
     fun isPlaying(filePath: String): Boolean {
         return currentlyPlayingPath == filePath && mediaPlayer?.isPlaying == true
     }

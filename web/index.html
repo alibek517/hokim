@@ -273,16 +273,26 @@
           <button class="icon-btn" style="color: #64748B;" onclick="closeModal('create-schedule-modal')">✕</button>
         </div>
         <div class="form-group">
-          <label class="form-label">Reja / Uchrashuv nomi *</label>
-          <input type="text" id="new-schedule-title" class="form-input" placeholder="Masalan: Maktab ta'lim holatini ko'rish">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Manzil / Joy *</label>
-          <input type="text" id="new-schedule-loc" class="form-input" placeholder="Masalan: 24-sonli maktab binosi">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Qo'shimcha eslatma</label>
-          <input type="text" id="new-schedule-notes" class="form-input" placeholder="Masalan: Isitish tizimi va o'quv qurollari">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="form-label" style="margin-bottom: 0;">Reja *</label>
+            <span style="font-size: 11px; color: #64748B;">Matn yoki ovoz orqali</span>
+          </div>
+          <textarea id="new-schedule-title" class="form-input" rows="3" placeholder="Reja, manzil va eslatmalarni yozing... (yoki quyida ovoz yozing)"></textarea>
+
+          <!-- Ovoz yozish paneli (ko'p ovoz yozish va tekshirish) -->
+          <div style="margin-top: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 10px; padding: 8px 12px;">
+              <button type="button" id="btn-schedule-record" class="btn" onclick="toggleScheduleVoiceRecording()" style="background: #EF4444; color: white; padding: 6px 14px; font-size: 13px; font-weight: bold; border-radius: 20px; display: flex; align-items: center; gap: 6px;">
+                <span id="schedule-rec-dot" style="width: 8px; height: 8px; border-radius: 50%; background: white;"></span>
+                <span id="schedule-rec-btn-text">🎤 Ovoz yozish (gols)</span>
+              </button>
+              <span id="schedule-rec-timer" style="font-weight: bold; font-size: 13px; color: #EF4444; display: none;">00:00</span>
+              <span id="schedule-voice-count" style="font-size: 12px; color: #64748B; font-weight: 500;">0 ta ovoz</span>
+            </div>
+
+            <!-- Yozib olingan ovozlar ro'yxati (tekshirish / eshitish / o'chirish) -->
+            <div id="schedule-voices-container" style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;"></div>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Rejalashtirilgan vaqt *</label>
@@ -454,18 +464,18 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="js/firebase-config.js?v=20260913_4"></script>
-  <script src="js/chat.js?v=20260913_4"></script>
-  <script src="js/mayor.js?v=20260913_4"></script>
-  <script src="js/worker.js?v=20260913_4"></script>
-  <script src="js/admin.js?v=20260913_4"></script>
-  <script src="js/app.js?v=20260913_4"></script>
+  <script src="js/firebase-config.js?v=20260913_5"></script>
+  <script src="js/chat.js?v=20260913_5"></script>
+  <script src="js/mayor.js?v=20260913_5"></script>
+  <script src="js/worker.js?v=20260913_5"></script>
+  <script src="js/admin.js?v=20260913_5"></script>
+  <script src="js/app.js?v=20260913_5"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=20260913_4')
+        navigator.serviceWorker.register('./sw.js?v=20260913_5')
           .then(reg => {
             reg.update();
           })

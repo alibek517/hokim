@@ -46,6 +46,7 @@ import androidx.core.content.ContextCompat
 import com.hokimloyha.app.model.ChatMessage
 import com.hokimloyha.app.model.MessageType
 import com.hokimloyha.app.service.VoiceRecorder
+import com.hokimloyha.app.service.VoicePlayer
 import kotlinx.coroutines.delay
 import java.io.File
 import java.text.SimpleDateFormat
@@ -175,6 +176,14 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
         .sortedBy { it.scheduledTime }
     var showAddDialog by remember { mutableStateOf(false) }
     val timeFormat = remember { SimpleDateFormat("HH:mm, dd-MMMM", Locale("uz")) }
+    val voicePlayer = remember { VoicePlayer() }
+    var playingVoiceKey by remember { mutableStateOf<String?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            voicePlayer.stop()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -205,7 +214,7 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text("30 Daqiqa Oldin Ovozli Signal", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        Text("Uchrashuv va boradigan joydan 30 daqiqa oldin ovozli eslatma bildirishnomasi yangraydi.", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
+                        Text("Rejadan 30 daqiqa oldin ovozli eslatma bildirishnomasi yangraydi.", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
                     }
                 }
             }
@@ -269,23 +278,37 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
                                         )
                                     }
 
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(Color(0xFFFEF3C7))
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    ) {
-                                        Text("-30 min signal", fontSize = 11.sp, color = Color(0xFFB45309), fontWeight = FontWeight.SemiBold)
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color(0xFFFEF3C7))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text("-30 min signal", fontSize = 11.sp, color = Color(0xFFB45309), fontWeight = FontWeight.SemiBold)
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                storage.deleteSchedule(schedule.id)
+                                                Toast.makeText(context, "Reja o'chirildi", Toast.LENGTH_SHORT).show()
+                                            },
+                                            modifier = Modifier.size(26.dp)
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = "O'chirish", tint = Color(0xFFEF4444), modifier = Modifier.size(16.dp))
+                                        }
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(schedule.title, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = NavyDark)
 
-                                Row(modifier = Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(schedule.location, fontSize = 13.sp, color = TextSecondary)
+                                if (schedule.location.isNotBlank()) {
+                                    Row(modifier = Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(schedule.location, fontSize = 13.sp, color = TextSecondary)
+                                    }
                                 }
 
                                 if (!schedule.notes.isNullOrBlank()) {
@@ -295,6 +318,77 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
                                         color = TextSecondary,
                                         modifier = Modifier.padding(top = 6.dp)
                                     )
+                                }
+
+                                // Ovozli yozuvlar ro'yxati (1... nechta bo'lsa)
+                                val voices = if (schedule.voiceList.isNotEmpty()) {
+                                    schedule.voiceList
+                                } else if (!schedule.voiceBase64.isNullOrBlank()) {
+                                    listOf(schedule.voiceBase64)
+                                } else {
+                                    emptyList()
+                                }
+
+                                if (voices.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(Color(0xFFF1F5F9))
+                                            .padding(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            "🎤 Ovozli yozuvlar (${voices.size} ta):",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = PrimaryBlue
+                                        )
+                                        voices.forEachIndexed { index, voiceB64 ->
+                                            val key = "${schedule.id}_$index"
+                                            val isPlaying = playingVoiceKey == key
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(Color.White)
+                                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    IconButton(
+                                                        onClick = {
+                                                            if (isPlaying) {
+                                                                voicePlayer.stop()
+                                                                playingVoiceKey = null
+                                                            } else {
+                                                                playingVoiceKey = key
+                                                                voicePlayer.playBase64(context, voiceB64, key) {
+                                                                    playingVoiceKey = null
+                                                                }
+                                                            }
+                                                        },
+                                                        modifier = Modifier.size(32.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = if (isPlaying) Icons.Default.Close else Icons.Default.PlayArrow,
+                                                            contentDescription = "Ovozni eshitish",
+                                                            tint = PrimaryBlue
+                                                        )
+                                                    }
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        if (isPlaying) "Tinglanmoqda..." else "Ovoz #${index + 1}",
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = NavyDark
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -317,37 +411,236 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
 
     if (showAddDialog) {
         var title by remember { mutableStateOf("") }
-        var location by remember { mutableStateOf("") }
-        var notes by remember { mutableStateOf("") }
         val calendar = remember { Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, 1) } }
         var selectedCalendarTime by remember { mutableStateOf(calendar.timeInMillis) }
         val format = remember { SimpleDateFormat("HH:mm, dd-MM-yyyy", Locale.getDefault()) }
 
+        val scheduleVoiceRecorder = remember { VoiceRecorder(context) }
+        val recordedVoices = remember { mutableStateListOf<Pair<String, Int>>() } // (filePath, durationSec)
+        var isRecordingVoice by remember { mutableStateOf(false) }
+        var recordingDuration by remember { mutableStateOf(0) }
+        var playingVoicePath by remember { mutableStateOf<String?>(null) }
+
+        val audioPermissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            if (granted) {
+                val path = scheduleVoiceRecorder.startRecording()
+                if (path != null) {
+                    isRecordingVoice = true
+                    recordingDuration = 0
+                } else {
+                    Toast.makeText(context, "Ovoz yozishni boshlab bo'lmadi", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(context, "Mikrofon ruxsati berilmadi", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        LaunchedEffect(isRecordingVoice) {
+            if (isRecordingVoice) {
+                while (isRecordingVoice) {
+                    delay(1000L)
+                    recordingDuration++
+                }
+            }
+        }
+
         AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = { Text("Yangi Kunlik Reja Qo'shish", fontWeight = FontWeight.Bold) },
+            onDismissRequest = {
+                voicePlayer.stop()
+                if (isRecordingVoice) scheduleVoiceRecorder.cancelRecording()
+                showAddDialog = false
+            },
+            title = { Text("🗓️ Yangi Reja Kiritish", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // 1 ta yagona "Reja *" maydoni (3 tasi bitta qilingan)
                     OutlinedTextField(
                         value = title,
                         onValueChange = { title = it },
-                        label = { Text("Reja nomi / Maqsad") },
-                        placeholder = { Text("Masalan: 24-maktabga borish") },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text("Reja *") },
+                        placeholder = { Text("Reja, manzil va eslatmalarni kiriting...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 4
                     )
-                    OutlinedTextField(
-                        value = location,
-                        onValueChange = { location = it },
-                        label = { Text("Manzil / Joylashuv") },
-                        placeholder = { Text("Masalan: 24-sonli umumta'lim maktabi") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = notes,
-                        onValueChange = { notes = it },
-                        label = { Text("Izoh (Ixtiyoriy)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+
+                    // Ovoz yozish bo'limi (gols)
+                    if (isRecordingVoice) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFFEF2F2),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFEF4444)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFEF4444))
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Yozilmoqda: ${recordingDuration}s",
+                                        color = Color(0xFFDC2626),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    // Bekor qilish / o'chirish
+                                    Button(
+                                        onClick = {
+                                            scheduleVoiceRecorder.cancelRecording()
+                                            isRecordingVoice = false
+                                            recordingDuration = 0
+                                            Toast.makeText(context, "Ovoz bekor qilindi", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(30.dp)
+                                    ) {
+                                        Text("O'chirish", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    // To'xtatish va ro'yxatga qo'shish
+                                    Button(
+                                        onClick = {
+                                            val res = scheduleVoiceRecorder.stopRecording()
+                                            isRecordingVoice = false
+                                            recordingDuration = 0
+                                            if (res != null) {
+                                                recordedVoices.add(res)
+                                                Toast.makeText(context, "Ovoz qo'shildi (${recordedVoices.size}-ovoz)", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(30.dp)
+                                    ) {
+                                        Text("Qo'shish", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                val hasPermission = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.RECORD_AUDIO
+                                ) == PackageManager.PERMISSION_GRANTED
+
+                                if (hasPermission) {
+                                    val path = scheduleVoiceRecorder.startRecording()
+                                    if (path != null) {
+                                        isRecordingVoice = true
+                                        recordingDuration = 0
+                                    } else {
+                                        Toast.makeText(context, "Ovoz yozishni boshlab bo'lmadi", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEFF6FF)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryBlue.copy(alpha = 0.5f))
+                        ) {
+                            Text("🎤", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                if (recordedVoices.isEmpty()) "🎤 Ovoz yozish (gols)" else "➕ Yana ovoz qo'shish (${recordedVoices.size} ta kiritildi)",
+                                color = PrimaryBlue,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    // Yozilgan ovozlarni tekshirish va eshitish ("golsni tekshirsin")
+                    if (recordedVoices.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFF8FAFC))
+                                .padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text("Yozilgan ovozlar (tekshirish):", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PrimaryBlue)
+                            recordedVoices.forEachIndexed { index, pair ->
+                                val (path, dur) = pair
+                                val isPlayingThis = playingVoicePath == path
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color.White)
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .clickable {
+                                                if (isPlayingThis) {
+                                                    voicePlayer.stop()
+                                                    playingVoicePath = null
+                                                } else {
+                                                    playingVoicePath = path
+                                                    voicePlayer.play(path) {
+                                                        playingVoicePath = null
+                                                    }
+                                                }
+                                            }
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isPlayingThis) Icons.Default.Close else Icons.Default.PlayArrow,
+                                            contentDescription = null,
+                                            tint = PrimaryBlue,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            if (isPlayingThis) "Tinglanmoqda..." else "🎤 Ovoz #${index + 1} (${dur}s)",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = NavyDark
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = {
+                                            if (playingVoicePath == path) {
+                                                voicePlayer.stop()
+                                                playingVoicePath = null
+                                            }
+                                            try { File(path).delete() } catch (_: Exception) {}
+                                            recordedVoices.removeAt(index)
+                                        },
+                                        modifier = Modifier.size(22.dp)
+                                    ) {
+                                        Icon(Icons.Default.Delete, contentDescription = "O'chirish", tint = Color(0xFFEF4444), modifier = Modifier.size(14.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     Button(
                         onClick = {
@@ -377,17 +670,26 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
             confirmButton = {
                 Button(
                     onClick = {
-                        if (title.isBlank() || location.isBlank()) {
-                            Toast.makeText(context, "Sarlavha va manzilni kiriting!", Toast.LENGTH_SHORT).show()
+                        if (title.isBlank() && recordedVoices.isEmpty()) {
+                            Toast.makeText(context, "Reja matnini kiriting yoki ovoz yozing!", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
+                        val base64List = recordedVoices.mapNotNull { (path, _) ->
+                            try {
+                                val bytes = File(path).readBytes()
+                                android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                            } catch (e: Exception) { null }
+                        }
+                        val finalTitle = title.trim().ifBlank { "🎤 Ovozli reja (${base64List.size} ta ovoz)" }
                         val newSchedule = ScheduleItem(
                             id = UUID.randomUUID().toString(),
                             mayorId = currentUser.id,
-                            title = title.trim(),
-                            location = location.trim(),
-                            notes = notes.trim().ifBlank { null },
-                            scheduledTime = selectedCalendarTime
+                            title = finalTitle,
+                            location = "",
+                            notes = null,
+                            scheduledTime = selectedCalendarTime,
+                            voiceBase64 = base64List.firstOrNull(),
+                            voiceList = base64List
                         )
                         storage.addSchedule(newSchedule)
                         ScheduleScheduler.scheduleReminder(
@@ -397,6 +699,8 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
                             newSchedule.location,
                             newSchedule.notificationTime
                         )
+                        voicePlayer.stop()
+                        if (isRecordingVoice) scheduleVoiceRecorder.cancelRecording()
                         Toast.makeText(context, "Reja qo'shildi va 30 daqiqa oldingi signal o'rnatildi!", Toast.LENGTH_SHORT).show()
                         showAddDialog = false
                     },
@@ -406,7 +710,11 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
+                TextButton(onClick = {
+                    voicePlayer.stop()
+                    if (isRecordingVoice) scheduleVoiceRecorder.cancelRecording()
+                    showAddDialog = false
+                }) {
                     Text("Bekor qilish")
                 }
             }

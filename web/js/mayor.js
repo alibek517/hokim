@@ -224,20 +224,55 @@ function renderMayorSchedules() {
       day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
     });
 
+    const voices = (s.voiceList && Array.isArray(s.voiceList) && s.voiceList.length > 0)
+      ? s.voiceList
+      : (s.voiceBase64 ? [s.voiceBase64] : []);
+
+    let voicesHtml = '';
+    if (voices.length > 0) {
+      voicesHtml = `
+        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px; background: #F8FAFC; padding: 8px 10px; border-radius: 10px; border: 1px solid #E2E8F0;">
+          <div style="font-size: 12px; font-weight: bold; color: var(--primary-blue); display: flex; align-items: center; gap: 4px;">
+            <span>🎤 Ovozli yozuvlar (${voices.length} ta):</span>
+          </div>
+          ${voices.map((vBase64, idx) => `
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 11px; font-weight: 600; color: #64748B; min-width: 50px;">Ovoz #${idx + 1}:</span>
+              <audio controls src="data:audio/mp4;base64,${vBase64}" style="flex: 1; height: 32px;"></audio>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
     html += `
       <div class="task-card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span class="badge badge-blue">🗓️ Reja</span>
-          <span style="font-size: 11px; font-weight: bold; color: var(--primary-blue);">${timeFormatted}</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 11px; font-weight: bold; color: var(--primary-blue);">${timeFormatted}</span>
+            <button class="icon-btn" style="color: #EF4444; width: 24px; height: 24px; font-size: 13px; background: #FEE2E2; border-radius: 6px;" onclick="deleteMayorSchedule('${s.id}')" title="O'chirish">🗑️</button>
+          </div>
         </div>
-        <div class="task-title" style="font-size: 15px;">${escapeHtml(s.title || '')}</div>
-        <div class="task-address">📍 ${escapeHtml(s.location || '')}</div>
+        <div class="task-title" style="font-size: 15px; margin-top: 4px;">${escapeHtml(s.title || '')}</div>
+        ${s.location ? `<div class="task-address">📍 ${escapeHtml(s.location)}</div>` : ''}
         ${s.notes ? `<div class="task-desc">${escapeHtml(s.notes)}</div>` : ''}
+        ${voicesHtml}
       </div>
     `;
   });
   html += '</div>';
   container.innerHTML = html;
+}
+
+async function deleteMayorSchedule(scheduleId) {
+  if (!confirm("Ushbu rejani o'chirmoqchimisiz?")) return;
+  if (window.firebaseRtdb) {
+    await window.firebaseRtdb.ref('schedules/' + scheduleId).remove();
+  } else {
+    await fetch(FIREBASE_DB_URL + '/schedules/' + scheduleId + '.json', { method: 'DELETE' });
+  }
+  showToast("Reja o'chirildi!");
 }
 
 
@@ -806,36 +841,184 @@ async function saveNewTask() {
   showToast("Yangi topshiriq biriktirildi!");
 }
 
+// Schedule Multi-Voice Recording State
+let newScheduleVoices = []; // Array of { id, base64, url, durationSec }
+let scheduleVoiceRecorderState = {
+  isRecording: false,
+  mediaRecorder: null,
+  stream: null,
+  audioChunks: [],
+  timerId: null,
+  seconds: 0
+};
+
+function resetScheduleVoiceState() {
+  if (scheduleVoiceRecorderState.timerId) {
+    clearInterval(scheduleVoiceRecorderState.timerId);
+    scheduleVoiceRecorderState.timerId = null;
+  }
+  if (scheduleVoiceRecorderState.stream) {
+    scheduleVoiceRecorderState.stream.getTracks().forEach(t => t.stop());
+    scheduleVoiceRecorderState.stream = null;
+  }
+  scheduleVoiceRecorderState.isRecording = false;
+  scheduleVoiceRecorderState.mediaRecorder = null;
+  scheduleVoiceRecorderState.audioChunks = [];
+  scheduleVoiceRecorderState.seconds = 0;
+
+  const timerEl = document.getElementById('schedule-rec-timer');
+  const btnText = document.getElementById('schedule-rec-btn-text');
+  const recDot = document.getElementById('schedule-rec-dot');
+  if (timerEl) { timerEl.style.display = 'none'; timerEl.innerText = '00:00'; }
+  if (btnText) btnText.innerText = '🎤 Ovoz yozish (gols)';
+  if (recDot) recDot.style.animation = 'none';
+}
+
+function renderNewScheduleVoices() {
+  const container = document.getElementById('schedule-voices-container');
+  const countEl = document.getElementById('schedule-voice-count');
+  if (countEl) {
+    countEl.innerText = `${newScheduleVoices.length} ta ovoz`;
+  }
+  if (!container) return;
+
+  if (newScheduleVoices.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = newScheduleVoices.map((v, idx) => `
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 6px 10px;">
+      <span style="font-size: 11px; font-weight: bold; color: #1D4ED8; min-width: 65px;">🎤 Ovoz #${idx + 1} (${v.durationSec}s):</span>
+      <audio controls src="${v.url || ('data:audio/mp4;base64,' + v.base64)}" style="flex: 1; height: 32px;"></audio>
+      <button type="button" onclick="deleteScheduleVoice(${idx})" style="background: #FEE2E2; color: #EF4444; border: none; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: bold; cursor: pointer;" title="O'chirish">✕</button>
+    </div>
+  `).join('');
+}
+
+function deleteScheduleVoice(idx) {
+  if (idx >= 0 && idx < newScheduleVoices.length) {
+    newScheduleVoices.splice(idx, 1);
+    renderNewScheduleVoices();
+  }
+}
+
+async function toggleScheduleVoiceRecording() {
+  if (scheduleVoiceRecorderState.isRecording) {
+    stopScheduleVoiceRecording();
+  } else {
+    startScheduleVoiceRecording();
+  }
+}
+
+async function startScheduleVoiceRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mediaRecorder = new MediaRecorder(stream);
+    scheduleVoiceRecorderState.stream = stream;
+    scheduleVoiceRecorderState.mediaRecorder = mediaRecorder;
+    scheduleVoiceRecorderState.audioChunks = [];
+    scheduleVoiceRecorderState.seconds = 0;
+    scheduleVoiceRecorderState.isRecording = true;
+
+    const timerEl = document.getElementById('schedule-rec-timer');
+    const btnText = document.getElementById('schedule-rec-btn-text');
+    const recDot = document.getElementById('schedule-rec-dot');
+    if (timerEl) { timerEl.style.display = 'inline'; timerEl.innerText = '00:00'; }
+    if (btnText) btnText.innerText = '⏹️ To\'xtatish va qo\'shish';
+    if (recDot) recDot.style.animation = 'pulse-dot 1s infinite alternate';
+
+    scheduleVoiceRecorderState.timerId = setInterval(() => {
+      scheduleVoiceRecorderState.seconds++;
+      const m = String(Math.floor(scheduleVoiceRecorderState.seconds / 60)).padStart(2, '0');
+      const s = String(scheduleVoiceRecorderState.seconds % 60).padStart(2, '0');
+      if (timerEl) timerEl.innerText = `${m}:${s}`;
+    }, 1000);
+
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) scheduleVoiceRecorderState.audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+      const audioBlob = new Blob(scheduleVoiceRecorderState.audioChunks, { type: 'audio/mp4' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const durationSec = Math.max(1, scheduleVoiceRecorderState.seconds);
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1];
+        newScheduleVoices.push({
+          id: Date.now(),
+          url: audioUrl,
+          base64: base64,
+          durationSec: durationSec
+        });
+        renderNewScheduleVoices();
+      };
+      reader.readAsDataURL(audioBlob);
+
+      if (scheduleVoiceRecorderState.stream) {
+        scheduleVoiceRecorderState.stream.getTracks().forEach(t => t.stop());
+        scheduleVoiceRecorderState.stream = null;
+      }
+      resetScheduleVoiceState();
+    };
+
+    mediaRecorder.start(250);
+  } catch (err) {
+    console.error("Schedule voice recording error:", err);
+    alert("Mikrofon ruxsatini yoqing yoki mikrofon ulanmagan!");
+    resetScheduleVoiceState();
+  }
+}
+
+function stopScheduleVoiceRecording() {
+  if (scheduleVoiceRecorderState.mediaRecorder && scheduleVoiceRecorderState.mediaRecorder.state !== 'inactive') {
+    scheduleVoiceRecorderState.mediaRecorder.stop();
+  }
+}
+
 function openCreateScheduleModal() {
   const now = new Date();
   const timeInput = document.getElementById('new-schedule-time');
   if (timeInput) timeInput.value = now.toISOString().slice(0, 16);
+  const titleInput = document.getElementById('new-schedule-title');
+  if (titleInput) titleInput.value = '';
+  newScheduleVoices = [];
+  resetScheduleVoiceState();
+  renderNewScheduleVoices();
   document.getElementById('create-schedule-modal').classList.add('active');
 }
 
 async function saveNewSchedule() {
   const mayor = window.store.currentUser;
-  const title = document.getElementById('new-schedule-title').value.trim();
-  const location = document.getElementById('new-schedule-loc').value.trim();
-  const notes = document.getElementById('new-schedule-notes').value.trim();
+  const title = (document.getElementById('new-schedule-title')?.value || '').trim();
   const scheduledTime = new Date(document.getElementById('new-schedule-time').value).getTime();
 
-  if (!title || !location) {
-    alert("Iltimos, reja nomi va manzilini kiriting!");
+  if (!title && newScheduleVoices.length === 0) {
+    alert("Iltimos, reja matnini yozing yoki ovozli xabar (gols) yozib qoldiring!");
     return;
   }
+
+  const voiceList = newScheduleVoices.map(v => v.base64);
+  const finalTitle = title || `🎤 Ovozli reja (${voiceList.length} ta ovoz)`;
 
   const schedule = {
     id: 'sched_' + Date.now(),
     mayorId: mayor.id,
-    title,
-    location,
-    notes,
-    scheduledTime
+    title: finalTitle,
+    location: '',
+    notes: '',
+    scheduledTime: scheduledTime || Date.now(),
+    voiceBase64: voiceList.length > 0 ? voiceList[0] : null,
+    voiceList: voiceList,
+    createdAt: Date.now()
   };
 
   await window.dbApi.addSchedule(schedule);
   closeModal('create-schedule-modal');
+  newScheduleVoices = [];
+  resetScheduleVoiceState();
   showToast("Yangi reja saqlandi!");
 }
 
