@@ -2364,6 +2364,7 @@ fun AiJarvisDialog(
 
     var inputText by remember { mutableStateOf("") }
     var isListening by remember { mutableStateOf(false) }
+    var isSpeaking by remember { mutableStateOf(false) }
     var aiState by remember { mutableStateOf("IDLE") }
     var draftTask by remember { mutableStateOf(AiTaskDraft()) }
 
@@ -2374,30 +2375,88 @@ fun AiJarvisDialog(
     }
 
     var tts: TextToSpeech? by remember { mutableStateOf(null) }
+    var activePlayer by remember { mutableStateOf<android.media.MediaPlayer?>(null) }
+
     LaunchedEffect(Unit) {
         tts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 val uzLocale = Locale("uz", "UZ")
                 val res = tts?.setLanguage(uzLocale)
-                if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    val trLocale = Locale("tr", "TR")
-                    val trRes = tts?.setLanguage(trLocale)
-                    if (trRes == TextToSpeech.LANG_MISSING_DATA || trRes == TextToSpeech.LANG_NOT_SUPPORTED) {
-                        tts?.setLanguage(Locale.ENGLISH)
-                    }
+                if (res != TextToSpeech.LANG_MISSING_DATA && res != TextToSpeech.LANG_NOT_SUPPORTED) {
+                    tts?.language = uzLocale
                 }
             }
         }
     }
+
     DisposableEffect(Unit) {
         onDispose {
+            try {
+                activePlayer?.stop()
+                activePlayer?.release()
+            } catch (_: Exception) {}
             tts?.stop()
             tts?.shutdown()
         }
     }
 
     fun speak(text: String) {
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "AI_JARVIS_UTT")
+        val cleanText = text.trim()
+        if (cleanText.isBlank()) return
+
+        isSpeaking = true
+
+        try {
+            activePlayer?.stop()
+            activePlayer?.release()
+        } catch (_: Exception) {}
+
+        try {
+            val encoded = java.net.URLEncoder.encode(cleanText, "UTF-8")
+            val ttsUrl = "https://hokim.vercel.app/api/tts?text=$encoded"
+            val player = android.media.MediaPlayer().apply {
+                setAudioAttributes(
+                    android.media.AudioAttributes.Builder()
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                        .build()
+                )
+                setDataSource(ttsUrl)
+                setOnPreparedListener {
+                    start()
+                }
+                setOnCompletionListener {
+                    isSpeaking = false
+                    release()
+                    activePlayer = null
+                }
+                setOnErrorListener { _, _, _ ->
+                    // Faqat va faqat O'zbek tili! Begona tillarda gapirmaydi
+                    val uzLocale = Locale("uz", "UZ")
+                    val isUzAvailable = (tts?.isLanguageAvailable(uzLocale) ?: -1) >= TextToSpeech.LANG_AVAILABLE
+                    if (isUzAvailable) {
+                        tts?.language = uzLocale
+                        tts?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, "AI_JARVIS_UTT")
+                    } else {
+                        isSpeaking = false
+                    }
+                    release()
+                    activePlayer = null
+                    true
+                }
+                prepareAsync()
+            }
+            activePlayer = player
+        } catch (e: Exception) {
+            val uzLocale = Locale("uz", "UZ")
+            val isUzAvailable = (tts?.isLanguageAvailable(uzLocale) ?: -1) >= TextToSpeech.LANG_AVAILABLE
+            if (isUzAvailable) {
+                tts?.language = uzLocale
+                tts?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, "AI_JARVIS_UTT")
+            } else {
+                isSpeaking = false
+            }
+        }
     }
 
     val speechLauncher = rememberLauncherForActivityResult(

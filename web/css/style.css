@@ -87,6 +87,10 @@ html, body {
   display: flex;
 }
 
+html.user-authenticated #login-screen {
+  display: none !important;
+}
+
 /* Top App Bar */
 .top-bar {
   background-color: var(--navy-dark);

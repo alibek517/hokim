@@ -16,20 +16,35 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0F172A">
 
-  <link rel="stylesheet" href="css/style.css?v=20260913_10">
+  <link rel="stylesheet" href="css/style.css?v=20260913_11">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Firebase Web SDK (Compat v10) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+  <!-- Pre-render Session State (Login screen miltillashini va qaytib chiqishini butunlay to'xtatish) -->
+  <script>
+    (function() {
+      try {
+        var raw = localStorage.getItem('ijro_user');
+        if (raw) {
+          var u = JSON.parse(raw);
+          if (u && u.id) {
+            document.documentElement.classList.add('user-authenticated');
+          }
+        }
+      } catch (_) {}
+    })();
+  </script>
 </head>
 <body>
 
   <div id="app-container">
 
-    <!-- 1. LOGIN SCREEN -->
-    <div id="login-screen" class="screen active" style="justify-content: center; align-items: center; padding: 24px; background: linear-gradient(180deg, #0F172A 0%, #1E293B 100%);">
+    <!-- 1. LOGIN SCREEN (Defolt active emas, faqat tizimga kirmagan bo'lsa ko'rinadi) -->
+    <div id="login-screen" class="screen" style="justify-content: center; align-items: center; padding: 24px; background: linear-gradient(180deg, #0F172A 0%, #1E293B 100%);">
       <div style="width: 100%; max-width: 360px; text-align: center;">
         <img src="assets/logo.png" alt="IJRO" style="width: 100px; height: 100px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); margin-bottom: 16px;">
         <h1 style="color: #FFFFFF; font-size: 26px; font-weight: 800; letter-spacing: 1px;">IJRO</h1>
@@ -495,19 +510,19 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="js/firebase-config.js?v=20260913_10"></script>
-  <script src="js/chat.js?v=20260913_10"></script>
-  <script src="js/mayor.js?v=20260913_10"></script>
-  <script src="js/ai-assistant.js?v=20260913_10"></script>
-  <script src="js/worker.js?v=20260913_10"></script>
-  <script src="js/admin.js?v=20260913_10"></script>
-  <script src="js/app.js?v=20260913_10"></script>
+  <script src="js/firebase-config.js?v=20260913_11"></script>
+  <script src="js/chat.js?v=20260913_11"></script>
+  <script src="js/mayor.js?v=20260913_11"></script>
+  <script src="js/ai-assistant.js?v=20260913_11"></script>
+  <script src="js/worker.js?v=20260913_11"></script>
+  <script src="js/admin.js?v=20260913_11"></script>
+  <script src="js/app.js?v=20260913_11"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=20260913_10')
+        navigator.serviceWorker.register('./sw.js?v=20260913_11')
           .then(reg => {
             reg.update();
           })

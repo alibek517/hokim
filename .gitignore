@@ -8,4 +8,4 @@
 app/build/
 *.apk
 *.aab
-*.hprof
+*.hprof__pycache__/

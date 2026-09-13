@@ -4,13 +4,27 @@ const FIREBASE_DB_URL = 'https://hokimlik-default-rtdb.firebaseio.com';
 let database = null;
 let isConnected = false;
 
+// Synchronously restore saved session from localStorage so refresh stays on the exact page
+let initialUser = null;
+try {
+  const savedUserJson = localStorage.getItem('ijro_user');
+  if (savedUserJson) {
+    const parsed = JSON.parse(savedUserJson);
+    if (parsed && parsed.id) {
+      initialUser = parsed;
+    }
+  }
+} catch (e) {
+  console.warn("Error restoring initial user:", e);
+}
+
 // Realtime In-Memory Stores
 window.store = {
   users: [],
   tasks: [],
   schedules: [],
   messages: [],
-  currentUser: null
+  currentUser: initialUser
 };
 
 // Event Subscriptions

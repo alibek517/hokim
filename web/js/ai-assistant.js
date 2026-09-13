@@ -112,15 +112,95 @@
       btn.style.color = isVoiceEnabled ? '#60A5FA' : '#94A3B8';
       btn.title = isVoiceEnabled ? "Ovoz yoqilgan (o'chirish uchun bosing)" : "Ovoz o'chirilgan (yoqish uchun bosing)";
     }
-    if (!isVoiceEnabled && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+    if (!isVoiceEnabled) {
+      if (activeAudioPlayer) {
+        try { activeAudioPlayer.pause(); activeAudioPlayer.src = ''; } catch (_) {}
+        activeAudioPlayer = null;
+      }
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
       isSpeaking = false;
     }
   };
 
-  // Text-to-Speech (Ovoz bilan gapirish - faqat o'zbek/turkiy tabiiy ohang, ruscha mutlaqo yo'q)
+  let activeAudioPlayer = null;
+
+  // Text-to-Speech (Faqat 100% Sof O'zbek tili - ruscha, inglizcha, turkcha butunlay taqiqlangan)
   function speakText(text, callback) {
-    if (!isVoiceEnabled || !('speechSynthesis' in window)) {
+    if (!isVoiceEnabled) {
+      if (callback) callback();
+      return;
+    }
+
+    if (activeAudioPlayer) {
+      try {
+        activeAudioPlayer.pause();
+        activeAudioPlayer.src = '';
+      } catch (_) {}
+      activeAudioPlayer = null;
+    }
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+
+    const cleanText = (text || '').trim();
+    if (!cleanText) {
+      isSpeaking = false;
+      updateAiStatus(isListening ? 'listening' : 'idle', isListening ? '🎤 Eshitmoqda...' : 'Kutilmoqda');
+      if (callback) callback();
+      return;
+    }
+
+    isSpeaking = true;
+    updateAiStatus('speaking', '🔊 Gapirmoqda...');
+
+    // 1. Birinchi o'rinda Microsoft Neural O'zbekcha Ovoz (https://hokim.vercel.app/api/tts)
+    const ttsUrl = 'https://hokim.vercel.app/api/tts?text=' + encodeURIComponent(cleanText);
+    const audio = new Audio(ttsUrl);
+    activeAudioPlayer = audio;
+
+    let fallbackTriggered = false;
+    const triggerLocalFallback = () => {
+      if (fallbackTriggered) return;
+      fallbackTriggered = true;
+      speakLocalUzbek(cleanText, callback);
+    };
+
+    audio.onended = () => {
+      isSpeaking = false;
+      activeAudioPlayer = null;
+      updateAiStatus(isListening ? 'listening' : 'idle', isListening ? '🎤 Eshitmoqda...' : 'Kutilmoqda');
+      if (callback) callback();
+    };
+
+    audio.onerror = (e) => {
+      console.warn("Neural TTS streaming offline, checking local voice...", e);
+      triggerLocalFallback();
+    };
+
+    // Agar 4 sekund ichida audio o'ynamasa, mahalliy fallback
+    const fallbackTimer = setTimeout(() => {
+      if (audio.paused && audio.currentTime === 0) {
+        triggerLocalFallback();
+      }
+    }, 4000);
+
+    audio.onplay = () => {
+      clearTimeout(fallbackTimer);
+    };
+
+    audio.play().catch((err) => {
+      console.warn("audio.play() failed:", err);
+      triggerLocalFallback();
+    });
+  }
+
+  // Mahalliy O'zbekcha Fallback (Faqat O'zbek tili, begona tillar QAT'IYAN TAQIQLANADI)
+  function speakLocalUzbek(text, callback) {
+    if (!('speechSynthesis' in window)) {
+      isSpeaking = false;
+      updateAiStatus(isListening ? 'listening' : 'idle', isListening ? '🎤 Eshitmoqda...' : 'Kutilmoqda');
       if (callback) callback();
       return;
     }
@@ -128,28 +208,22 @@
     try {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.95;
+      utterance.rate = 0.92;
       utterance.pitch = 1.0;
 
-      const voices = window.speechSynthesis.getVoices();
-      // 1. O'zbek tili ovozini qidirish
-      let selectedVoice = voices.find(v => v.lang && (v.lang.toLowerCase().startsWith('uz') || (v.name && v.name.toLowerCase().includes('uzbek'))));
-      
-      // 2. Turkiy ohangli ovoz (uzbek lotin fonetikasiga 95% mos tushadi)
-      if (!selectedVoice) {
-        selectedVoice = voices.find(v => v.lang && (v.lang.toLowerCase().startsWith('tr') || (v.name && v.name.toLowerCase().includes('turkish'))));
-      }
-      
-      // 3. Ozarbayjon yoki qozoq ovozlari
-      if (!selectedVoice) {
-        selectedVoice = voices.find(v => v.lang && (v.lang.toLowerCase().startsWith('az') || v.lang.toLowerCase().startsWith('kk')));
-      }
+      const voices = window.speechSynthesis.getVoices() || [];
+      // Qat'iy qoida: Faqat o'zbek tili ovozini topish (uz-UZ, Madina, Sardor, Uzbek)
+      const uzVoice = voices.find(v => 
+        (v.lang && (v.lang.toLowerCase().startsWith('uz') || v.lang.toLowerCase().includes('uzb'))) ||
+        (v.name && (v.name.toLowerCase().includes('uzbek') || v.name.toLowerCase().includes('madina') || v.name.toLowerCase().includes('sardor')))
+      );
 
-      // RUSCHA (ru) OVOZNI QAT'IYAN TAQIQLAYMIZ!
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-        utterance.lang = selectedVoice.lang;
+      // Agar o'zbekcha ovoz topilsa, o'rnatamiz. Begona tillar (ru, en, tr, kk, az) MUTLAQO o'rnatilmaydi!
+      if (uzVoice) {
+        utterance.voice = uzVoice;
+        utterance.lang = uzVoice.lang || 'uz-UZ';
       } else {
+        // Agar tizimda umuman o'zbekcha ovoz bo'lmasa, begona tillarda gapirmaydi
         utterance.lang = 'uz-UZ';
       }
 
@@ -166,13 +240,15 @@
 
       utterance.onerror = () => {
         isSpeaking = false;
-        updateAiStatus('idle', 'Kutilmoqda');
+        updateAiStatus(isListening ? 'listening' : 'idle', isListening ? '🎤 Eshitmoqda...' : 'Kutilmoqda');
         if (callback) callback();
       };
 
       window.speechSynthesis.speak(utterance);
     } catch (e) {
-      console.warn("speakText error:", e);
+      console.warn("speakLocalUzbek error:", e);
+      isSpeaking = false;
+      updateAiStatus(isListening ? 'listening' : 'idle', isListening ? '🎤 Eshitmoqda...' : 'Kutilmoqda');
       if (callback) callback();
     }
   }
@@ -723,10 +799,15 @@
       isListening = false;
       recognition.stop();
     }
+    if (activeAudioPlayer) {
+      try { activeAudioPlayer.pause(); activeAudioPlayer.src = ''; } catch (_) {}
+      activeAudioPlayer = null;
+    }
     if (isSpeaking && window.speechSynthesis) {
       window.speechSynthesis.cancel();
       isSpeaking = false;
     }
+    isSpeaking = false;
     updateAiStatus('idle', 'Kutilmoqda');
   };
 

@@ -64,10 +64,27 @@ function renderCurrentRoute(cleanPath, search) {
   if (!cleanPath) cleanPath = getCleanPath();
   if (search === undefined) search = window.location.search;
 
-  const user = window.store.currentUser;
+  let user = window.store.currentUser;
+
+  // Agar xotirada hali o'rnatilmagan bo'lsa, localStorage dan tiklash
+  if (!user) {
+    try {
+      const savedUserJson = localStorage.getItem('ijro_user');
+      if (savedUserJson) {
+        user = JSON.parse(savedUserJson);
+        if (user && user.id) {
+          window.store.currentUser = user;
+          document.documentElement.classList.add('user-authenticated');
+        } else {
+          user = null;
+        }
+      }
+    } catch (_) {}
+  }
 
   // 1. Agar foydalanuvchi tizimga kirmagan bo'lsa:
   if (!user) {
+    document.documentElement.classList.remove('user-authenticated');
     if (cleanPath !== '/login') {
       navigateTo('/login', true);
       return;
@@ -75,6 +92,9 @@ function renderCurrentRoute(cleanPath, search) {
     showScreen('login-screen');
     return;
   }
+
+  // Foydalanuvchi tizimda mavjud bo'lsa, login ekrani yashiriladi
+  document.documentElement.classList.add('user-authenticated');
 
   // 2. Tizimga kirgan bo'lsa, lekin /login yoki / yo'lida tursa:
   if (cleanPath === '/login' || cleanPath === '/') {
@@ -180,35 +200,40 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('click', gesturePermissionHandler);
   window.addEventListener('touchstart', gesturePermissionHandler);
 
-  // Check saved session
-  const savedUserId = localStorage.getItem('ijro_user_id');
+  // 1. Darhol joriy sahifani ochish (obnovit qilinganda aynan shu page da qotib turishi uchun)
+  const currentPath = getCleanPath();
+  renderCurrentRoute(currentPath, window.location.search);
+
+  // 2. Orqa fonda (background) sessiyani Firebase bilan yangilab turish
+  const savedUserId = localStorage.getItem('ijro_user_id') || (window.store.currentUser && window.store.currentUser.id);
   if (savedUserId) {
-    // REST orqali tezkor tekshirib darhol kirish
     fetch(FIREBASE_DB_URL + '/users.json')
       .then(res => res.json())
       .then(data => {
-        if (data && !window.store.currentUser) {
+        if (data) {
           window.store.users = Object.values(data);
           const found = window.store.users.find(u => u.id === savedUserId);
           if (found) {
             window.store.currentUser = found;
-            routeUserToScreen(found);
+            localStorage.setItem('ijro_user', JSON.stringify(found));
+            localStorage.setItem('ijro_user_id', found.id);
+            document.documentElement.classList.add('user-authenticated');
+            updateUserLastActive(found.id);
           }
         }
       })
       .catch(() => {});
 
     window.onStoreChange('users', (users) => {
-      if (!window.store.currentUser) {
+      if (users && users.length > 0) {
         const found = users.find(u => u.id === savedUserId);
         if (found) {
           window.store.currentUser = found;
-          routeUserToScreen(found);
+          localStorage.setItem('ijro_user', JSON.stringify(found));
+          document.documentElement.classList.add('user-authenticated');
         }
       }
     });
-  } else {
-    renderCurrentRoute(getCleanPath());
   }
 });
 
@@ -271,6 +296,8 @@ async function handleLogin(e) {
 
     window.store.currentUser = user;
     localStorage.setItem('ijro_user_id', user.id);
+    localStorage.setItem('ijro_user', JSON.stringify(user));
+    document.documentElement.classList.add('user-authenticated');
     routeUserToScreen(user);
   } finally {
     if (submitBtn) {
@@ -284,7 +311,10 @@ function handleLogout() {
   if (confirm("Haqiqatan ham tizimdan chiqmoqchimisiz?")) {
     window.store.currentUser = null;
     localStorage.removeItem('ijro_user_id');
+    localStorage.removeItem('ijro_user');
+    document.documentElement.classList.remove('user-authenticated');
     navigateTo('/login');
+    showScreen('login-screen');
     showToast("Tizimdan chiqildi");
   }
 }
