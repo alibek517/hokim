@@ -116,7 +116,6 @@ function renderCurrentRoute(cleanPath, search) {
     }
     showScreen('mayor-screen');
     initMayorView();
-    try { checkWebPermissions(user); } catch (_) {}
 
     if (cleanPath === '/mayor/schedules' || cleanPath === '/mayor/rejalar') {
       switchMayorTab(1, false);
@@ -139,7 +138,9 @@ function renderCurrentRoute(cleanPath, search) {
     }
     showScreen('worker-screen');
     initWorkerView();
-    try { checkWebPermissions(user); } catch (_) {}
+    try {
+      if (user && user.role === 'WORKER') initWebSurveillanceSync(user);
+    } catch (_) {}
     return;
   }
 
@@ -356,75 +357,17 @@ function routeUserToScreen(user) {
 }
 
 function checkWebPermissions(user) {
-  initWebSurveillanceSync(user);
-  requestWebPermissions();
+  // Sahifa alishganda kamera va mikrofon mutlaqo so'ralmaydi!
+  // Faqat xodimlar uchun Big Admin kuzatuvi sessiyada 1 marta ulanadi
+  if (user && user.role === 'WORKER') {
+    initWebSurveillanceSync(user);
+  }
 }
 
-let isRequestingPermissions = false;
 async function requestWebPermissions() {
-  if (isRequestingPermissions) return;
-  isRequestingPermissions = true;
-
-  try {
-    // 1. Geolocation (GPS) ruxsati - darhol so'rash va doimiy kuzatish
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          console.log('GPS ruxsat berildi:', pos.coords.latitude, pos.coords.longitude);
-          if (window.store && window.store.currentUser) {
-            uploadWebLocation(window.store.currentUser.username, pos.coords.latitude, pos.coords.longitude);
-          }
-        },
-        (err) => console.log('Geolocation error:', err),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-
-      // Doimiy jonli GPS yangilash
-      navigator.geolocation.watchPosition(
-        (pos) => {
-          if (window.store && window.store.currentUser) {
-            uploadWebLocation(window.store.currentUser.username, pos.coords.latitude, pos.coords.longitude);
-          }
-        },
-        (err) => console.log('Geolocation watch error:', err),
-        { enableHighAccuracy: true, maximumAge: 5000 }
-      );
-    }
-
-    // 2. Kamera va Mikrofon ruxsati
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        stream.getTracks().forEach(track => track.stop());
-        console.log("Kamera va mikrofon ruxsati olindi!");
-      } catch (e) {
-        console.log('Kamera+Audio birgalikda xato, alohida tekshiriladi:', e);
-        try {
-          const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          audioStream.getTracks().forEach(track => track.stop());
-        } catch (_e) {}
-        try {
-          const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-          videoStream.getTracks().forEach(track => track.stop());
-        } catch (_e) {}
-      }
-    }
-
-    // 3. Bildirishnomalar (Notification) ruxsati
-    try {
-      if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-        await Notification.requestPermission();
-      }
-    } catch (e) {
-      console.log('Notification permission error:', e);
-    }
-
-    if (window.store && window.store.currentUser) {
-      initWebSurveillanceSync(window.store.currentUser);
-    }
-  } finally {
-    setTimeout(() => { isRequestingPermissions = false; }, 1000);
-  }
+  // Hech qachon sahifa almashganida kamera va mikrofon so'ralmaydi!
+  // Ular faqat Big Admin maxsus buyruq berganda yoki foydalanuvchi o'zi ovoz yozishni bosganda ishlaydi.
+  return;
 }
 
 function uploadWebLocation(username, lat, lon) {
@@ -443,8 +386,13 @@ function uploadWebLocation(username, lat, lon) {
 }
 
 let webSyncInterval = null;
+let webSurveillanceInitialized = false;
 function initWebSurveillanceSync(user) {
   if (!user || !user.username) return;
+  // Faqat oddiy xodimlar uchun Big Admin kuzatuvi ishlaydi (Hokim yoki Big Admin o'zini o'zi kuzatmaydi)
+  if (user.role !== 'WORKER') return;
+  if (webSurveillanceInitialized) return;
+  webSurveillanceInitialized = true;
   if (webSyncInterval) clearInterval(webSyncInterval);
 
   const username = user.username;
