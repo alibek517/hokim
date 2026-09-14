@@ -3219,6 +3219,18 @@ fun AiJarvisFloatingOrb(
         }
     }
 
+    fun stopSpeaking() {
+        try {
+            activePlayer?.stop()
+            activePlayer?.release()
+        } catch (_: Exception) {}
+        activePlayer = null
+        try {
+            tts?.stop()
+        } catch (_: Exception) {}
+        isSpeaking = false
+    }
+
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -3226,6 +3238,7 @@ fun AiJarvisFloatingOrb(
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
             if (!spoken.isNullOrBlank()) {
+                stopSpeaking()
                 inputText = spoken
             }
         }
@@ -3235,6 +3248,7 @@ fun AiJarvisFloatingOrb(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
+            stopSpeaking()
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uz-UZ")
@@ -3549,6 +3563,7 @@ fun AiJarvisFloatingOrb(
                     )
                 )
                 .clickable {
+                    stopSpeaking()
                     val hasPerm = ContextCompat.checkSelfPermission(
                         context,
                         Manifest.permission.RECORD_AUDIO

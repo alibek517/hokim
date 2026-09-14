@@ -9,8 +9,53 @@
   let isSpeaking = false;
   let isTemporarilyPausedForTts = false;
   let ignoreSpeechUntil = 0;
+  let currentSpeakingText = '';
   let recognition = null;
   let aiState = 'IDLE'; // 'IDLE' | 'DRAFTING_TASK' | 'CONFIRMING_TASK' | 'DRAFTING_SCHEDULE' | 'CONFIRMING_SCHEDULE' | 'DRAFTING_WORKER' | 'CONFIRMING_WORKER'
+
+  // Helper: AI nutqini darhol to'xtatish (Barge-in / Interruption)
+  function stopSpeaking() {
+    if (activeAudioPlayer) {
+      try {
+        activeAudioPlayer.pause();
+        activeAudioPlayer.currentTime = 0;
+        activeAudioPlayer.src = '';
+      } catch (_) {}
+      activeAudioPlayer = null;
+    }
+    if (window.speechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (_) {}
+    }
+    isSpeaking = false;
+    isTemporarilyPausedForTts = false;
+    ignoreSpeechUntil = 0;
+    currentSpeakingText = '';
+    updateAiStatus('listening', 'Eshitmoqda...');
+  }
+  window.stopAiSpeaking = stopSpeaking;
+
+  // Helper: Dinamikdan chiqqan o'zining aks-sadosimi yoki haqiqiy foydalanuvchi nutqimi?
+  function isEchoOfCurrentSpeech(recognizedText, spokenText) {
+    if (!spokenText || !recognizedText) return false;
+
+    const cleanRec = recognizedText.toLowerCase().replace(/[^a-zа-яўқғҳ0-9]/gi, ' ').replace(/\s+/g, ' ').trim();
+    const cleanSpoken = spokenText.toLowerCase().replace(/[^a-zа-яўқғҳ0-9]/gi, ' ').replace(/\s+/g, ' ').trim();
+    if (!cleanRec || !cleanSpoken) return false;
+
+    // To'xtatish yoki buyruq so'zlari bo'lsa, bu QAT'IYAN aks-sado emas, foydalanuvchi buyrug'i
+    if (/to['`]?xta|jim|shosh|yo['`]?q|bo['`]?ldi|kut|yetar|boshqa|toxta|toxtat/i.test(cleanRec)) {
+      return false;
+    }
+
+    // Agar tanilgan so'z to'liq AI hozir aytayotgan gapning qismi bo'lsa (dinamikdan mikrofonga o'tgan echo)
+    if (cleanSpoken.includes(cleanRec)) {
+      return true;
+    }
+
+    return false;
+  }
   let draftTask = {
     title: '',
     workerId: '',
@@ -51,11 +96,6 @@
       };
 
       recognition.onresult = (event) => {
-        // AI gapirayotganda yoki aks-sado davrida mikrofon quloq solmaydi!
-        if (isSpeaking || isTemporarilyPausedForTts || Date.now() < ignoreSpeechUntil) {
-          return;
-        }
-
         let interim = '';
         let finalTranscript = '';
 
@@ -68,6 +108,7 @@
         }
 
         const text = (finalTranscript || interim).trim();
+        if (!text) return;
 
         // 1. "30224", "30.00.24", "00.24", "00:24" kabi shovqin va fantom raqamlarni butunlay bloklash
         if (text.includes('30224') || text.includes('30.00.24') || text.includes('00.24') || text.includes('00:24') || /^[\d\s.:\-_/]+$/.test(text)) {
@@ -83,6 +124,16 @@
         const lettersOnly = text.replace(/[^a-zA-Zа-яА-ЯўқғҳЎҚҒҲ]/g, '').toLowerCase();
         if (lettersOnly.length < 2 && lettersOnly !== 'ha' && lettersOnly !== 'xa' && lettersOnly !== 'yo' && lettersOnly !== 'no') {
           return;
+        }
+
+        // 3. BARGE-IN (Foydalanuvchi gapira boshlashi bilan AI nutqini darhol to'xtatish va to'liq tinglash):
+        if (isSpeaking) {
+          if (!isEchoOfCurrentSpeech(text, currentSpeakingText)) {
+            console.log("[AI Barge-in] Foydalanuvchi gapirdi -> AI nutqi darhol to'xtatildi va tinglanmoqda:", text);
+            stopSpeaking();
+          } else {
+            return; // Faqat AI ning o'z ovozining dinamikdan qaytgan aks-sadosi
+          }
         }
 
         if (text) {
@@ -107,9 +158,9 @@
       recognition.onend = () => {
         isListening = false;
         // Infinity continuous listening: agar to'xtash buyrug'i berilmagan bo'lsa, zudlik bilan qayta yoqiladi
-        if (shouldKeepListening && !isSpeaking) {
+        if (shouldKeepListening) {
           setTimeout(() => {
-            if (shouldKeepListening && !isSpeaking) {
+            if (shouldKeepListening) {
               safeStartRecognition();
             }
           }, 80);
@@ -124,7 +175,7 @@
 
   // Safe Start Recognition (Handles Chrome/Android state recovery)
   function safeStartRecognition() {
-    if (!shouldKeepListening || isSpeaking) return;
+    if (!shouldKeepListening) return;
     if (!SpeechRecognition) return;
 
     if (!recognition) {
@@ -137,11 +188,15 @@
     try {
       recognition.start();
       isListening = true;
-      updateAiStatus('listening', 'Eshitmoqda...');
+      if (!isSpeaking) {
+        updateAiStatus('listening', 'Eshitmoqda...');
+      }
     } catch (err) {
       if (err && (err.name === 'InvalidStateError' || (err.message && err.message.includes('already started')))) {
         isListening = true;
-        updateAiStatus('listening', 'Eshitmoqda...');
+        if (!isSpeaking) {
+          updateAiStatus('listening', 'Eshitmoqda...');
+        }
         return;
       }
       console.warn("safeStartRecognition failed, recreating SpeechRecognition instance:", err);
@@ -153,11 +208,16 @@
           recognition.onend = null;
           try { recognition.abort(); } catch (_) {}
         }
-        initSpeechRecognition();
+      } catch (_) {}
+      recognition = null;
+      initSpeechRecognition();
+      try {
         if (recognition) {
           recognition.start();
           isListening = true;
-          updateAiStatus('listening', 'Eshitmoqda...');
+          if (!isSpeaking) {
+            updateAiStatus('listening', 'Eshitmoqda...');
+          }
         }
       } catch (e2) {
         console.warn("Re-initialized SpeechRecognition start error:", e2);
@@ -170,7 +230,7 @@
   function startWatchdog() {
     if (watchdogTimer) clearInterval(watchdogTimer);
     watchdogTimer = setInterval(() => {
-      if (shouldKeepListening && !isSpeaking && !isListening) {
+      if (shouldKeepListening && !isListening) {
         safeStartRecognition();
       }
     }, 800);
@@ -252,14 +312,15 @@
   function finishSpeechCleanup(callback) {
     isSpeaking = false;
     isTemporarilyPausedForTts = false;
-    ignoreSpeechUntil = Date.now() + 500; // 500ms aks-sado to'xtashini kutish
+    ignoreSpeechUntil = 0;
+    currentSpeakingText = '';
     if (shouldKeepListening) {
       updateAiStatus('listening', 'Eshitmoqda...');
       setTimeout(() => {
-        if (shouldKeepListening && !isSpeaking) {
+        if (shouldKeepListening && !isListening) {
           safeStartRecognition();
         }
-      }, 150);
+      }, 100);
     } else {
       updateAiStatus('idle', 'Kutilmoqda');
     }
@@ -276,6 +337,7 @@
     if (activeAudioPlayer) {
       try {
         activeAudioPlayer.pause();
+        activeAudioPlayer.currentTime = 0;
         activeAudioPlayer.src = '';
       } catch (_) {}
       activeAudioPlayer = null;
@@ -290,10 +352,14 @@
       return;
     }
 
-    isTemporarilyPausedForTts = true;
     isSpeaking = true;
-    ignoreSpeechUntil = Date.now() + 15000;
+    currentSpeakingText = cleanText;
     updateAiStatus('speaking', 'Gapirmoqda...');
+
+    // Muhim: Foydalanuvchi gapirsa eshitish uchun recognition faol qoladi (Barge-in)
+    if (shouldKeepListening && !isListening) {
+      safeStartRecognition();
+    }
 
     // 1. Birinchi o'rinda Microsoft Neural O'zbekcha Ovoz (https://hokim.vercel.app/api/tts)
     const baseUrl = (window.location.protocol.startsWith('http') && window.location.hostname.includes('vercel.app'))
@@ -318,8 +384,11 @@
     audio.onplay = () => {
       fallbackTriggered = true;
       isSpeaking = true;
-      ignoreSpeechUntil = Date.now() + 15000;
+      currentSpeakingText = cleanText;
       updateAiStatus('speaking', 'Gapirmoqda...');
+      if (shouldKeepListening && !isListening) {
+        safeStartRecognition();
+      }
     };
 
     audio.onended = () => {
@@ -379,8 +448,11 @@
 
       utterance.onstart = () => {
         isSpeaking = true;
-        ignoreSpeechUntil = Date.now() + 15000;
+        currentSpeakingText = text;
         updateAiStatus('speaking', 'Gapirmoqda...');
+        if (shouldKeepListening && !isListening) {
+          safeStartRecognition();
+        }
       };
 
       utterance.onend = () => {
