@@ -1203,6 +1203,85 @@ class AppStorage(private val context: Context) {
         sendRestFallback("tasks/" + taskId + "/voiceDurationSec", voiceDurSec)
     }
 
+    fun deleteTaskSingleVoice(taskId: String, voiceIndex: Int) {
+        val curTask = _tasks.value.find { it.id == taskId } ?: return
+        val existingVoices = if (curTask.voiceList.isNotEmpty()) {
+            curTask.voiceList.toMutableList()
+        } else if (!curTask.voiceBase64.isNullOrBlank()) {
+            mutableListOf(curTask.voiceBase64!!)
+        } else {
+            mutableListOf()
+        }
+
+        if (voiceIndex < 0 || voiceIndex >= existingVoices.size) return
+        val removedVoice = existingVoices.removeAt(voiceIndex)
+
+        val newVoiceBase64 = existingVoices.lastOrNull()
+        val updated = _tasks.value.map { task ->
+            if (task.id == taskId) {
+                task.copy(
+                    voiceList = existingVoices,
+                    voiceBase64 = newVoiceBase64,
+                    voiceDurationSec = if (existingVoices.isEmpty()) 0 else task.voiceDurationSec
+                )
+            } else task
+        }
+        _tasks.value = updated
+        saveTasksLocally(updated)
+
+        val updates = HashMap<String, Any>()
+        updates["voiceList"] = existingVoices
+        updates["voiceBase64"] = newVoiceBase64 ?: ""
+        if (existingVoices.isEmpty()) {
+            updates["voiceDurationSec"] = 0
+        }
+        tasksRef?.child(taskId)?.updateChildren(updates)
+        sendRestFallback("tasks/" + taskId + "/voiceList", existingVoices)
+        sendRestFallback("tasks/" + taskId + "/voiceBase64", newVoiceBase64 ?: "")
+        if (existingVoices.isEmpty()) {
+            sendRestFallback("tasks/" + taskId + "/voiceDurationSec", 0)
+        }
+
+        // Also delete matching voice message from chat
+        deleteVoiceMessagesMatching(removedVoice, curTask.assignedWorkerId, curTask.mayorId)
+    }
+
+    fun deleteScheduleSingleVoice(scheduleId: String, voiceIndex: Int) {
+        val curSchedule = _schedules.value.find { it.id == scheduleId } ?: return
+        val existingVoices = if (curSchedule.voiceList.isNotEmpty()) {
+            curSchedule.voiceList.toMutableList()
+        } else if (!curSchedule.voiceBase64.isNullOrBlank()) {
+            mutableListOf(curSchedule.voiceBase64!!)
+        } else {
+            mutableListOf()
+        }
+
+        if (voiceIndex < 0 || voiceIndex >= existingVoices.size) return
+        existingVoices.removeAt(voiceIndex)
+
+        val newVoiceBase64 = existingVoices.firstOrNull()
+        val updatedSchedule = curSchedule.copy(
+            voiceList = existingVoices,
+            voiceBase64 = newVoiceBase64
+        )
+        updateSchedule(updatedSchedule)
+    }
+
+    fun deleteVoiceMessagesMatching(voiceData: String, workerId: String = "", mayorId: String = "") {
+        if (voiceData.isBlank()) return
+        val snippet = if (voiceData.length > 60) voiceData.substring(0, 60) else voiceData
+        val toDelete = _messages.value.filter { msg ->
+            msg.messageType == MessageType.VOICE && (
+                msg.mediaBase64 == voiceData ||
+                (msg.mediaBase64 != null && msg.mediaBase64.startsWith(snippet)) ||
+                (msg.mediaPath != null && msg.mediaPath == voiceData)
+            )
+        }
+        toDelete.forEach { msg ->
+            deleteMessage(msg.id)
+        }
+    }
+
     fun restoreTaskVoiceBase64(taskId: String, base64Str: String): String? {
         return restoreVoiceAudioBase64("voice_task_${taskId}.m4a", base64Str)
     }

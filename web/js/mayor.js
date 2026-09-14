@@ -239,6 +239,9 @@ function renderMayorTasks() {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Ovozli topshiriq:
           </span>
           <audio controls src="data:audio/mp4;base64,${taskVoices[0]}" class="compact-audio-player"></audio>
+          <button class="btn-voice-delete" onclick="deleteTaskSingleVoice('${task.id}', 0)" title="Ushbu ovozni o'chirish (topshiriq va chatdan)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </button>
         </div>
       `;
     } else if (taskVoices.length > 1) {
@@ -250,6 +253,9 @@ function renderMayorTasks() {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Ovoz #${idx + 1}:
               </span>
               <audio controls src="data:audio/mp4;base64,${vB64}" class="compact-audio-player"></audio>
+              <button class="btn-voice-delete" onclick="deleteTaskSingleVoice('${task.id}', ${idx})" title="Ovoz #${idx + 1} ni o'chirish (topshiriq va chatdan)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+              </button>
             </div>
           `).join('')}
         </div>
@@ -410,6 +416,9 @@ function renderMayorSchedules() {
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 11px; font-weight: 600; color: #64748B; min-width: 50px;">Ovoz #${idx + 1}:</span>
               <audio controls src="data:audio/mp4;base64,${vBase64}" style="flex: 1; height: 32px;"></audio>
+              <button class="btn-voice-delete" onclick="deleteScheduleSingleVoice('${s.id}', ${idx})" title="Ovoz #${idx + 1} ni o'chirish">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+              </button>
             </div>
           `).join('')}
         </div>
@@ -1438,6 +1447,132 @@ async function deleteMayorTask(taskId) {
   showToast("Topshiriq bekor qilindi va o'chirildi!");
   if (mayorCurrentTab === 0) renderMayorTasks();
 }
+
+async function deleteTaskSingleVoice(taskId, voiceIndex) {
+  const task = (window.store.tasks || []).find(t => t.id === taskId);
+  if (!task) return;
+
+  if (!confirm("Ushbu ovozli topshiriqni topshiriq kartochkasidan hamda xodim bilan chatdan o'chirishni tasdiqlaysizmi?")) {
+    return;
+  }
+
+  let voiceList = [];
+  if (Array.isArray(task.voiceList) && task.voiceList.length > 0) {
+    voiceList = [...task.voiceList];
+  } else if (task.voiceBase64) {
+    voiceList = [task.voiceBase64];
+  }
+
+  if (voiceIndex < 0 || voiceIndex >= voiceList.length) return;
+
+  const targetVoiceBase64 = voiceList[voiceIndex];
+
+  // 1. Ovozlar ro'yxatidan olib tashlash
+  voiceList.splice(voiceIndex, 1);
+  task.voiceList = voiceList;
+  task.voiceBase64 = voiceList.length > 0 ? voiceList[0] : null;
+
+  // 2. Firebase topshiriqni yangilash
+  const updates = {
+    voiceList: voiceList.length > 0 ? voiceList : null,
+    voiceBase64: task.voiceBase64
+  };
+
+  try {
+    if (window.firebase && window.firebase.database) {
+      await window.firebase.database().ref('tasks/' + taskId).update(updates);
+    } else if (window.dbApi && window.dbApi.updateTask) {
+      await window.dbApi.updateTask(taskId, updates);
+    }
+  } catch (err) {
+    console.error("Task voice delete error:", err);
+  }
+
+  // 3. Ushbu ovozli xabar chatga ham yuborilgan bo'lsa, chatdan ham o'chirish!
+  try {
+    if (targetVoiceBase64) {
+      const matchSnippet = targetVoiceBase64.substring(0, 60);
+
+      // Local store messages
+      const msgsToDelete = (window.store.messages || []).filter(m => {
+        if (m.messageType !== 'VOICE') return false;
+        if (m.mediaBase64 === targetVoiceBase64) return true;
+        if (m.mediaBase64 && m.mediaBase64.substring(0, 60) === matchSnippet) return true;
+        return false;
+      });
+
+      for (const msg of msgsToDelete) {
+        if (window.dbApi && window.dbApi.deleteMessage) {
+          await window.dbApi.deleteMessage(msg.id);
+        }
+        window.store.messages = (window.store.messages || []).filter(x => x.id !== msg.id);
+      }
+
+      // Firebase RTDB direct scan
+      if (window.firebase && window.firebase.database) {
+        const snap = await window.firebase.database().ref('messages').once('value');
+        const allMsgs = snap.val() || {};
+        for (const [mId, mData] of Object.entries(allMsgs)) {
+          if (mData && mData.messageType === 'VOICE') {
+            if (mData.mediaBase64 === targetVoiceBase64 ||
+                (mData.mediaBase64 && mData.mediaBase64.substring(0, 60) === matchSnippet)) {
+              await window.firebase.database().ref('messages/' + mId).remove();
+              window.store.messages = (window.store.messages || []).filter(x => x.id !== mId);
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Chat voice message delete error:", err);
+  }
+
+  showToast("Ovozli topshiriq va chatdagi xabar o'chirildi!");
+  renderMayorTasks();
+  if (typeof renderMayorChats === 'function') renderMayorChats();
+  if (typeof renderChatMessages === 'function') renderChatMessages();
+}
+
+async function deleteScheduleSingleVoice(scheduleId, voiceIndex) {
+  const schedule = (window.store.schedules || []).find(s => s.id === scheduleId);
+  if (!schedule) return;
+
+  if (!confirm("Ushbu ovozli yozuvni rejadan o'chirishni tasdiqlaysizmi?")) return;
+
+  let voices = [];
+  if (Array.isArray(schedule.voiceList) && schedule.voiceList.length > 0) {
+    voices = [...schedule.voiceList];
+  } else if (schedule.voiceBase64) {
+    voices = [schedule.voiceBase64];
+  }
+
+  if (voiceIndex < 0 || voiceIndex >= voices.length) return;
+
+  voices.splice(voiceIndex, 1);
+  schedule.voiceList = voices;
+  schedule.voiceBase64 = voices.length > 0 ? voices[0] : null;
+
+  const updates = {
+    voiceList: voices.length > 0 ? voices : null,
+    voiceBase64: schedule.voiceBase64
+  };
+
+  try {
+    if (window.firebase && window.firebase.database) {
+      await window.firebase.database().ref('schedules/' + scheduleId).update(updates);
+    } else if (window.dbApi && window.dbApi.updateSchedule) {
+      await window.dbApi.updateSchedule(scheduleId, updates);
+    }
+  } catch (err) {
+    console.error("Schedule voice delete error:", err);
+  }
+
+  showToast("Ovozli yozuv rejadan o'chirildi!");
+  renderMayorSchedules();
+}
+
+window.deleteTaskSingleVoice = deleteTaskSingleVoice;
+window.deleteScheduleSingleVoice = deleteScheduleSingleVoice;
 
 // --- Schedule Edit Handlers ---
 let currentEditingScheduleId = null;

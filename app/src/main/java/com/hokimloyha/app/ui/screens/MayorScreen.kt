@@ -629,6 +629,25 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
                                                         color = NavyDark
                                                     )
                                                 }
+
+                                                IconButton(
+                                                    onClick = {
+                                                        if (isPlaying) {
+                                                            voicePlayer.stop()
+                                                            playingVoiceKey = null
+                                                        }
+                                                        storage.deleteScheduleSingleVoice(schedule.id, index)
+                                                        Toast.makeText(context, "Ovozli xabar o'chirildi", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    modifier = Modifier.size(28.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Delete,
+                                                        contentDescription = "O'chirish",
+                                                        tint = StatusRed.copy(alpha = 0.8f),
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -1484,42 +1503,66 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                             val isPlayingThisVoice = currentlyPlayingVoiceTaskId == voiceKey
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(PrimaryBlue.copy(alpha = 0.08f))
-                                                    .clickable {
-                                                        if (isPlayingThisVoice) {
-                                                            voicePlayer.stop()
-                                                            currentlyPlayingVoiceTaskId = null
-                                                        } else {
-                                                            currentlyPlayingVoiceTaskId = voiceKey
-                                                            if (vData.length < 256 && File(vData).exists()) {
-                                                                voicePlayer.play(vData) {
-                                                                    currentlyPlayingVoiceTaskId = null
-                                                                }
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(PrimaryBlue.copy(alpha = 0.08f))
+                                                        .clickable {
+                                                            if (isPlayingThisVoice) {
+                                                                voicePlayer.stop()
+                                                                currentlyPlayingVoiceTaskId = null
                                                             } else {
-                                                                voicePlayer.playBase64(context, vData, voiceKey) {
-                                                                    currentlyPlayingVoiceTaskId = null
+                                                                currentlyPlayingVoiceTaskId = voiceKey
+                                                                if (vData.length < 256 && File(vData).exists()) {
+                                                                    voicePlayer.play(vData) {
+                                                                        currentlyPlayingVoiceTaskId = null
+                                                                    }
+                                                                } else {
+                                                                    voicePlayer.playBase64(context, vData, voiceKey) {
+                                                                        currentlyPlayingVoiceTaskId = null
+                                                                    }
                                                                 }
                                                             }
                                                         }
-                                                    }
-                                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = if (isPlayingThisVoice) Icons.Default.Close else Icons.Default.PlayArrow,
-                                                    contentDescription = null,
-                                                    tint = PrimaryBlue,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                val label = if (taskVoices.size > 1) "Ovoz #${vIdx + 1}" else "Ovozli topshiriq"
-                                                Text(
-                                                    if (isPlayingThisVoice) "Tinglanmoqda..." else label,
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = PrimaryBlue
-                                                )
+                                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = if (isPlayingThisVoice) Icons.Default.Close else Icons.Default.PlayArrow,
+                                                        contentDescription = null,
+                                                        tint = PrimaryBlue,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    val label = if (taskVoices.size > 1) "Ovoz #${vIdx + 1}" else "Ovozli topshiriq"
+                                                    Text(
+                                                        if (isPlayingThisVoice) "Tinglanmoqda..." else label,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = PrimaryBlue
+                                                    )
+                                                }
+
+                                                IconButton(
+                                                    onClick = {
+                                                        if (isPlayingThisVoice) {
+                                                            voicePlayer.stop()
+                                                            currentlyPlayingVoiceTaskId = null
+                                                        }
+                                                        storage.deleteTaskSingleVoice(task.id, vIdx)
+                                                        Toast.makeText(context, "Ovoz o'chirildi (topshiriq va chatdan)", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    modifier = Modifier.size(28.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Delete,
+                                                        contentDescription = "Ovozni o'chirish",
+                                                        tint = StatusRed.copy(alpha = 0.8f),
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
                                             }
                                         }
                                     }
