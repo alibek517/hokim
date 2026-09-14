@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ijro-pwa-v20260914_03';
+const CACHE_NAME = 'ijro-pwa-v20260914_05';
 
 const PRECACHE_ASSETS = [
   './',
@@ -28,16 +28,21 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => Promise.all(
-      keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+      keys.map(k => {
+        if (k !== CACHE_NAME) {
+          return caches.delete(k);
+        }
+      })
     )).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', event => {
-  // Faqat GET so'rovlarni va tashqi API bo'lmagan so'rovlarni qayta ishlaymiz
   if (event.request.method !== 'GET') return;
 
   const url = event.request.url;
+
+  // Firebase, Google APIs va tashqi API larni to'g'ridan-to'g'ri tarmoqqa o'tkazish
   if (
     url.includes('firebaseio.com') ||
     url.includes('firestore.googleapis.com') ||
@@ -48,8 +53,13 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // SPA Navigatsiya so'rovlari (masalan: /web/mayor/tasks, /web/worker, /web/login va h.k.)
-  if (event.request.mode === 'navigate') {
+  const cleanUrl = url.split('?')[0];
+  const isHtml = event.request.mode === 'navigate' ||
+                 (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html')) ||
+                 !cleanUrl.match(/\.(js|css|png|jpg|jpeg|svg|webp|gif|json|woff2?|ttf|ico)$/i);
+
+  // 1. HTML va SPA navigatsiya so'rovlari (masalan: /login, /mayor/tasks, /worker va h.k.)
+  if (isHtml) {
     event.respondWith(
       (async () => {
         try {
@@ -57,7 +67,7 @@ self.addEventListener('fetch', event => {
           if (networkResp && networkResp.status < 400) {
             return networkResp;
           }
-          // Agar server 404 bersa yoki topilmasa, SPA uchun index.html qaytaramiz
+          // Server 404 yoki xato bersa, SPA index.html ni qaytaramiz
           const cachedIndex = await caches.match('./index.html') ||
                               await caches.match('/web/index.html') ||
                               await caches.match('/');
@@ -85,7 +95,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Statik resurslar (CSS, JS, rasm, shriftlar)
+  // 2. Statik resurslar (CSS, JS, rasm, shriftlar)
   event.respondWith(
     (async () => {
       try {
@@ -101,12 +111,8 @@ self.addEventListener('fetch', event => {
         const cached = await caches.match(event.request);
         if (cached) return cached;
 
-        // HECH QACHON undefined qaytmasligi kerak (TypeError: Failed to convert value to 'Response' oldini olish)
-        return new Response('', {
-          status: 408,
-          statusText: 'Request Timed Out or Offline',
-          headers: { 'Content-Type': 'text/plain' }
-        });
+        // Keshda bo'lmasa, soxta 408 bermaymiz, Response.error() qaytaramiz
+        return Response.error();
       }
     })()
   );

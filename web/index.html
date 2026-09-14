@@ -713,8 +713,15 @@
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
     if ('serviceWorker' in navigator) {
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=20260914_03')
+        navigator.serviceWorker.register('./sw.js?v=20260914_05')
           .then(reg => {
             reg.update();
           })
