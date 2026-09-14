@@ -142,6 +142,7 @@ async function sendChatMessage() {
   }
 
   input.value = '';
+  input.style.height = '';
 }
 
 function onMessageClicked(msgId) {
@@ -184,7 +185,10 @@ function cancelEditing() {
   const editBar = document.getElementById('edit-preview-bar');
   const input = document.getElementById('chat-text-input');
   if (editBar) editBar.classList.remove('active');
-  if (input) input.value = '';
+  if (input) {
+    input.value = '';
+    input.style.height = '';
+  }
 }
 
 function deleteSelectedMessage() {
