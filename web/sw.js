@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ijro-pwa-v20260914_05';
+const CACHE_NAME = 'ijro-pwa-v20260914_06';
 
 const PRECACHE_ASSETS = [
   './',
@@ -63,7 +63,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       (async () => {
         try {
-          const networkResp = await fetch(event.request);
+          const networkResp = await fetch(event.request, { cache: 'no-cache' });
           if (networkResp && networkResp.status < 400) {
             return networkResp;
           }

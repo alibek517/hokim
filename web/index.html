@@ -30,7 +30,21 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0F172A">
 
-  <link rel="stylesheet" href="css/style.css?v=20260914_03">
+  <script>
+    // Injected third-party / web-vitals / DevTools / reportAllChanges xatolarini zararsizlantirish
+    window.addEventListener('error', function(e) {
+      if (e && (
+        (e.message && e.message.includes("reading 'startTime'")) ||
+        (e.error && e.error.message && e.error.message.includes("reading 'startTime'")) ||
+        (e.error && e.error.stack && e.error.stack.includes('reportAllChanges'))
+      )) {
+        if (e.preventDefault) e.preventDefault();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        return true;
+      }
+    }, true);
+  </script>
+  <link rel="stylesheet" href="css/style.css?v=20260914_06">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -702,13 +716,13 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="js/firebase-config.js?v=20260914_03"></script>
-  <script src="js/chat.js?v=20260914_03"></script>
-  <script src="js/mayor.js?v=20260914_03"></script>
-  <script src="js/ai-assistant.js?v=20260914_03"></script>
-  <script src="js/worker.js?v=20260914_03"></script>
-  <script src="js/admin.js?v=20260914_03"></script>
-  <script src="js/app.js?v=20260914_03"></script>
+  <script src="js/firebase-config.js?v=20260914_06"></script>
+  <script src="js/chat.js?v=20260914_06"></script>
+  <script src="js/mayor.js?v=20260914_06"></script>
+  <script src="js/ai-assistant.js?v=20260914_06"></script>
+  <script src="js/worker.js?v=20260914_06"></script>
+  <script src="js/admin.js?v=20260914_06"></script>
+  <script src="js/app.js?v=20260914_06"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
@@ -721,7 +735,7 @@
         }
       });
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=20260914_05')
+        navigator.serviceWorker.register('./sw.js?v=20260914_06')
           .then(reg => {
             reg.update();
           })
