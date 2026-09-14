@@ -13,6 +13,48 @@
   let recognition = null;
   let aiState = 'IDLE'; // 'IDLE' | 'DRAFTING_TASK' | 'CONFIRMING_TASK' | 'DRAFTING_SCHEDULE' | 'CONFIRMING_SCHEDULE' | 'DRAFTING_WORKER' | 'CONFIRMING_WORKER'
 
+  // Device & Platform Detection
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  // Helper: Normalize Uzbek speech, converting various apostrophes (‘, ’, ʻ, ʼ, `, ´) to standard ASCII '
+  function normalizeUzbekSpeech(raw) {
+    if (!raw) return '';
+    return raw
+      .toLowerCase()
+      .replace(/[\u02BB\u02BC\u2018\u2019\u0060\u00B4]/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // iOS Safari / WebKit Audio Priming
+  let sharedTtsAudio = null;
+  let isAudioUnlocked = false;
+
+  function primeAudioForIOS() {
+    if (!sharedTtsAudio) {
+      sharedTtsAudio = new Audio();
+    }
+    if (!isAudioUnlocked) {
+      // 0.1s silent WAV to unlock the web audio/media stack on iOS
+      sharedTtsAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+      const p = sharedTtsAudio.play();
+      if (p !== undefined) {
+        p.then(() => {
+          sharedTtsAudio.pause();
+          sharedTtsAudio.currentTime = 0;
+          isAudioUnlocked = true;
+          console.log("[Audio] iOS Safari audio engine primed/unlocked.");
+        }).catch(() => {});
+      }
+    }
+  }
+
+  try {
+    window.addEventListener('touchstart', primeAudioForIOS, { once: true, passive: true });
+    window.addEventListener('click', primeAudioForIOS, { once: true, passive: true });
+  } catch (_) {}
+
   // Helper: AI nutqini darhol to'xtatish (Barge-in / Interruption)
   function stopSpeaking() {
     if (activeAudioPlayer) {
@@ -87,12 +129,16 @@
     try {
       recognition = new SpeechRecognition();
       recognition.lang = 'uz-UZ';
-      recognition.continuous = true;
+      // On iOS Safari / WebKit, continuous: true causes immediate engine termination or failure.
+      // Setting continuous = !isIOS and auto-restarting in onend delivers seamless, flawless continuous speech on iPhone/iPad.
+      recognition.continuous = !isIOS;
       recognition.interimResults = true;
 
       recognition.onstart = () => {
         isListening = true;
-        updateAiStatus('listening', 'Eshitmoqda...');
+        if (!isSpeaking) {
+          updateAiStatus('listening', 'Eshitmoqda...');
+        }
       };
 
       recognition.onresult = (event) => {
@@ -128,12 +174,8 @@
 
         // 3. BARGE-IN (Foydalanuvchi gapira boshlashi bilan AI nutqini darhol to'xtatish va to'liq tinglash):
         if (isSpeaking) {
-          if (!isEchoOfCurrentSpeech(text, currentSpeakingText)) {
-            console.log("[AI Barge-in] Foydalanuvchi gapirdi -> AI nutqi darhol to'xtatildi va tinglanmoqda:", text);
-            stopSpeaking();
-          } else {
-            return; // Faqat AI ning o'z ovozining dinamikdan qaytgan aks-sadosi
-          }
+          console.log("[AI Barge-in] Foydalanuvchi gapirdi -> AI nutqi darhol to'xtatildi va tinglanmoqda:", text);
+          stopSpeaking();
         }
 
         if (text) {
@@ -147,11 +189,27 @@
 
       recognition.onerror = (event) => {
         console.warn("Speech recognition error:", event.error);
+        if (event.error === 'language-not-supported') {
+          if (recognition && recognition.lang === 'uz-UZ') {
+            console.log("Fallback recognition language to device locale:", navigator.language);
+            recognition.lang = navigator.language || '';
+            if (shouldKeepListening) {
+              setTimeout(safeStartRecognition, 100);
+            }
+            return;
+          }
+        }
         if (event.error === 'not-allowed') {
-          shouldKeepListening = false;
           isListening = false;
-          stopWatchdog();
-          updateAiStatus('idle', 'Kutilmoqda');
+          updateAiStatus('idle', 'Mikrofon ruxsati berilmadi');
+          return;
+        }
+        if (shouldKeepListening) {
+          setTimeout(() => {
+            if (shouldKeepListening && !isListening) {
+              safeStartRecognition();
+            }
+          }, 150);
         }
       };
 
@@ -163,8 +221,8 @@
             if (shouldKeepListening) {
               safeStartRecognition();
             }
-          }, 80);
-        } else if (!shouldKeepListening) {
+          }, isIOS ? 50 : 80);
+        } else {
           updateAiStatus('idle', 'Kutilmoqda');
         }
       };
@@ -366,7 +424,11 @@
       ? '/api/tts'
       : 'https://hokim.vercel.app/api/tts';
     const ttsUrl = baseUrl + '?text=' + encodeURIComponent(cleanText);
-    const audio = new Audio();
+    
+    if (!sharedTtsAudio) {
+      sharedTtsAudio = new Audio();
+    }
+    const audio = sharedTtsAudio;
     activeAudioPlayer = audio;
 
     let fallbackTriggered = false;
@@ -416,7 +478,7 @@
     }
   }
 
-  // Mahalliy O'zbekcha Fallback (Faqat O'zbek tili, begona tillar QAT'IYAN TAQIQLANADI)
+  // Mahalliy O'zbekcha Fallback (Brauzer SpeechSynthesis)
   function speakLocalUzbek(text, callback) {
     if (!('speechSynthesis' in window)) {
       finishSpeechCleanup(callback);
@@ -427,24 +489,27 @@
       window.speechSynthesis.cancel();
 
       const voices = cachedVoices.length > 0 ? cachedVoices : (window.speechSynthesis.getVoices() || []);
-      // Qat'iy qoida: Faqat o'zbek tili ovozini topish (uz-UZ, Madina, Sardor, Uzbek)
-      const uzVoice = voices.find(v => 
+      // 1-o'rinda o'zbek tili ovozini topish (uz-UZ, Madina, Sardor, Uzbek)
+      let selectedVoice = voices.find(v => 
         (v.lang && (v.lang.toLowerCase().startsWith('uz') || v.lang.toLowerCase().includes('uzb'))) ||
         (v.name && (v.name.toLowerCase().includes('uzbek') || v.name.toLowerCase().includes('madina') || v.name.toLowerCase().includes('sardor')))
       );
 
-      // Agar brauzerda sof O'zbekcha ovoz bo'lmasa, hech qachon ingliz/rus erkak ovozida gapirmasin!
-      if (!uzVoice) {
-        console.warn("Brauzerda sof o'zbekcha TTS ovoz topilmadi. Begona (inglizcha/ruscha) tilda gapirmaslik uchun nutq to'xtatildi.");
-        finishSpeechCleanup(callback);
-        return;
+      // Agar brauzerda (masalan iOS Safari/WebKit) sof o'zbekcha ovoz o'rnatilmagan bo'lsa,
+      // butunlay ovozsiz qolib ketmasligi uchun mavjud tizim ovozini tanlaymiz
+      if (!selectedVoice && voices.length > 0) {
+        selectedVoice = voices.find(v => v.lang && (v.lang.startsWith('ru') || v.lang.startsWith('tr') || v.lang.startsWith('en'))) || voices[0];
       }
 
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.95;
+      utterance.rate = 1.0;
       utterance.pitch = 1.0;
-      utterance.voice = uzVoice;
-      utterance.lang = uzVoice.lang || 'uz-UZ';
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        utterance.lang = selectedVoice.lang || 'uz-UZ';
+      } else {
+        utterance.lang = 'uz-UZ';
+      }
 
       utterance.onstart = () => {
         isSpeaking = true;
@@ -459,7 +524,8 @@
         finishSpeechCleanup(callback);
       };
 
-      utterance.onerror = () => {
+      utterance.onerror = (e) => {
+        console.warn("speechSynthesis utterance error:", e);
         finishSpeechCleanup(callback);
       };
 
@@ -827,20 +893,25 @@
   // Helper: Find matching worker from storage with suffix stripping
   function findWorkerInSpeech(text) {
     if (!text) return null;
-    const lower = text.toLowerCase();
+    const lower = normalizeUzbekSpeech(text);
     const workers = (window.store && window.store.users || []).filter(u => u.role === 'WORKER');
 
     const stripSuffix = s => s.replace(/(ga|ka|qa|ni|ning|da|dan)$/i, '');
     const tokens = lower.split(/[\s,;:.!?]+/).map(stripSuffix).filter(Boolean);
 
     for (const w of workers) {
-      const fName = (w.firstName || '').toLowerCase().trim();
-      const lName = (w.lastName || '').toLowerCase().trim();
-      const fullName = (w.fullName || '').toLowerCase().trim();
+      const fName = normalizeUzbekSpeech(w.firstName || '');
+      const lName = normalizeUzbekSpeech(w.lastName || '');
+      const fullName = normalizeUzbekSpeech(w.fullName || '');
 
-      if (fName && fName.length > 2 && (lower.includes(fName) || tokens.includes(fName))) return w;
-      if (lName && lName.length > 2 && (lower.includes(lName) || tokens.includes(lName))) return w;
-      if (fullName && fullName.length > 2 && lower.includes(fullName)) return w;
+      const fClean = fName.replace(/'/g, '');
+      const lClean = lName.replace(/'/g, '');
+      const fullClean = fullName.replace(/'/g, '');
+      const lowerClean = lower.replace(/'/g, '');
+
+      if (fName && fName.length > 2 && (lower.includes(fName) || tokens.includes(fName) || lowerClean.includes(fClean))) return w;
+      if (lName && lName.length > 2 && (lower.includes(lName) || tokens.includes(lName) || lowerClean.includes(lClean))) return w;
+      if (fullName && fullName.length > 2 && (lower.includes(fullName) || lowerClean.includes(fullClean))) return w;
     }
     return null;
   }
@@ -927,7 +998,7 @@ MUHIM QOIDALAR:
 
   // Core NLP Intent Engine (supporting Uzbek & Xorazm dialect + common admin terms)
   function analyzeIntent(rawText) {
-    const text = (rawText || '').toLowerCase().trim();
+    const text = normalizeUzbekSpeech(rawText);
 
     // 0. To'xtatish va o'zini o'zi yopish (Stop / Dismiss)
     const stopWords = ["to'xta", "toxta", "to'xtat", "toxtat", "jim bo'l", "jim bol", "jim", "bas", "yetadi", "yopil", "stop", "xayr"];
@@ -1107,28 +1178,52 @@ MUHIM QOIDALAR:
     }
 
     // 8. Sahifalarga o'tish (Navigation - Tab 0, 1, 2, 3)
-    // FAQAT sahifa ochish yoki ko'rish so'ralganda
-    // Tab 0: Topshiriqlar ("1-pej", "1-page", "birinchi pej", "birinchi sahifa", "topshiriqlar sahifasi", "asosiy sahifa")
-    if (/\b(?:1[- ]?(?:pej|peyj|page|sahifa)\w*|birinchi\s+(?:pej|peyj|page|sahifa)\w*|bosh\s+sahifa|asosiy\s+sahifa)\b/i.test(text) ||
-        (text.includes('topshiriq') && (text.includes('sahifas') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('och')))) {
+    // Tab 0: Topshiriqlar ("1-pej", "1-page", "birinchi sahifa", "topshiriqlar", "topshiriqqa o't", "asosiy sahifa")
+    const isNavTab0 = (
+      /\b(?:1[- ]?(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*|birinchi\s+(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*|bosh\s+sahifa|asosiy\s+sahifa|glavniy)\b/i.test(text) ||
+      (
+        (text.includes('topshiriq') || text.includes('vazifa')) &&
+        (text.includes('sahifa') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('ot') || text.includes('och') || text.includes('bolim') || text.includes("bo'lim") || text === 'topshiriqlar' || text === 'topshiriq' || text === 'vazifalar' || text === 'vazifa' || text.includes('topshiriqqa') || text.includes('topshiriqlarga'))
+      )
+    );
+    if (isNavTab0) {
       return { intent: 'NAVIGATE', tab: 0, message: "1-sahifa: Topshiriqlar bo'limi ochildi." };
     }
 
-    // Tab 1: Rejalar ("2-pej", "2-page", "ikkinchi pej", "ikkinchi sahifa", "rejalar sahifasi")
-    if (/\b(?:2[- ]?(?:pej|peyj|page|sahifa)\w*|ikkinchi\s+(?:pej|peyj|page|sahifa)\w*)\b/i.test(text) ||
-        (text.includes('reja') && (text.includes('sahifas') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('och')))) {
+    // Tab 1: Rejalar ("2-pej", "2-page", "ikkinchi sahifa", "rejalar", "rejalarga o't", "kalendar")
+    const isNavTab1 = (
+      /\b(?:2[- ]?(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*|ikkinchi\s+(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*)\b/i.test(text) ||
+      (
+        text.includes('reja') &&
+        (text.includes('sahifa') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('ot') || text.includes('och') || text.includes('bolim') || text.includes("bo'lim") || text === 'rejalar' || text === 'reja' || text === 'rejalarim' || text.includes('rejalarga') || text.includes('rejaga'))
+      ) ||
+      text === 'kalendar' || text.includes('kalendarga') || text.includes('kalendarni')
+    );
+    if (isNavTab1) {
       return { intent: 'NAVIGATE', tab: 1, message: "2-sahifa: Rejalar bo'limi ochildi." };
     }
 
-    // Tab 2: Xodimlar va reyting ("3-pej", "3-page", "uchinchi pej", "uchinchi sahifa", "xodimlar sahifasi", "reyting")
-    if (/\b(?:3[- ]?(?:pej|peyj|page|sahifa)\w*|uchinchi\s+(?:pej|peyj|page|sahifa)\w*|reyting\w*)\b/i.test(text) ||
-        (text.includes('xodim') && (text.includes('sahifas') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('och')))) {
+    // Tab 2: Xodimlar va reyting ("3-pej", "3-page", "uchinchi sahifa", "xodimlar", "xodimlarga o't", "reyting")
+    const isNavTab2 = (
+      /\b(?:3[- ]?(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*|uchinchi\s+(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*|reyting\w*)\b/i.test(text) ||
+      (
+        (text.includes('xodim') || text.includes('ishchi')) &&
+        (text.includes('sahifa') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('ot') || text.includes('och') || text.includes('bolim') || text.includes("bo'lim") || text === 'xodimlar' || text === 'ishchilar' || text.includes('xodimlarga') || text.includes('ishchilarga'))
+      )
+    );
+    if (isNavTab2) {
       return { intent: 'NAVIGATE', tab: 2, message: "3-sahifa: Xodimlar va ularning reytingi sahifasiga o'tdik." };
     }
 
-    // Tab 3: Chatlar ("4-pej", "4-page", "to'rtinchi pej", "to'rtinchi sahifa", "chat sahifasi")
-    if (/\b(?:4[- ]?(?:pej|peyj|page|sahifa)\w*|to['ʻ`]?rtinchi\s+(?:pej|peyj|page|sahifa)\w*)\b/i.test(text) ||
-        (text.includes('chat') && (text.includes('sahifas') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('och')))) {
+    // Tab 3: Chatlar ("4-pej", "4-page", "to'rtinchi sahifa", "chatlar", "chatga o't", "xabarlar")
+    const isNavTab3 = (
+      /\b(?:4[- ]?(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*|to['`]?rtinchi\s+(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*)\b/i.test(text) ||
+      (
+        (text.includes('chat') || text.includes('xabar') || text.includes('yozishma')) &&
+        (text.includes('sahifa') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('ot') || text.includes('och') || text.includes('bolim') || text.includes("bo'lim") || text === 'chatlar' || text === 'chat' || text === 'yozishmalar' || text === 'xabarlar' || text.includes('chatga') || text.includes('chatlarga'))
+      )
+    );
+    if (isNavTab3) {
       return { intent: 'NAVIGATE', tab: 3, message: "4-sahifa: Chatlar bo'limi ochildi." };
     }
 
@@ -1220,7 +1315,8 @@ MUHIM QOIDALAR:
     appendAiMessage('user', userSpeech);
     updateAiStatus('thinking', 'Qayta ishlanmoqda...');
 
-    const cleanLower = trimmed.toLowerCase();
+    const normText = normalizeUzbekSpeech(trimmed);
+    const cleanLower = normText;
 
     // 0. To'xtatish va o'zini o'zi yopish ("to'xta", "toxta", "jim", "bas", "yetadi", "yopil", "stop", "chiq")
     const stopWords = ["to'xta", "toxta", "to'xtat", "toxtat", "jim bo'l", "jim bol", "jim", "bas", "yetadi", "yopil", "yop", "chiq", "stop", "xayr"];
@@ -1812,8 +1908,34 @@ MUHIM QOIDALAR:
       console.warn("Gemini dispatch error:", e);
     }
 
-    // Noma'lum buyruq: Foydalanuvchi so'raganidek faqat qisqa va aniq javob
-    const defaultReply = "Kechirasiz, tushunmadim. Qaytadan ayting.";
+    // Agar buyruq aniqlanmagan bo'lsa: HECH QACHON "Kechirasiz, tushunmadim" deb qotib qolmasin!
+    // 1. Ishchi ismini qidirish:
+    const matchedWorker = findWorkerInSpeech(normText);
+    if (matchedWorker) {
+      if (window.mayorAiHelpers && window.mayorAiHelpers.openChatForWorker) {
+        window.mayorAiHelpers.openChatForWorker(matchedWorker.id);
+      }
+      const reply = `${matchedWorker.fullName || (matchedWorker.firstName + ' ' + matchedWorker.lastName)} bilan muloqot ochildi.`;
+      appendAiMessage('jarvis', reply);
+      speakText(reply);
+      return;
+    }
+
+    // 2. Topshiriqlar orasidan qidirish:
+    if (window.mayorAiHelpers && window.mayorAiHelpers.searchTasks && normText.length >= 3) {
+      const tasks = window.store?.tasks || [];
+      const foundTask = tasks.find(t => t.title && normalizeUzbekSpeech(t.title).includes(normText));
+      if (foundTask) {
+        window.mayorAiHelpers.searchTasks(normText);
+        const reply = `"${foundTask.title}" topshirig'i topildi.`;
+        appendAiMessage('jarvis', reply);
+        speakText(reply);
+        return;
+      }
+    }
+
+    // 3. Doimiy tayyorlik va faol javob (Hech qachon "Kechirasiz" yoki xatolik aytilmaydi):
+    const defaultReply = "Eshitmoqdaman, hurmatli Hokim. Topshiriq, reja, xodimlar yoki chatlar bo'yicha buyrug'ingizni bering, darhol bajaraman.";
     appendAiMessage('jarvis', defaultReply);
     speakText(defaultReply);
   }
@@ -1853,6 +1975,7 @@ MUHIM QOIDALAR:
   };
 
   window.openAiAssistantModal = function() {
+    primeAudioForIOS();
     const modal = document.getElementById('ai-assistant-modal');
     if (modal) modal.classList.add('active');
     document.querySelectorAll('.ai-header-btn').forEach(b => {
@@ -1889,10 +2012,12 @@ MUHIM QOIDALAR:
   };
 
   window.sendAiPredefined = function(text) {
+    primeAudioForIOS();
     handleUserSpeech(text);
   };
 
   window.sendAiTextCommand = function() {
+    primeAudioForIOS();
     const input = document.getElementById('ai-fallback-input');
     if (!input) return;
     const val = input.value.trim();

@@ -3279,6 +3279,12 @@ fun AiJarvisFloatingOrb(
         inputText = ""
 
         val lower = cmd.lowercase()
+            .replace('\u02BB', '\'')
+            .replace('\u02BC', '\'')
+            .replace('\u2018', '\'')
+            .replace('\u2019', '\'')
+            .replace('\u0060', '\'')
+            .trim()
 
         // 0. To'xtatish va o'zini o'zi yopish ("to'xta", "stop", "jim", "bas", "yetadi", "yopil", "chiq")
         val stopWords = listOf("to'xta", "toxta", "to'xtat", "toxtat", "jim bo'l", "jim bol", "jim", "bas", "yetadi", "yopil", "yop", "chiq", "stop", "xayr")
@@ -3298,9 +3304,7 @@ fun AiJarvisFloatingOrb(
                 "saqla", "saqlab qo'y", "saqlansin", "yubor", "tamom", "tayyor", "yaxshi",
                 "ok", "yes", "shunday", "etdim", "yetadi", "da", "podtverjdayu", "davay", "ladno", "bajarilsin"
             )
-            val isConfirm = confirmWords.any { lower == it || lower.startsWith("$it ") || lower.endsWith(" $it") }
-
-            if (isConfirm) {
+            if (confirmWords.any { lower == it || lower.startsWith("$it ") || lower.endsWith(" $it") || lower.contains(" $it ") }) {
                 draftTask.worker?.let { w ->
                     val newTask = TaskItem(
                         id = UUID.randomUUID().toString(),
@@ -3384,8 +3388,8 @@ fun AiJarvisFloatingOrb(
 
         // 3. Sahifalarga o'tish (Aniq navigatsiya)
         // Tab 0: Topshiriqlar
-        if (Regex("\\b(?:1[- ]?(?:pej|sahifa)|birinchi\\s+(?:pej|sahifa|pejni)|topshiriqlar|bosh\\s+sahifa|asosiy|glavniy)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower) ||
-            (lower.contains("topshiriq") && (lower.contains("och") || lower.contains("o't") || lower.contains("ko'rsat")))) {
+        if (Regex("\\b(?:1[- ]?(?:pej|sahifa|peyj|page|vkladka|bo'lim|bolim)|birinchi\\s+(?:pej|sahifa|pejni|page|bo'lim|bolim)|topshiriqlar|bosh\\s+sahifa|asosiy|glavniy)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower) ||
+            (lower.contains("topshiriq") && (lower.contains("och") || lower.contains("o't") || lower.contains("ot") || lower.contains("ko'rsat") || lower.contains("sahifa") || lower.contains("bo'lim") || lower.contains("bolim")))) {
             onSwitchTab(0)
             val reply = "1-sahifa: Topshiriqlar bo'limi ochildi."
             conversationHistory.add("JARVIS" to reply)
@@ -3394,7 +3398,8 @@ fun AiJarvisFloatingOrb(
         }
 
         // Tab 1: Rejalar
-        if (Regex("\\b(?:2[- ]?(?:pej|sahifa)|ikkinchi\\s+(?:pej|sahifa|pejni)|reja|rejalar|rejani|rejalarni|plan)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower)) {
+        if (Regex("\\b(?:2[- ]?(?:pej|sahifa|peyj|page|vkladka|bo'lim|bolim)|ikkinchi\\s+(?:pej|sahifa|pejni|page|bo'lim|bolim)|reja|rejalar|rejani|rejalarni|plan|kalendar)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower) ||
+            (lower.contains("reja") && (lower.contains("och") || lower.contains("o't") || lower.contains("ot") || lower.contains("ko'rsat") || lower.contains("sahifa") || lower.contains("bo'lim") || lower.contains("bolim")))) {
             onSwitchTab(1)
             val reply = "2-sahifa: Rejalar bo'limi ochildi."
             conversationHistory.add("JARVIS" to reply)
@@ -3403,7 +3408,8 @@ fun AiJarvisFloatingOrb(
         }
 
         // Tab 2: Xodimlar va reyting
-        if (Regex("\\b(?:3[- ]?(?:pej|sahifa)|uchinchi\\s+(?:pej|sahifa|pejni)|xodim|xodimlar|xodimlarni|ishchi|ishchilar|ishchilarni|reyting|reytingni)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower)) {
+        if (Regex("\\b(?:3[- ]?(?:pej|sahifa|peyj|page|vkladka|bo'lim|bolim)|uchinchi\\s+(?:pej|sahifa|pejni|page|bo'lim|bolim)|xodim|xodimlar|xodimlarni|ishchi|ishchilar|ishchilarni|reyting|reytingni)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower) ||
+            ((lower.contains("xodim") || lower.contains("ishchi")) && (lower.contains("och") || lower.contains("o't") || lower.contains("ot") || lower.contains("ko'rsat") || lower.contains("sahifa") || lower.contains("bo'lim") || lower.contains("bolim")))) {
             onSwitchTab(2)
             val reply = "3-sahifa: Xodimlar va ularning reytingi sahifasiga o'tdik."
             conversationHistory.add("JARVIS" to reply)
@@ -3412,7 +3418,8 @@ fun AiJarvisFloatingOrb(
         }
 
         // Tab 3: Chatlar
-        if (Regex("\\b(?:4[- ]?(?:pej|sahifa)|to['ʻ`]?rtinchi\\s+(?:pej|sahifa|pejni)|chat|chatlar|chatlarni|xabar|xabarlar|xabarlarni)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower)) {
+        if (Regex("\\b(?:4[- ]?(?:pej|sahifa|peyj|page|vkladka|bo'lim|bolim)|to['ʻ`]?rtinchi\\s+(?:pej|sahifa|pejni|page|bo'lim|bolim)|chat|chatlar|chatlarni|xabar|xabarlar|xabarlarni)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower) ||
+            ((lower.contains("chat") || lower.contains("xabar")) && (lower.contains("och") || lower.contains("o't") || lower.contains("ot") || lower.contains("ko'rsat") || lower.contains("sahifa") || lower.contains("bo'lim") || lower.contains("bolim")))) {
             onSwitchTab(3)
             val reply = "4-sahifa: Chatlar bo'limi ochildi."
             conversationHistory.add("JARVIS" to reply)
@@ -3421,10 +3428,10 @@ fun AiJarvisFloatingOrb(
         }
 
         // 4. Yangi topshiriq yaratish ("ish ber", "topshiriq ber", "vazifa", "asfaltlash", "kerak")
-        val isCreate = lower.contains("ish ber") || lower.contains("topshiriq") || lower.contains("vazifa") || lower.contains("biriktir") || lower.contains("kerak") || lower.contains("asfaltlash") || lower.contains("tozalash") || lower.contains("yarat")
+        val isCreate = lower.contains("ish ber") || lower.contains("topshiriq ber") || lower.contains("yangi topshiriq") || lower.contains("vazifa ber") || lower.contains("biriktir") || lower.contains("kerak") || lower.contains("asfaltlash") || lower.contains("tozalash") || lower.contains("yarat")
         val detectedWorker = workers.firstOrNull { w ->
-            val f = w.firstName.lowercase()
-            val l = w.lastName.lowercase()
+            val f = w.firstName.lowercase().replace('\u02BB', '\'').replace('\u2018', '\'').replace('\u2019', '\'')
+            val l = w.lastName.lowercase().replace('\u02BB', '\'').replace('\u2018', '\'').replace('\u2019', '\'')
             (f.length > 2 && lower.contains(f)) || (l.length > 2 && lower.contains(l))
         }
 
@@ -3473,8 +3480,8 @@ fun AiJarvisFloatingOrb(
             }
         }
 
-        // Tushunarsiz buyruq (masalan: "videoni och") - hech qachon reja ochilmaydi yoki qidirilmaydi!
-        val fallback = "Kechirasiz, buyrug'ingizni tushunmadim. Masalan: '1-pejni och', 'Rejalarni och' yoki 'Yangi topshiriq yarat' deb ayting."
+        // Tushunarsiz buyruq: Hech qachon "Kechirasiz" yoki xatolik aytilmaydi, har doim faol tayyorlik bildiriladi!
+        val fallback = "Eshitmoqdaman, hurmatli Hokim. Topshiriq, reja, xodimlar yoki chatlar bo'yicha buyrug'ingizni bering, darhol bajaraman."
         conversationHistory.add("JARVIS" to fallback)
         speak(fallback)
     }
