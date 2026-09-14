@@ -7,14 +7,25 @@ let audioChunks = [];
 let isRecording = false;
 
 function openChat(peer, updateUrl = true) {
+  if (!peer) return;
   activeChatPeer = peer;
-  document.getElementById('chat-peer-name').innerText = peer.fullName || (peer.firstName + ' ' + peer.lastName);
-  document.getElementById('chat-peer-role').innerText = peer.role === 'MAYOR' ? 'Tuman Hokimi' : (peer.position || 'Xodim');
+
+  const fullName = peer.fullName || ((peer.firstName || '') + ' ' + (peer.lastName || '')).trim() || peer.username || 'Foydalanuvchi';
+  const roleText = peer.role === 'MAYOR' ? 'Tuman Hokimi' : (peer.position || 'Xodim');
+
+  const nameEl = document.getElementById('chat-header-name') || document.getElementById('chat-peer-name');
+  if (nameEl) nameEl.innerText = fullName;
+
+  const roleEl = document.getElementById('chat-header-status') || document.getElementById('chat-peer-role');
+  if (roleEl) roleEl.innerText = roleText;
+
+  const avatarEl = document.getElementById('chat-avatar');
+  if (avatarEl) avatarEl.innerText = fullName.charAt(0).toUpperCase();
   
   showScreen('chat-screen');
   renderChatMessages();
 
-  if (window.store.currentUser) {
+  if (window.store.currentUser && window.dbApi && window.dbApi.markMessagesAsRead) {
     window.dbApi.markMessagesAsRead(window.store.currentUser.id, peer.id);
   }
 
@@ -412,3 +423,7 @@ window.onStoreChange('messages', () => {
     window.dbApi.markMessagesAsRead(window.store.currentUser.id, activeChatPeer.id);
   }
 });
+
+window.openChat = openChat;
+window.closeChat = closeChat;
+window.goBackFromChat = closeChat;
