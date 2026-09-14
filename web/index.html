@@ -30,7 +30,7 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0F172A">
 
-  <link rel="stylesheet" href="css/style.css?v=20260913_14">
+  <link rel="stylesheet" href="css/style.css?v=20260914_03">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -152,7 +152,7 @@
           </button>
         </div>
       </div>
-      <div id="worker-task-list" class="task-list"></div>
+      <div id="worker-tasks-list" class="task-list main-content"></div>
     </div>
 
     <!-- 4. BIG ADMIN SCREEN -->
@@ -702,19 +702,19 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="js/firebase-config.js?v=20260914_01"></script>
-  <script src="js/chat.js?v=20260914_01"></script>
-  <script src="js/mayor.js?v=20260914_01"></script>
-  <script src="js/ai-assistant.js?v=20260914_01"></script>
-  <script src="js/worker.js?v=20260914_01"></script>
-  <script src="js/admin.js?v=20260914_01"></script>
-  <script src="js/app.js?v=20260914_01"></script>
+  <script src="js/firebase-config.js?v=20260914_03"></script>
+  <script src="js/chat.js?v=20260914_03"></script>
+  <script src="js/mayor.js?v=20260914_03"></script>
+  <script src="js/ai-assistant.js?v=20260914_03"></script>
+  <script src="js/worker.js?v=20260914_03"></script>
+  <script src="js/admin.js?v=20260914_03"></script>
+  <script src="js/app.js?v=20260914_03"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=20260914_02')
+        navigator.serviceWorker.register('./sw.js?v=20260914_03')
           .then(reg => {
             reg.update();
           })

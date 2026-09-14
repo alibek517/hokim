@@ -159,12 +159,50 @@ html.user-authenticated #login-screen {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* Main Content Area */
+/* Mayor Tab Container & Scrollable List Areas */
+#mayor-tab-content {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+#mayor-task-header-area,
+#mayor-schedule-header-area,
+#mayor-worker-header-area {
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+#mayor-task-list-area,
+#mayor-schedule-list-area,
+#mayor-worker-list-area {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Main Content & Scrollable List Area */
+#mayor-task-list-area > .main-content,
+#mayor-schedule-list-area > .main-content,
+#mayor-worker-list-area > .main-content,
+#mayor-tab-content > .main-content,
+.task-list,
 .main-content {
   flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 14px;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+  padding: 14px 14px calc(95px + var(--safe-bottom)) 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;

@@ -482,7 +482,13 @@ fun MayorScheduleTab(storage: AppStorage, currentUser: User) {
                     Text("Rejalar topilmadi.", color = TextSecondary)
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(bottom = 88.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     items(searchedSchedules) { schedule ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -1223,8 +1229,10 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
             } else {
                 LazyColumn(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .weight(1f)
+                        .fillMaxWidth()
                         .padding(horizontal = 14.dp),
+                    contentPadding = PaddingValues(bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(searchedTasks) { task ->
@@ -2475,8 +2483,11 @@ fun MayorWorkersTab(
                 }
             } else {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(bottom = 88.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(searchedWorkers) { (worker, stats) ->
                         val rankIcon = "#${stats.rank}" 

@@ -148,7 +148,7 @@ function renderMayorTasks() {
           <span class="filter-tab ${taskFilterIndex === 4 ? 'active' : ''}" onclick="setTaskFilter(4)"><span class="badge-dot" style="background:#3B82F6; display:inline-block; margin-right:4px;"></span>Tekshirildi</span>
         </div>
       </div>
-      <div id="mayor-task-list-area"></div>
+      <div id="mayor-task-list-area" style="flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;"></div>
     `;
     listContainer = document.getElementById('mayor-task-list-area');
   } else {
@@ -366,7 +366,7 @@ function renderMayorSchedules() {
           </button>
         </div>
       </div>
-      <div id="mayor-schedule-list-area"></div>
+      <div id="mayor-schedule-list-area" style="flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;"></div>
     `;
     listContainer = document.getElementById('mayor-schedule-list-area');
   } else {
@@ -613,7 +613,7 @@ async function renderMayorWorkers() {
           </button>
         </div>
       </div>
-      <div id="mayor-worker-list-area"></div>
+      <div id="mayor-worker-list-area" style="flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;"></div>
     `;
     listContainer = document.getElementById('mayor-worker-list-area');
   } else {
