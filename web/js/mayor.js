@@ -2484,5 +2484,343 @@ window.mayorAiHelpers = {
     const input = document.getElementById('mayor-worker-search-input');
     if (input) input.value = q || '';
     renderMayorWorkers();
+  },
+  deleteTaskById: async (taskId) => {
+    if (window.dbApi && window.dbApi.deleteTask) {
+      await window.dbApi.deleteTask(taskId);
+      if (mayorCurrentTab === 0) renderMayorTasks();
+      return true;
+    }
+    return false;
+  },
+  deleteTasksByTitle: async (titleQuery) => {
+    if (!titleQuery) return 0;
+    const q = titleQuery.toLowerCase();
+    const tasks = (window.store.tasks || []).filter(t => t.title && t.title.toLowerCase().includes(q));
+    for (const t of tasks) {
+      if (window.dbApi && window.dbApi.deleteTask) {
+        await window.dbApi.deleteTask(t.id);
+      }
+    }
+    if (mayorCurrentTab === 0) renderMayorTasks();
+    return tasks.length;
+  },
+  openBroadcastWithData: ({ text, org, selectAll }) => {
+    openBroadcastModal();
+    if (text) {
+      const el = document.getElementById('broadcast-text');
+      if (el) el.value = text;
+      updateBroadcastCharCount();
+    }
+    if (org && org !== 'all') {
+      const sel = document.getElementById('broadcast-org-select');
+      if (sel) {
+        sel.value = org;
+        handleBroadcastOrgFilterChange(org);
+      }
+    }
+    if (selectAll !== undefined) {
+      toggleBroadcastSelectAll(!!selectAll);
+    }
+  },
+  sendBroadcastDirectly: async ({ text, org }) => {
+    let workers = getWorkerListForBroadcast();
+    if (org && org !== 'all') {
+      const orgLow = org.toLowerCase();
+      workers = workers.filter(w => (w.position || '').toLowerCase().includes(orgLow));
+    }
+    if (workers.length === 0) return 0;
+
+    const mayor = window.store.currentUser || {};
+    const mayorName = mayor.fullName || mayor.firstName || "Tuman Hokimi";
+    const ts = Date.now();
+
+    const promises = workers.map(async (worker) => {
+      const msg = {
+        id: 'msg_broadcast_' + ts + '_' + worker.id,
+        senderId: mayor.id,
+        receiverId: worker.id,
+        senderName: mayorName,
+        messageType: 'TEXT',
+        isBroadcast: true,
+        textContent: `📢 [OMMAVIY E'LON]:\n${text}`,
+        timestamp: ts,
+        isRead: false
+      };
+      if (window.dbApi && window.dbApi.sendMessage) {
+        await window.dbApi.sendMessage(msg);
+      }
+      if (window.firebase && window.firebase.database) {
+        try {
+          const notifRef = window.firebase.database().ref('notifications/' + worker.id).push();
+          await notifRef.set({
+            type: 'BROADCAST',
+            title: "📢 Hokimlikdan Ommaviy E'lon",
+            body: text,
+            senderName: mayorName,
+            timestamp: ts,
+            sound: true
+          });
+        } catch (_) {}
+      }
+    });
+    await Promise.all(promises);
+    if (typeof playNotificationSound === 'function') {
+      playNotificationSound('urgent');
+    }
+    showToast(`Ommaviy e'lon ${workers.length} ta xodimga yetkazildi!`);
+    return workers.length;
   }
 };
+
+// ==========================================
+// OMMAVIY XABARNOMA (CHAT 2 / BROADCAST)
+// ==========================================
+let broadcastSelectedWorkerIds = new Set();
+let broadcastCurrentOrgFilter = 'all';
+
+function getWorkerListForBroadcast() {
+  const users = window.store?.users || [];
+  return users.filter(u => {
+    const role = (u.role || '').toUpperCase();
+    return role === 'WORKER' || role === 'ISHCHI' || (!role && u.id && !u.id.startsWith('mayor') && !u.id.startsWith('admin'));
+  });
+}
+
+function openBroadcastModal() {
+  const modal = document.getElementById('broadcast-modal');
+  if (!modal) return;
+  modal.classList.add('active');
+
+  populateBroadcastOrgFilter();
+
+  const workers = getWorkerListForBroadcast();
+  broadcastSelectedWorkerIds.clear();
+  workers.forEach(w => broadcastSelectedWorkerIds.add(w.id));
+
+  const selectAllCb = document.getElementById('broadcast-select-all');
+  if (selectAllCb) selectAllCb.checked = true;
+
+  renderBroadcastWorkersList();
+  updateBroadcastCharCount();
+}
+
+function closeBroadcastModal() {
+  const modal = document.getElementById('broadcast-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function populateBroadcastOrgFilter() {
+  const select = document.getElementById('broadcast-org-select');
+  if (!select) return;
+
+  const workers = getWorkerListForBroadcast();
+  const orgs = new Set();
+  workers.forEach(w => {
+    const pos = (w.position || '').trim();
+    if (pos) orgs.add(pos);
+  });
+
+  const sortedOrgs = Array.from(orgs).sort((a, b) => a.localeCompare(b));
+  let html = `<option value="all">🏢 Barcha tashkilotlar (${workers.length} ta mas'ul)</option>`;
+  sortedOrgs.forEach(org => {
+    const count = workers.filter(w => (w.position || '').trim() === org).length;
+    html += `<option value="${escapeHtml(org)}">${escapeHtml(org)} (${count} ta)</option>`;
+  });
+  select.innerHTML = html;
+  select.value = broadcastCurrentOrgFilter || 'all';
+}
+
+function handleBroadcastOrgFilterChange(val) {
+  broadcastCurrentOrgFilter = val;
+  const workers = getWorkerListForBroadcast();
+  const filtered = (val === 'all') ? workers : workers.filter(w => (w.position || '').trim() === val);
+
+  broadcastSelectedWorkerIds.clear();
+  filtered.forEach(w => broadcastSelectedWorkerIds.add(w.id));
+
+  const selectAllCb = document.getElementById('broadcast-select-all');
+  if (selectAllCb) selectAllCb.checked = filtered.length > 0;
+
+  renderBroadcastWorkersList();
+}
+
+function toggleBroadcastSelectAll(checked) {
+  const workers = getWorkerListForBroadcast();
+  const filtered = (broadcastCurrentOrgFilter === 'all') 
+    ? workers 
+    : workers.filter(w => (w.position || '').trim() === broadcastCurrentOrgFilter);
+
+  if (checked) {
+    filtered.forEach(w => broadcastSelectedWorkerIds.add(w.id));
+  } else {
+    filtered.forEach(w => broadcastSelectedWorkerIds.delete(w.id));
+  }
+  renderBroadcastWorkersList();
+}
+
+function toggleBroadcastWorker(workerId) {
+  if (broadcastSelectedWorkerIds.has(workerId)) {
+    broadcastSelectedWorkerIds.delete(workerId);
+  } else {
+    broadcastSelectedWorkerIds.add(workerId);
+  }
+  renderBroadcastWorkersList();
+}
+
+function renderBroadcastWorkersList() {
+  const container = document.getElementById('broadcast-workers-list');
+  const badge = document.getElementById('broadcast-selected-badge');
+  const sendBtnText = document.getElementById('btn-send-broadcast-text');
+  const selectAllCb = document.getElementById('broadcast-select-all');
+  if (!container) return;
+
+  const workers = getWorkerListForBroadcast();
+  const filtered = (broadcastCurrentOrgFilter === 'all') 
+    ? workers 
+    : workers.filter(w => (w.position || '').trim() === broadcastCurrentOrgFilter);
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div style="text-align: center; color: #94A3B8; padding: 20px; font-size: 13px;">Bu tashkilotda xodimlar topilmadi</div>`;
+    if (badge) badge.innerText = `0 ta tanlandi`;
+    if (sendBtnText) sendBtnText.innerText = `Xabarni Yuborish (0)`;
+    if (selectAllCb) selectAllCb.checked = false;
+    return;
+  }
+
+  const selectedInFiltered = filtered.filter(w => broadcastSelectedWorkerIds.has(w.id)).length;
+  if (selectAllCb) {
+    selectAllCb.checked = (selectedInFiltered === filtered.length && filtered.length > 0);
+  }
+  if (badge) badge.innerText = `${broadcastSelectedWorkerIds.size} ta tanlandi`;
+  if (sendBtnText) sendBtnText.innerText = `Xabarni Yuborish (${broadcastSelectedWorkerIds.size})`;
+
+  container.innerHTML = filtered.map(w => {
+    const isSelected = broadcastSelectedWorkerIds.has(w.id);
+    const org = w.position ? `[${escapeHtml(w.position)}]` : `[Xodim]`;
+    const initial = (w.fullName || w.firstName || 'X').charAt(0).toUpperCase();
+    return `
+      <div class="broadcast-worker-item ${isSelected ? 'selected' : ''}" onclick="toggleBroadcastWorker('${w.id}')">
+        <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleBroadcastWorker('${w.id}')">
+        <div style="width: 32px; height: 32px; border-radius: 50%; background: #E0E7FF; color: #3730A3; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          ${initial}
+        </div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 13px; font-weight: 600; color: #1E293B; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <span class="broadcast-org-tag">${org}</span>
+            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(w.fullName || w.firstName || 'Noma\'lum')}</span>
+          </div>
+          <div style="font-size: 11px; color: #64748B;">${escapeHtml(w.phone || w.username || '')}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function updateBroadcastCharCount() {
+  const textEl = document.getElementById('broadcast-text');
+  const countEl = document.getElementById('broadcast-char-count');
+  if (textEl && countEl) {
+    countEl.innerText = `${textEl.value.length} ta belgi`;
+  }
+}
+
+function setBroadcastTemplate(type) {
+  const textEl = document.getElementById('broadcast-text');
+  if (!textEl) return;
+  if (type === 'majlis') {
+    textEl.value = "Hurmatli mas'ullar! Bugun soat 16:00 da tuman hokimligida navbatdan tashqari muhim yig'ilish o'tkaziladi. Barcha rahbarlar qatnashishi shart!";
+  } else if (type === 'hisobot') {
+    textEl.value = "Hurmatli xodimlar! Haftalik topshiriqlar ijrosi bo'yicha bugun soat 17:00 ga qadar to'liq hisobot va ma'lumotlarni taqdim etishingiz so'raladi.";
+  } else if (type === 'tekshiruv') {
+    textEl.value = "Diqqat! Tumandagi barcha ob'ektlar, ko'chalar va tozalik holatini zudlik bilan nazoratga olib, aniqlangan kamchiliklarni bartaraf eting!";
+  }
+  updateBroadcastCharCount();
+}
+
+async function submitBroadcastMessage() {
+  const textEl = document.getElementById('broadcast-text');
+  const text = (textEl ? textEl.value : '').trim();
+  if (!text) {
+    alert("Iltimos, e'lon yoki xabar matnini kiriting!");
+    if (textEl) textEl.focus();
+    return;
+  }
+
+  const selectedWorkers = getWorkerListForBroadcast().filter(w => broadcastSelectedWorkerIds.has(w.id));
+  if (selectedWorkers.length === 0) {
+    alert("Iltimos, xabar yuboriladigan kamida 1 ta xodimni belgilang!");
+    return;
+  }
+
+  const btn = document.getElementById('btn-send-broadcast');
+  const btnText = document.getElementById('btn-send-broadcast-text');
+  const originalText = btnText ? btnText.innerText : 'Yuborish';
+  if (btn) btn.disabled = true;
+  if (btnText) btnText.innerText = "Yuborilmoqda...";
+
+  try {
+    const mayor = window.store.currentUser || {};
+    const mayorName = mayor.fullName || mayor.firstName || "Tuman Hokimi";
+    const ts = Date.now();
+
+    const promises = selectedWorkers.map(async (worker) => {
+      // 1. Shaxsiy chatga xabar yozish
+      const msg = {
+        id: 'msg_broadcast_' + ts + '_' + worker.id,
+        senderId: mayor.id,
+        receiverId: worker.id,
+        senderName: mayorName,
+        messageType: 'TEXT',
+        isBroadcast: true,
+        textContent: `📢 [OMMAVIY E'LON]:\n${text}`,
+        timestamp: ts,
+        isRead: false
+      };
+      if (window.dbApi && window.dbApi.sendMessage) {
+        await window.dbApi.sendMessage(msg);
+      }
+
+      // 2. Realtime Notification nodiga bildirishnoma yozish (ovozli signal bilan)
+      if (window.firebase && window.firebase.database) {
+        try {
+          const notifRef = window.firebase.database().ref('notifications/' + worker.id).push();
+          await notifRef.set({
+            type: 'BROADCAST',
+            title: "📢 Hokimlikdan Ommaviy E'lon",
+            body: text,
+            senderName: mayorName,
+            timestamp: ts,
+            sound: true
+          });
+        } catch (_) {}
+      }
+    });
+
+    await Promise.all(promises);
+
+    if (typeof playNotificationSound === 'function') {
+      playNotificationSound('urgent');
+    }
+    showToast(`Ommaviy e'lon ${selectedWorkers.length} ta xodimga yetkazildi!`);
+    closeBroadcastModal();
+    if (textEl) textEl.value = '';
+    updateBroadcastCharCount();
+  } catch (err) {
+    console.error("Broadcast send error:", err);
+    alert("Xabarni yuborishda xatolik yuz berdi: " + err.message);
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.innerText = originalText;
+  }
+}
+
+window.openBroadcastModal = openBroadcastModal;
+window.closeBroadcastModal = closeBroadcastModal;
+window.updateBroadcastCharCount = updateBroadcastCharCount;
+window.setBroadcastTemplate = setBroadcastTemplate;
+window.handleBroadcastOrgFilterChange = handleBroadcastOrgFilterChange;
+window.toggleBroadcastSelectAll = toggleBroadcastSelectAll;
+window.toggleBroadcastWorker = toggleBroadcastWorker;
+window.submitBroadcastMessage = submitBroadcastMessage;
+

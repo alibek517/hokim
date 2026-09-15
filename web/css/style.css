@@ -1585,3 +1585,68 @@ html.user-authenticated #login-screen {
 .ai-orb-hint {
   display: none;
 }
+
+/* Broadcast (Ommaviy Xabarnoma / Chat 2) Styles */
+.broadcast-header-btn {
+  background: linear-gradient(135deg, #0284C7, #0369A1);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 18px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35);
+  transition: all 0.2s ease;
+}
+
+.broadcast-header-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.45);
+}
+
+.broadcast-header-btn:active {
+  transform: scale(0.95);
+}
+
+.broadcast-worker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: #FFFFFF;
+  border-radius: 8px;
+  border: 1px solid #E2E8F0;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+.broadcast-worker-item:hover {
+  background: #F1F5F9;
+}
+
+.broadcast-worker-item.selected {
+  background: #EFF6FF;
+  border-color: #93C5FD;
+}
+
+.broadcast-worker-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary-blue);
+  cursor: pointer;
+}
+
+.broadcast-org-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #1D4ED8;
+  background: #DBEAFE;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}

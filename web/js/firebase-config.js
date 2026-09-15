@@ -327,12 +327,13 @@ function initFirebase() {
           if (initialMessagesLoaded && msg.id && !seenMessageIds.has(msg.id)) {
             seenMessageIds.add(msg.id);
             const currentUser = window.store.currentUser;
-            // Faqat joriy foydalanuvchiga kelgan xabarlar uchun ovoz chiqarish
             if (currentUser && msg.receiverId === currentUser.id && msg.senderId !== currentUser.id) {
               const preview = msg.messageType === 'VOICE' ? 'Ovozli xabar' :
                               (msg.messageType === 'IMAGE' ? 'Rasm' :
                               (msg.messageType === 'VIDEO' ? 'Video' : (msg.textContent || 'Yangi xabar')));
-              triggerWebNotification(msg.senderName || 'Yangi xabar', preview, 'message');
+              const isUrgent = msg.isBroadcast || (msg.textContent && msg.textContent.includes('OMMAVIY'));
+              const notifType = isUrgent ? 'urgent' : 'message';
+              triggerWebNotification(msg.senderName || (isUrgent ? "📢 Hokimlikdan Ommaviy E'lon" : 'Yangi xabar'), preview, notifType);
             }
           }
           notifyStore('messageAdded', msg);
