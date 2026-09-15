@@ -60,70 +60,60 @@ async function processMediaFile(file) {
   const isVideo = file.type.startsWith('video');
   const localPreviewUrl = URL.createObjectURL(file);
 
-  // 1. Firebase Storage — cheksiz hajmli fayllar uchun
-  const storage = window.firebaseStorage;
-  if (storage) {
-    try {
-      let uploadFile = file;
-      // Katta videolarni brauzerda siqish (>5MB)
-      if (isVideo && file.size > 5 * 1024 * 1024) {
-        try {
-          if (typeof showToast === 'function') showToast('Video siqilmoqda...');
-          uploadFile = await compressVideoInBrowser(file);
-        } catch (cErr) {
-          console.warn('Video compress failed, uploading original:', cErr);
-          uploadFile = file;
-        }
+  if (isVideo) {
+    let videoFile = file;
+    // Katta videolarni brauzerda siqish (>3MB)
+    if (file.size > 3 * 1024 * 1024 && typeof compressVideoInBrowser === 'function') {
+      try {
+        if (typeof showToast === 'function') showToast('Video siqilmoqda...');
+        videoFile = await compressVideoInBrowser(file);
+      } catch (cErr) {
+        console.warn('Video compress skipped, uploading original:', cErr);
+        videoFile = file;
       }
-      const folder = isVideo ? 'videos' : 'images';
-      const ext = uploadFile.name ? uploadFile.name.split('.').pop() : (isVideo ? 'mp4' : 'jpg');
-      const path = `chat/${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      if (typeof showToast === 'function') showToast(isVideo ? 'Video yuklanmoqda...' : 'Rasm yuklanmoqda...');
-      const storRef = storage.ref(path);
-      await storRef.put(uploadFile);
-      const downloadUrl = await storRef.getDownloadURL();
-      return {
-        id: (isVideo ? 'vid_' : 'img_') + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-        type: isVideo ? 'VIDEO' : 'IMAGE',
-        base64: localPreviewUrl,
-        url: downloadUrl,
-        name: file.name,
-        size: uploadFile.size,
-        isStorageUrl: true
-      };
-    } catch (err) {
-      console.warn('Storage upload failed, falling back to base64:', err);
     }
-  }
 
-  // 2. Fallback: base64 (Storage ishlamasa)
-  return new Promise(async (resolve) => {
-    if (isVideo) {
-      let videoFile = file;
-      // Katta videolarni siqish (>5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        try {
-          if (typeof showToast === 'function') showToast('Video siqilmoqda...');
-          videoFile = await compressVideoInBrowser(file);
-        } catch (_) {}
+    // 2MB dan katta videolarni Firebase RTDB chunklari qilib yuklash (10MB limitdan xoli)
+    if (videoFile.size > 2 * 1024 * 1024 && typeof saveMediaToFirebaseChunks === 'function') {
+      try {
+        if (typeof showToast === 'function') showToast('Katta video yuklanmoqda...');
+        const chunkRes = await saveMediaToFirebaseChunks(videoFile, (p) => {
+          if (p % 25 === 0 && typeof showToast === 'function') showToast(`Video: ${p}%`);
+        });
+        return {
+          id: 'vid_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          type: 'VIDEO',
+          base64: localPreviewUrl,
+          url: 'chunk:' + chunkRes.mediaId,
+          mediaPath: 'chunk:' + chunkRes.mediaId,
+          name: file.name,
+          size: videoFile.size,
+          isChunked: true
+        };
+      } catch (chunkErr) {
+        console.warn('Chunk upload failed, falling back to base64:', chunkErr);
       }
+    }
+
+    // 2MB gacha bo'lgan videolarni to'g'ridan-to'g'ri Base64 saqlash
+    return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const result = e.target.result;
-        const b64 = result.split(',')[1] || result;
-        if (b64.length > 9500000) {
-          if (typeof showToast === 'function') showToast('Video hajmi hali ham katta — iltimos qisqaroq video tanlang');
-          return resolve(null);
-        }
         resolve({
           id: 'vid_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-          type: 'VIDEO', base64: result, url: null,
-          name: file.name, size: videoFile.size
+          type: 'VIDEO',
+          base64: result,
+          url: null,
+          name: file.name,
+          size: videoFile.size
         });
       };
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(videoFile);
-    } else {
+    });
+  } else {
+    return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
@@ -149,8 +139,8 @@ async function processMediaFile(file) {
       };
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(file);
-    }
-  });
+    });
+  }
 }
 
 // Brauzerda video siqish — canvas + captureStream + MediaRecorder
@@ -2234,6 +2224,7 @@ async function sendTaskVoiceMessage(taskId) {
         isRead: false
       };
       await window.dbApi.sendMessage(msg);
+      if (typeof playNotificationSound === 'function') playNotificationSound('send');
 
       // Topshiriq kartochkasiga ham ovozni biriktiramiz
       if (taskId && window.dbApi.updateTaskVoice) {
