@@ -2,10 +2,6 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    },
-    {
       "source": "/(.*)manifest.json",
       "destination": "/web/manifest.json"
     },
@@ -30,7 +26,7 @@
       "destination": "/web/index.html"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/web/index.html"
     }
   ],

@@ -2211,23 +2211,14 @@ async function sendTaskVoiceMessage(taskId) {
     try {
       const audioBlob = new Blob(audioChunks, { type: 'audio/mp4' });
       const durationSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
-      const storage = window.firebaseStorage;
-      let mediaPath = null;
-      let mediaBase64 = null;
-
-      if (storage) {
-        const path = `chat/voices/${Date.now()}_${Math.random().toString(36).slice(2)}.mp4`;
-        const storRef = storage.ref(path);
-        await storRef.put(audioBlob);
-        mediaPath = await storRef.getDownloadURL();
-      } else {
-        mediaBase64 = await new Promise((res, rej) => {
-          const r = new FileReader();
-          r.onload = () => res(r.result.split(',')[1]);
-          r.onerror = rej;
-          r.readAsDataURL(audioBlob);
-        });
-      }
+      // Storage bucket CORS/404 — chat ovozi kabi faqat Base64 (RTDB)
+      const mediaBase64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result.split(',')[1]);
+        r.onerror = rej;
+        r.readAsDataURL(audioBlob);
+      });
+      const mediaPath = null;
 
       const msg = {
         id: 'msg_voice_' + Date.now(),

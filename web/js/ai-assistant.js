@@ -422,12 +422,7 @@
       safeStartRecognition();
     }
 
-    // 1. Birinchi o'rinda Microsoft Neural O'zbekcha Ovoz (https://hokim.vercel.app/api/tts)
-    const baseUrl = (window.location.protocol.startsWith('http') && window.location.hostname.includes('vercel.app'))
-      ? '/api/tts'
-      : 'https://hokim.vercel.app/api/tts';
-    const ttsUrl = baseUrl + '?text=' + encodeURIComponent(cleanText);
-    
+    // 1. Microsoft Neural O'zbekcha ovoz: blob orqali (HTML/500 javob audio.src ni buzmasin)
     if (!sharedTtsAudio) {
       sharedTtsAudio = new Audio();
     }
@@ -440,7 +435,9 @@
       fallbackTriggered = true;
       try {
         audio.pause();
-        audio.src = '';
+        if (audio.src && audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
+        audio.removeAttribute('src');
+        audio.load();
       } catch (_) {}
       if (activeAudioPlayer === audio) activeAudioPlayer = null;
       speakLocalUzbek(cleanText, callback);
@@ -457,27 +454,57 @@
     };
 
     audio.onended = () => {
+      try {
+        if (audio.src && audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
+      } catch (_) {}
       activeAudioPlayer = null;
       finishSpeechCleanup(callback);
     };
 
-    audio.onerror = (e) => {
-      console.warn("Neural TTS server offline/rate-limited, fallback to browser speech...", e);
+    audio.onerror = () => {
       triggerLocalFallback();
     };
 
+    playNeuralTts(cleanText, audio).catch(() => triggerLocalFallback());
+  }
+
+  async function fetchTtsAudioBlob(text) {
+    const q = '?text=' + encodeURIComponent(text);
+    const urls = [];
+    if (window.location.protocol.startsWith('http')) {
+      urls.push('/api/tts' + q);
+    }
+    urls.push('https://hokim.vercel.app/api/tts' + q);
+
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 10000);
+        const res = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!res.ok) continue;
+        const ctype = (res.headers.get('content-type') || '').toLowerCase();
+        if (ctype.includes('text/html') || ctype.includes('text/plain') || ctype.includes('application/json')) {
+          continue;
+        }
+        const blob = await res.blob();
+        if (blob && blob.size > 100) return blob;
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  async function playNeuralTts(text, audio) {
+    const blob = await fetchTtsAudioBlob(text);
+    if (!blob) throw new Error('tts-unavailable');
+    const objectUrl = URL.createObjectURL(blob);
+    audio.src = objectUrl;
     try {
-      audio.src = ttsUrl;
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          console.warn("audio.play() stream error:", err);
-          triggerLocalFallback();
-        });
-      }
+      await audio.play();
     } catch (err) {
-      console.warn("Audio element setup error:", err);
-      triggerLocalFallback();
+      try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+      throw err;
     }
   }
 

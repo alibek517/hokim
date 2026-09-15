@@ -219,93 +219,181 @@ function closeMessageActionsModal() {
   if (modal) modal.classList.remove('active');
 }
 
-// ─── Firebase Storage yordamchi funksiya ────────────────────────────────────
-async function uploadToFirebaseStorage(file, folder) {
-  const storage = window.firebaseStorage;
-  if (!storage) {
-    // Fallback: base64 + compress
-    let uploadFile = file;
-    if (file.type.startsWith('video') && file.size > 5 * 1024 * 1024 && typeof compressVideoInBrowser === 'function') {
-      try {
-        showToast('Video siqilmoqda...');
-        uploadFile = await compressVideoInBrowser(file);
-      } catch (_) { uploadFile = file; }
-    }
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve({ url: null, base64: reader.result.split(',')[1] });
-      reader.onerror = reject;
-      reader.readAsDataURL(uploadFile);
-    });
-  }
-  // Storage bor — katta videolarni compress qilish
-  let uploadFile = file;
-  if (file.type.startsWith('video') && file.size > 5 * 1024 * 1024 && typeof compressVideoInBrowser === 'function') {
-    try {
-      showToast('Video siqilmoqda...');
-      uploadFile = await compressVideoInBrowser(file);
-    } catch (_) { uploadFile = file; }
-  }
-  const ext = uploadFile.name ? uploadFile.name.split('.').pop() : 'bin';
-  const path = `chat/${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-  const storRef = storage.ref(path);
-  await storRef.put(uploadFile);
-  const url = await storRef.getDownloadURL();
-  return { url, base64: null };
-}
+// ─── RTDB Media Chunking & Base64 yuklash (Firebase Storage cheklovisiz) ────
+window._chunkedBlobCache = window._chunkedBlobCache || {};
 
-function handleImagePicked(e) {
+async function saveMediaToFirebaseChunks(file, progressCb) {
+  const db = window.firebaseRtdb;
+  const mediaId = 'med_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+
+  const dataUrl = await new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => res(reader.result);
+    reader.onerror = rej;
+    reader.readAsDataURL(file);
+  });
+
+  const base64Data = dataUrl.split(',')[1];
+  const mimeType = file.type || (dataUrl.split(';')[0].split(':')[1]) || 'video/mp4';
+  const CHUNK_SIZE = 350000; // 350KB per chunk
+  const totalChunks = Math.ceil(base64Data.length / CHUNK_SIZE);
+
+  if (db) {
+    await db.ref(`media_chunks/${mediaId}/meta`).set({
+      id: mediaId,
+      mimeType: mimeType,
+      name: file.name || 'media',
+      totalChunks: totalChunks,
+      size: file.size || base64Data.length,
+      createdAt: Date.now()
+    });
+
+    for (let i = 0; i < totalChunks; i++) {
+      const chunk = base64Data.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+      await db.ref(`media_chunks/${mediaId}/chunks/${i}`).set(chunk);
+      if (typeof progressCb === 'function') progressCb(Math.round(((i + 1) / totalChunks) * 100));
+    }
+  }
+
+  const byteCharacters = atob(base64Data);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: mimeType });
+  const blobUrl = URL.createObjectURL(blob);
+  window._chunkedBlobCache[mediaId] = blobUrl;
+
+  return { mediaId, mimeType, blobUrl };
+}
+window.saveMediaToFirebaseChunks = saveMediaToFirebaseChunks;
+
+async function loadChunkedMedia(mediaId, mimeType = 'video/mp4') {
+  if (!mediaId) return '';
+  if (window._chunkedBlobCache && window._chunkedBlobCache[mediaId]) {
+    return window._chunkedBlobCache[mediaId];
+  }
+  const db = window.firebaseRtdb;
+  if (!db) return '';
+
+  try {
+    const metaSnap = await db.ref(`media_chunks/${mediaId}/meta`).once('value');
+    const meta = metaSnap.val() || {};
+    const actualMime = meta.mimeType || mimeType;
+    const totalChunks = meta.totalChunks || 1;
+
+    const chunksSnap = await db.ref(`media_chunks/${mediaId}/chunks`).once('value');
+    const chunksVal = chunksSnap.val() || {};
+    let fullBase64 = '';
+    for (let i = 0; i < totalChunks; i++) {
+      fullBase64 += (chunksVal[i] || '');
+    }
+
+    const byteCharacters = atob(fullBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: actualMime });
+    const blobUrl = URL.createObjectURL(blob);
+    window._chunkedBlobCache[mediaId] = blobUrl;
+    return blobUrl;
+  } catch (err) {
+    console.warn('loadChunkedMedia error:', err);
+    return '';
+  }
+}
+window.loadChunkedMedia = loadChunkedMedia;
+
+async function handleImagePicked(e) {
   const file = e.target.files[0];
   if (!file || !activeChatPeer || !window.store.currentUser) return;
   e.target.value = '';
 
   showToast('Rasm yuklanmoqda...');
-  uploadToFirebaseStorage(file, 'images').then(({ url, base64 }) => {
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
     const msg = {
       id: 'msg_img_' + Date.now(),
       senderId: window.store.currentUser.id,
       receiverId: activeChatPeer.id,
       senderName: window.store.currentUser.fullName || window.store.currentUser.firstName,
       messageType: 'IMAGE',
-      mediaPath: url || null,
-      mediaBase64: base64 || null,
+      mediaPath: null,
+      mediaBase64: base64,
       timestamp: Date.now(),
       isRead: false
     };
-    return window.dbApi.sendMessage(msg);
-  }).then(() => {
+    await window.dbApi.sendMessage(msg);
+    if (typeof playNotificationSound === 'function') playNotificationSound('send');
     showToast('Rasm yuborildi ✓');
-  }).catch(err => {
+  } catch (err) {
     console.error('Rasm yuborishda xatolik:', err);
     showToast('Xatolik: rasm yuborilmadi');
-  });
+  }
 }
 
-function handleVideoPicked(e) {
+async function handleVideoPicked(e) {
   const file = e.target.files[0];
   if (!file || !activeChatPeer || !window.store.currentUser) return;
   e.target.value = '';
 
   showToast('Video yuklanmoqda... (bir oz kuting)');
-  uploadToFirebaseStorage(file, 'videos').then(({ url, base64 }) => {
+  try {
+    let uploadFile = file;
+    // Katta videolarni brauzerda siqish
+    if (file.size > 3 * 1024 * 1024 && typeof compressVideoInBrowser === 'function') {
+      try {
+        uploadFile = await compressVideoInBrowser(file);
+      } catch (_) { uploadFile = file; }
+    }
+
+    let mediaPath = null;
+    let mediaBase64 = null;
+
+    if (uploadFile.size > 2 * 1024 * 1024) {
+      // 2MB dan katta videolarni xavfsiz qismlar (chunks) qilib saqlash
+      showToast('Video yuklanmoqda...');
+      const chunkRes = await saveMediaToFirebaseChunks(uploadFile, (p) => {
+        if (p % 25 === 0) showToast(`Video yuklanmoqda: ${p}%`);
+      });
+      mediaPath = 'chunk:' + chunkRes.mediaId;
+    } else {
+      // 2MB dan kichik videolarni to'g'ridan-to'g'ri Base64 saqlash
+      mediaBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(uploadFile);
+      });
+    }
+
     const msg = {
       id: 'msg_vid_' + Date.now(),
       senderId: window.store.currentUser.id,
       receiverId: activeChatPeer.id,
       senderName: window.store.currentUser.fullName || window.store.currentUser.firstName,
       messageType: 'VIDEO',
-      mediaPath: url || null,
-      mediaBase64: base64 || null,
+      mediaPath: mediaPath,
+      mediaBase64: mediaBase64,
       timestamp: Date.now(),
       isRead: false
     };
-    return window.dbApi.sendMessage(msg);
-  }).then(() => {
+    await window.dbApi.sendMessage(msg);
+    if (typeof playNotificationSound === 'function') playNotificationSound('send');
     showToast('Video yuborildi ✓');
-  }).catch(err => {
+  } catch (err) {
     console.error('Video yuborishda xatolik:', err);
     showToast('Xatolik: video yuborilmadi. ' + (err.message || ''));
-  });
+  }
 }
 
 function openAttachChoiceModal() {
@@ -381,25 +469,13 @@ async function sendChatVoiceRecording() {
   chatVoiceRecorder.onstop = async () => {
     try {
       const audioBlob = new Blob(chatVoiceChunks, { type: 'audio/mp4' });
-      const storage = window.firebaseStorage;
-      let mediaPath = null;
-      let mediaBase64 = null;
-
-      if (storage) {
-        // Firebase Storage orqali yuklash
-        const path = `chat/voices/${Date.now()}_${Math.random().toString(36).slice(2)}.mp4`;
-        const storRef = storage.ref(path);
-        await storRef.put(audioBlob);
-        mediaPath = await storRef.getDownloadURL();
-      } else {
-        // Fallback: base64
-        mediaBase64 = await new Promise((res, rej) => {
-          const r = new FileReader();
-          r.onload = () => res(r.result.split(',')[1]);
-          r.onerror = rej;
-          r.readAsDataURL(audioBlob);
-        });
-      }
+      // Direct base64 conversion - avoid Firebase Storage CORS and missing bucket errors
+      const mediaBase64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result.split(',')[1]);
+        r.onerror = rej;
+        r.readAsDataURL(audioBlob);
+      });
 
       const msg = {
         id: 'msg_voice_' + Date.now(),
@@ -407,13 +483,14 @@ async function sendChatVoiceRecording() {
         receiverId: activeChatPeer.id,
         senderName: window.store.currentUser.fullName || window.store.currentUser.firstName,
         messageType: 'VOICE',
-        mediaPath: mediaPath || null,
-        mediaBase64: mediaBase64 || null,
+        mediaPath: null,
+        mediaBase64: mediaBase64,
         audioDurationSec: durationSec,
         timestamp: Date.now(),
         isRead: false
       };
       await window.dbApi.sendMessage(msg);
+      if (typeof playNotificationSound === 'function') playNotificationSound('send');
       showToast('Ovozli xabar yuborildi!');
     } catch (e) {
       console.error("Chat voice send error:", e);
@@ -457,21 +534,43 @@ function playAudio(src, btn) {
   };
 }
 
-function playVideo(src) {
+async function playVideo(src) {
   const player = document.getElementById('video-player-modal');
   const video = document.getElementById('full-video-element');
-  video.src = src;
+  if (!player || !video) return;
+
+  let finalSrc = src;
+  if (src && src.startsWith('chunk:')) {
+    const mediaId = src.replace('chunk:', '');
+    if (typeof showToast === 'function') showToast('Video yuklanmoqda...');
+    if (typeof loadChunkedMedia === 'function') {
+      finalSrc = await loadChunkedMedia(mediaId);
+    }
+  }
+
+  if (!finalSrc) {
+    if (typeof showToast === 'function') showToast('Videoni ochishda xatolik yuz berdi');
+    return;
+  }
+
+  video.src = finalSrc;
   player.classList.add('active');
-  video.play();
+  video.play().catch(e => console.warn('Video playback warning:', e));
 }
 
 function closeVideoModal() {
   const player = document.getElementById('video-player-modal');
   const video = document.getElementById('full-video-element');
-  video.pause();
-  video.src = '';
-  player.classList.remove('active');
+  if (video) {
+    video.pause();
+    video.src = '';
+  }
+  if (player) {
+    player.classList.remove('active');
+  }
 }
+window.playVideo = playVideo;
+window.closeVideoModal = closeVideoModal;
 
 function openImageViewer(src) {
   const modal = document.getElementById('image-viewer-modal');

@@ -214,15 +214,9 @@ function initFirebase() {
       database = firebase.database();
       window.firebaseRtdb = database;
 
-      // Firebase Storage (video, rasm, audio uchun — 10MB RTDB cheklovidan xalos bo'lish)
-      if (typeof firebase.storage !== 'undefined') {
-        try {
-          window.firebaseStorage = firebase.storage();
-        } catch (storErr) {
-          console.warn('Firebase Storage init failed:', storErr);
-          window.firebaseStorage = null;
-        }
-      }
+      // Firebase Storage ushbu loyihada yoqilmagan (GCP bucket 404 beradi).
+      // Shuning uchun audio, rasm va videolar to'g'ridan-to'g'ri Base64 va RTDB Chunking orqali cheklovlarsiz ishlaydi.
+      window.firebaseStorage = null;
 
       // Polyfill setValue on Firebase Database Reference to prevent any runtime exceptions
       try {

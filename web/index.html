@@ -19,7 +19,7 @@
   <script>
     // Eski keshni avtomatik tozalash
     (function() {
-      const APP_VER = '20260915_60';
+      const APP_VER = '20260915_61';
       if (localStorage.getItem('ijro_sw_ver') !== APP_VER) {
         localStorage.setItem('ijro_sw_ver', APP_VER);
         if ('caches' in window) {
@@ -43,14 +43,13 @@
       }
     }, true);
   </script>
-  <link rel="stylesheet" href="/css/style.css?v=20260915_60">
+  <link rel="stylesheet" href="/css/style.css?v=20260915_61">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Firebase Web SDK (Compat v10) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
 
   <!-- Pre-render Session State (Login screen miltillashini va qaytib chiqishini butunlay to'xtatish) -->
   <script>
@@ -798,13 +797,13 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="/js/firebase-config.js?v=20260915_60"></script>
-  <script src="/js/chat.js?v=20260915_60"></script>
-  <script src="/js/mayor.js?v=20260915_60"></script>
-  <script src="/js/ai-assistant.js?v=20260915_60"></script>
-  <script src="/js/worker.js?v=20260915_60"></script>
-  <script src="/js/admin.js?v=20260915_60"></script>
-  <script src="/js/app.js?v=20260915_60"></script>
+  <script src="/js/firebase-config.js?v=20260915_61"></script>
+  <script src="/js/chat.js?v=20260915_61"></script>
+  <script src="/js/mayor.js?v=20260915_61"></script>
+  <script src="/js/ai-assistant.js?v=20260915_61"></script>
+  <script src="/js/worker.js?v=20260915_61"></script>
+  <script src="/js/admin.js?v=20260915_61"></script>
+  <script src="/js/app.js?v=20260915_61"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
@@ -819,7 +818,7 @@
       window.addEventListener('load', () => {
         try {
           const isSub = window.location.pathname.startsWith('/web');
-          const swScript = isSub ? '/web/sw.js?v=20260915_60' : '/sw.js?v=20260915_60';
+          const swScript = isSub ? '/web/sw.js?v=20260915_61' : '/sw.js?v=20260915_61';
           const swScope = isSub ? '/web/' : '/';
           navigator.serviceWorker.register(swScript, { scope: swScope })
             .then(reg => {
