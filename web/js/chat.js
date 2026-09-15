@@ -21,6 +21,17 @@ function openChat(peer, updateUrl = true) {
 
   const avatarEl = document.getElementById('chat-avatar');
   if (avatarEl) avatarEl.innerText = fullName.charAt(0).toUpperCase();
+
+  const callBtn = document.getElementById('chat-header-call-btn');
+  if (callBtn) {
+    if (peer.phone) {
+      callBtn.href = 'tel:' + peer.phone;
+      callBtn.style.display = 'inline-flex';
+      callBtn.title = (peer.phone) + " ga qo'ng'iroq qilish";
+    } else {
+      callBtn.style.display = 'none';
+    }
+  }
   
   showScreen('chat-screen');
   renderChatMessages();
@@ -236,8 +247,11 @@ function handleVideoPicked(e) {
   const file = e.target.files[0];
   if (!file || !activeChatPeer || !window.store.currentUser) return;
 
-  if (file.size > 25 * 1024 * 1024) {
-    alert("Video hajmi 25 MB dan kichik bo'lishi lozim");
+  // Firebase RTDB bitta string qiymat uchun maksimum 10,485,760 bayt (10MB) qabul qiladi.
+  // Base64 33% hajm qo'shgani sababli xom video fayl ko'pi bilan 7.2 MB bo'lishi shart!
+  if (file.size > 7.2 * 1024 * 1024) {
+    alert("Video hajmi 7.2 MB dan oshmasligi lozim (Server/Firebase cheklovi: 10MB). Iltimos, qisqaroq yoki siqilgan video tanlang.");
+    e.target.value = '';
     return;
   }
 
@@ -245,6 +259,10 @@ function handleVideoPicked(e) {
   const reader = new FileReader();
   reader.onload = async function() {
     const base64 = reader.result.split(',')[1];
+    if (base64.length > 10000000) {
+      alert("Video hajmi 10MB limitidan oshib ketdi. Iltimos, kichikroq video tanlang.");
+      return;
+    }
     const msg = {
       id: 'msg_vid_' + Date.now(),
       senderId: window.store.currentUser.id,
@@ -255,8 +273,13 @@ function handleVideoPicked(e) {
       timestamp: Date.now(),
       isRead: false
     };
-    await window.dbApi.sendMessage(msg);
-    showToast('Video yuborildi');
+    try {
+      await window.dbApi.sendMessage(msg);
+      showToast('Video yuborildi');
+    } catch (err) {
+      console.error("Video send error:", err);
+      alert("Videoni yuborishda xatolik yuz berdi: " + (err.message || err));
+    }
   };
   reader.readAsDataURL(file);
   e.target.value = '';
@@ -411,10 +434,32 @@ function closeVideoModal() {
   player.classList.remove('active');
 }
 
-function viewFullImage(src) {
-  const w = window.open();
-  w.document.write('<body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;"><img src="' + src + '" style="max-width:100%;max-height:100%;"></body>');
+function openImageViewer(src) {
+  const modal = document.getElementById('image-viewer-modal');
+  const img = document.getElementById('full-image-element');
+  if (modal && img) {
+    img.src = src;
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+  }
 }
+
+function closeImageViewerModal() {
+  const modal = document.getElementById('image-viewer-modal');
+  const img = document.getElementById('full-image-element');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+  if (img) img.src = '';
+}
+
+function viewFullImage(src) {
+  openImageViewer(src);
+}
+
+window.openImageViewer = openImageViewer;
+window.closeImageViewerModal = closeImageViewerModal;
 
 function escapeHtml(text) {
   if (!text) return '';

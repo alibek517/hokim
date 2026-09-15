@@ -7,6 +7,12 @@ enum class TaskStatus {
     INSPECTED_BLUE        // MOVIY: Hokim borib tekshirdi va tasdiqladi
 }
 
+data class TaskMediaItem(
+    val type: String = "image", // "image" or "video"
+    val base64: String = "",
+    val name: String = ""
+)
+
 data class TaskItem(
     val id: String = "",
     val title: String = "",
@@ -33,5 +39,7 @@ data class TaskItem(
     val voiceBase64: String? = null,             // Firebase orqali uzatiladigan topshiriq ovozi (Base64)
     val voiceDurationSec: Int = 0,               // Topshiriq ovozi davomiyligi
     val voiceList: List<String> = emptyList(),   // Barcha ovozli xabarlar ro'yxati (Base64)
+    val mediaList: List<TaskMediaItem> = emptyList(), // Rasm va videolarning ro'yxati
+    val completionMediaList: List<TaskMediaItem> = emptyList(), // Ish tugatilganda yuklangan rasm/video
     val createdAt: Long = System.currentTimeMillis()
 )

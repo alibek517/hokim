@@ -390,6 +390,7 @@ function renderWorkerTasks() {
 
         ${task.address ? `<div class="task-address"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px; margin-right:3px;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>${escapeHtml(task.address)}</div>` : ''}
         ${task.description ? `<div class="task-desc">${escapeHtml(task.description)}</div>` : ''}
+        ${window.renderCardMediaGallery ? window.renderCardMediaGallery(task.mediaList) : ''}
 
         ${completionNoteHtml}
         ${actionBtnHtml}
@@ -406,6 +407,43 @@ async function workerStartTask(taskId) {
   showToast("Ish boshlandi! Holat Sariq rangga o'tdi.");
 }
 
+// Worker Completion Media State
+let workerCompleteMediaList = [];
+
+function handleWorkerCompleteMediaPicked(event) {
+  const files = Array.from(event.target.files || []);
+  if (files.length === 0) return;
+
+  const processPromises = files.map(file => {
+    if (window.processMediaFile) {
+      return window.processMediaFile(file);
+    }
+    return Promise.resolve(null);
+  });
+
+  Promise.all(processPromises).then(results => {
+    results.forEach(res => {
+      if (res) workerCompleteMediaList.push(res);
+    });
+    if (window.renderModalMediaPreviews) {
+      window.renderModalMediaPreviews(workerCompleteMediaList, 'worker-complete-media-preview', 'removeWorkerCompleteMedia');
+    }
+    event.target.value = '';
+  });
+}
+
+function removeWorkerCompleteMedia(idx) {
+  if (idx >= 0 && idx < workerCompleteMediaList.length) {
+    workerCompleteMediaList.splice(idx, 1);
+    if (window.renderModalMediaPreviews) {
+      window.renderModalMediaPreviews(workerCompleteMediaList, 'worker-complete-media-preview', 'removeWorkerCompleteMedia');
+    }
+  }
+}
+
+window.handleWorkerCompleteMediaPicked = handleWorkerCompleteMediaPicked;
+window.removeWorkerCompleteMedia = removeWorkerCompleteMedia;
+
 // Complete task modal
 function openWorkerCompleteModal(taskId) {
   completingTaskId = taskId;
@@ -416,6 +454,11 @@ function openWorkerCompleteModal(taskId) {
   document.getElementById('complete-task-addr').innerText = 'Manzil: ' + (task.address || '');
   document.getElementById('complete-task-note').value = '';
 
+  workerCompleteMediaList = [];
+  if (window.renderModalMediaPreviews) {
+    window.renderModalMediaPreviews(workerCompleteMediaList, 'worker-complete-media-preview', 'removeWorkerCompleteMedia');
+  }
+
   document.getElementById('worker-complete-modal').classList.add('active');
 }
 
@@ -425,14 +468,21 @@ async function confirmWorkerComplete() {
   const task = window.store.tasks.find(t => t.id === completingTaskId);
   const notes = document.getElementById('complete-task-note').value.trim();
 
-  await window.dbApi.updateTaskStatus(completingTaskId, 'COMPLETED_GREEN', notes || null);
+  const updates = {
+    status: 'COMPLETED_GREEN',
+    completionNotes: notes || null,
+    completionMediaList: workerCompleteMediaList.length > 0 ? workerCompleteMediaList : null,
+    completedAt: Date.now()
+  };
+
+  await window.dbApi.updateTask(completingTaskId, updates);
 
   // Send automatic chat message to Mayor with completion report!
   const mayor = window.store.users.find(u => u.id === (task ? task.mayorId : (worker.mayorId || '')));
   if (mayor) {
     const reportText = notes ? 
-      `Hurmatli Hokim! '${task.title}' bo'yicha ishlar muvaffaqiyatli yakunlandi.\n\nXodim izohi: ${notes}\nManzil: ${task.address}` :
-      `Hurmatli Hokim! '${task.title}' bo'yicha ishlar muvaffaqiyatli yakunlandi va topshirishga tayyor. (Manzil: ${task.address})`;
+      `'${task.title}' bo'yicha ishlar muvaffaqiyatli yakunlandi.\n\nXodim izohi: ${notes}\nManzil: ${task.address || ''}` :
+      `'${task.title}' bo'yicha ishlar muvaffaqiyatli yakunlandi va topshirishga tayyor. (Manzil: ${task.address || ''})`;
 
     const chatMsg = {
       id: 'msg_rep_' + Date.now(),
@@ -445,11 +495,30 @@ async function confirmWorkerComplete() {
       isRead: false
     };
     await window.dbApi.sendMessage(chatMsg);
+
+    // Send attached completion media as messages too
+    for (const m of workerCompleteMediaList) {
+      const mediaMsg = {
+        id: 'msg_media_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        senderId: worker.id,
+        receiverId: mayor.id,
+        senderName: worker.fullName || worker.firstName,
+        messageType: m.type === 'video' ? 'VIDEO' : 'IMAGE',
+        mediaBase64: m.base64,
+        textContent: `Topshiriq hisoboti: ${task.title}`,
+        timestamp: Date.now(),
+        isRead: false
+      };
+      await window.dbApi.sendMessage(mediaMsg);
+    }
   }
 
+  workerCompleteMediaList = [];
   closeModal('worker-complete-modal');
-  showToast("Topshiriq tugatildi! Izoh va xabarnoma Hokimga yuborildi.");
+  showToast("Topshiriq tugatildi! Izoh va fayllar Hokimga yuborildi.");
 }
+window.confirmCompleteTask = confirmWorkerComplete;
+window.confirmWorkerComplete = confirmWorkerComplete;
 
 function openWorkerChatWithMayor() {
   const worker = window.store.currentUser;

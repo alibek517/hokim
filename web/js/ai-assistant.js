@@ -172,9 +172,12 @@
           return;
         }
 
-        // 3. BARGE-IN (Foydalanuvchi gapira boshlashi bilan AI nutqini darhol to'xtatish va to'liq tinglash):
+        // 3. BARGE-IN (Foydalanuvchi gapira boshlashi bilan AI nutqini to'xtatish):
         if (isSpeaking) {
-          console.log("[AI Barge-in] Foydalanuvchi gapirdi -> AI nutqi darhol to'xtatildi va tinglanmoqda:", text);
+          if (isEchoOfCurrentSpeech(text, currentSpeakingText)) {
+            return;
+          }
+          console.log("[AI Barge-in] Foydalanuvchi gapirdi -> AI nutqi to'xtatildi va tinglanmoqda:", text);
           stopSpeaking();
         }
 
@@ -1143,7 +1146,7 @@ MUHIM QOIDALAR:
     if (greetings.some(g => text === g || text.startsWith(g + ' ') || text.endsWith(' ' + g) || text === g + '!' || text === g + '?')) {
       return {
         intent: 'GREETING',
-        message: "Assalomu alaykum, hurmatli Hokim! Sizga qanday yordam bera olaman?"
+        message: "Assalomu alaykum! Sizga qanday yordam bera olaman?"
       };
     }
 
@@ -1177,13 +1180,41 @@ MUHIM QOIDALAR:
       };
     }
 
+    // 8.0 Barcha topshiriqlarni chiqarish / ko'rsatish
+    const isShowAllTasks = (
+      text.includes('barcha topshiriq') ||
+      text.includes('hamma topshiriq') ||
+      text.includes('barcha vazifa') ||
+      text.includes('hamma vazifa') ||
+      text.includes('topshiriqlarni chiqar') ||
+      text.includes('topshiriqni chiqar') ||
+      text.includes('topshiriqlarni korsat') ||
+      text.includes("topshiriqlarni ko'rsat") ||
+      text.includes('hammasini chiqar') ||
+      text.includes('hammasini korsat') ||
+      text.includes("hammasini ko'rsat") ||
+      text.includes('barchasini chiqar') ||
+      text.includes('barchasini korsat') ||
+      text.includes("barchasini ko'rsat") ||
+      text === 'hammasi' ||
+      text === 'barchasi' ||
+      text === 'barcha'
+    );
+    if (isShowAllTasks) {
+      return {
+        intent: 'FILTER_STATUS',
+        statusIdx: 0,
+        message: "Barcha topshiriqlar ro'yxati ochildi."
+      };
+    }
+
     // 8. Sahifalarga o'tish (Navigation - Tab 0, 1, 2, 3)
     // Tab 0: Topshiriqlar ("1-pej", "1-page", "birinchi sahifa", "topshiriqlar", "topshiriqqa o't", "asosiy sahifa")
     const isNavTab0 = (
       /\b(?:1[- ]?(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*|birinchi\s+(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*|bosh\s+sahifa|asosiy\s+sahifa|glavniy)\b/i.test(text) ||
       (
         (text.includes('topshiriq') || text.includes('vazifa')) &&
-        (text.includes('sahifa') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('ot') || text.includes('och') || text.includes('bolim') || text.includes("bo'lim") || text === 'topshiriqlar' || text === 'topshiriq' || text === 'vazifalar' || text === 'vazifa' || text.includes('topshiriqqa') || text.includes('topshiriqlarga'))
+        (text.includes('sahifa') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('ot') || text.includes('och') || text.includes('chiqar') || text.includes("ko'rsat") || text.includes('korsat') || text.includes('bolim') || text.includes("bo'lim") || text === 'topshiriqlar' || text === 'topshiriq' || text === 'vazifalar' || text === 'vazifa' || text.includes('topshiriqqa') || text.includes('topshiriqlarga'))
       )
     );
     if (isNavTab0) {
@@ -1195,7 +1226,7 @@ MUHIM QOIDALAR:
       /\b(?:2[- ]?(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*|ikkinchi\s+(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*)\b/i.test(text) ||
       (
         text.includes('reja') &&
-        (text.includes('sahifa') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('ot') || text.includes('och') || text.includes('bolim') || text.includes("bo'lim") || text === 'rejalar' || text === 'reja' || text === 'rejalarim' || text.includes('rejalarga') || text.includes('rejaga'))
+        (text.includes('sahifa') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('ot') || text.includes('och') || text.includes('chiqar') || text.includes("ko'rsat") || text.includes('korsat') || text.includes('bolim') || text.includes("bo'lim") || text === 'rejalar' || text === 'reja' || text === 'rejalarim' || text.includes('rejalarga') || text.includes('rejaga'))
       ) ||
       text === 'kalendar' || text.includes('kalendarga') || text.includes('kalendarni')
     );
@@ -1208,7 +1239,7 @@ MUHIM QOIDALAR:
       /\b(?:3[- ]?(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*|uchinchi\s+(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*|reyting\w*)\b/i.test(text) ||
       (
         (text.includes('xodim') || text.includes('ishchi')) &&
-        (text.includes('sahifa') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('ot') || text.includes('och') || text.includes('bolim') || text.includes("bo'lim") || text === 'xodimlar' || text === 'ishchilar' || text.includes('xodimlarga') || text.includes('ishchilarga'))
+        (text.includes('sahifa') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('ot') || text.includes('och') || text.includes('chiqar') || text.includes("ko'rsat") || text.includes('korsat') || text.includes('bolim') || text.includes("bo'lim") || text === 'xodimlar' || text === 'ishchilar' || text.includes('xodimlarga') || text.includes('ishchilarga'))
       )
     );
     if (isNavTab2) {
@@ -1220,7 +1251,7 @@ MUHIM QOIDALAR:
       /\b(?:4[- ]?(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*|to['`]?rtinchi\s+(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*)\b/i.test(text) ||
       (
         (text.includes('chat') || text.includes('xabar') || text.includes('yozishma')) &&
-        (text.includes('sahifa') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('ot') || text.includes('och') || text.includes('bolim') || text.includes("bo'lim") || text === 'chatlar' || text === 'chat' || text === 'yozishmalar' || text === 'xabarlar' || text.includes('chatga') || text.includes('chatlarga'))
+        (text.includes('sahifa') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('ot') || text.includes('och') || text.includes('chiqar') || text.includes("ko'rsat") || text.includes('korsat') || text.includes('bolim') || text.includes("bo'lim") || text === 'chatlar' || text === 'chat' || text === 'yozishmalar' || text === 'xabarlar' || text.includes('chatga') || text.includes('chatlarga'))
       )
     );
     if (isNavTab3) {
@@ -1248,7 +1279,7 @@ MUHIM QOIDALAR:
     if (text.includes('rahmat') || text.includes('barakalla') || text.includes('balli') || text.includes('tashakkur')) {
       return {
         intent: 'GREETING',
-        message: "Arzimaydi, hurmatli Hokim! Sizga xizmat qilishdan doim mamnunman."
+        message: "Arzimaydi! Xizmat qilishdan doim mamnunman."
       };
     }
     if (text.includes('kimsan') || text.includes('nima qila olasan') || text.includes('yordam ber')) {
@@ -1298,9 +1329,19 @@ MUHIM QOIDALAR:
     };
   }
 
+  let lastProcessedSpeech = '';
+  let lastProcessedTime = 0;
+
   async function handleUserSpeech(userSpeech) {
     const trimmed = (userSpeech || '').trim();
     if (!trimmed) return;
+
+    const now = Date.now();
+    if (trimmed.toLowerCase() === lastProcessedSpeech && (now - lastProcessedTime) < 1200) {
+      return;
+    }
+    lastProcessedSpeech = trimmed.toLowerCase();
+    lastProcessedTime = now;
 
     // 1. Shovqin va "30224" sonlarini butunlay bloklash
     if (trimmed.includes('30224') || trimmed.includes('30.00.24') || trimmed.includes('00.24') || trimmed.includes('00:24') || /^[\d\s.:\-_/]+$/.test(trimmed)) {
@@ -1898,7 +1939,7 @@ MUHIM QOIDALAR:
         }
 
         if (geminiResult.intent === 'GREETING' || geminiResult.intent === 'CHAT' || geminiResult.speechReply) {
-          const reply = geminiResult.speechReply || "Sizni eshitmoqdaman, hurmatli Hokim!";
+          const reply = geminiResult.speechReply || "Buyrug'ingizni ayting, darhol bajaraman.";
           appendAiMessage('jarvis', reply);
           speakText(reply);
           return;
@@ -1934,8 +1975,8 @@ MUHIM QOIDALAR:
       }
     }
 
-    // 3. Doimiy tayyorlik va faol javob (Hech qachon "Kechirasiz" yoki xatolik aytilmaydi):
-    const defaultReply = "Eshitmoqdaman, hurmatli Hokim. Topshiriq, reja, xodimlar yoki chatlar bo'yicha buyrug'ingizni bering, darhol bajaraman.";
+    // 3. Doimiy tayyorlik va faol javob:
+    const defaultReply = "Topshiriq, reja, xodimlar yoki chatlar bo'yicha buyrug'ingizni ayting, darhol bajaraman.";
     appendAiMessage('jarvis', defaultReply);
     speakText(defaultReply);
   }

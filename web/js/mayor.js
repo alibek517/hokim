@@ -50,6 +50,215 @@ function clearMayorWorkerSearch() {
   renderMayorWorkers();
 }
 
+// --- MEDIA ATTACHMENT HELPERS (RASM VA VIDEO YUKLASH) ---
+let createTaskMediaList = [];
+let editTaskMediaList = [];
+let createSchedMediaList = [];
+let editSchedMediaList = [];
+
+async function processMediaFile(file) {
+  return new Promise((resolve) => {
+    const isVideo = file.type.startsWith('video');
+    if (isVideo) {
+      if (file.size > 7.2 * 1024 * 1024) {
+        alert(`"${file.name}" hajmi 7.2MB dan katta! Server/Firebase cheklovi 10MB. Iltimos, kichikroq video tanlang.`);
+        return resolve(null);
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        resolve({
+          id: 'vid_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          type: 'VIDEO',
+          base64: e.target.result,
+          name: file.name,
+          size: file.size
+        });
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    } else {
+      // Image: compress with canvas to keep size light and fast
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1280;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          resolve({
+            id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            type: 'IMAGE',
+            base64: dataUrl,
+            name: file.name,
+            size: dataUrl.length
+          });
+        };
+        img.onerror = () => resolve(null);
+        img.src = e.target.result;
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    }
+  });
+}
+
+function renderModalMediaPreviews(mediaList, containerId, removeFnName) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  if (!mediaList || mediaList.length === 0) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+  container.style.display = 'flex';
+  container.innerHTML = mediaList.map((m, idx) => {
+    const isVid = m.type === 'VIDEO';
+    const src = m.base64.startsWith('data:') ? m.base64 : ('data:' + (isVid ? 'video/mp4' : 'image/jpeg') + ';base64,' + m.base64);
+    return `
+      <div class="modal-media-item">
+        ${isVid ? `<video src="${src}"></video><div class="modal-media-badge">🎥 Video</div>` : `<img src="${src}" alt="media"><div class="modal-media-badge">📷 Rasm</div>`}
+        <button type="button" class="modal-media-remove-btn" onclick="${removeFnName}(${idx})" title="O'chirish">✕</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderCardMediaGallery(mediaList) {
+  if (!Array.isArray(mediaList) || mediaList.length === 0) return '';
+  return `
+    <div class="task-media-grid">
+      ${mediaList.map((m) => {
+        const isVid = m.type === 'VIDEO';
+        const src = m.base64.startsWith('data:') ? m.base64 : ('data:' + (isVid ? 'video/mp4' : 'image/jpeg') + ';base64,' + m.base64);
+        if (isVid) {
+          return `
+            <div class="task-card-media-item" onclick="playVideo('${src}')" title="Videoni ko'rish">
+              <video src="${src}"></video>
+              <div class="task-card-video-overlay">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              </div>
+              <div class="modal-media-badge" style="bottom: 3px; left: 3px;">Video</div>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="task-card-media-item" onclick="openImageViewer('${src}')" title="Rasmni to'liq ko'rish">
+              <img src="${src}" alt="media" loading="lazy">
+            </div>
+          `;
+        }
+      }).join('')}
+    </div>
+  `;
+}
+
+// Create Task Media Handlers
+async function handleCreateTaskMediaPicked(e) {
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
+  showToast(`${files.length} ta fayl yuklanmoqda...`);
+  for (const f of files) {
+    const item = await processMediaFile(f);
+    if (item) createTaskMediaList.push(item);
+  }
+  e.target.value = '';
+  renderModalMediaPreviews(createTaskMediaList, 'create-task-media-preview', 'removeCreateTaskMedia');
+}
+
+function removeCreateTaskMedia(idx) {
+  if (idx >= 0 && idx < createTaskMediaList.length) {
+    createTaskMediaList.splice(idx, 1);
+    renderModalMediaPreviews(createTaskMediaList, 'create-task-media-preview', 'removeCreateTaskMedia');
+  }
+}
+
+// Edit Task Media Handlers
+async function handleEditTaskMediaPicked(e) {
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
+  showToast(`${files.length} ta fayl yuklanmoqda...`);
+  for (const f of files) {
+    const item = await processMediaFile(f);
+    if (item) editTaskMediaList.push(item);
+  }
+  e.target.value = '';
+  renderModalMediaPreviews(editTaskMediaList, 'edit-task-media-preview', 'removeEditTaskMedia');
+}
+
+function removeEditTaskMedia(idx) {
+  if (idx >= 0 && idx < editTaskMediaList.length) {
+    editTaskMediaList.splice(idx, 1);
+    renderModalMediaPreviews(editTaskMediaList, 'edit-task-media-preview', 'removeEditTaskMedia');
+  }
+}
+
+// Create Schedule Media Handlers
+async function handleCreateSchedMediaPicked(e) {
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
+  showToast(`${files.length} ta fayl yuklanmoqda...`);
+  for (const f of files) {
+    const item = await processMediaFile(f);
+    if (item) createSchedMediaList.push(item);
+  }
+  e.target.value = '';
+  renderModalMediaPreviews(createSchedMediaList, 'create-sched-media-preview', 'removeCreateSchedMedia');
+}
+
+function removeCreateSchedMedia(idx) {
+  if (idx >= 0 && idx < createSchedMediaList.length) {
+    createSchedMediaList.splice(idx, 1);
+    renderModalMediaPreviews(createSchedMediaList, 'create-sched-media-preview', 'removeCreateSchedMedia');
+  }
+}
+
+// Edit Schedule Media Handlers
+async function handleEditSchedMediaPicked(e) {
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
+  showToast(`${files.length} ta fayl yuklanmoqda...`);
+  for (const f of files) {
+    const item = await processMediaFile(f);
+    if (item) editSchedMediaList.push(item);
+  }
+  e.target.value = '';
+  renderModalMediaPreviews(editSchedMediaList, 'edit-sched-media-preview', 'removeEditSchedMedia');
+}
+
+function removeEditSchedMedia(idx) {
+  if (idx >= 0 && idx < editSchedMediaList.length) {
+    editSchedMediaList.splice(idx, 1);
+    renderModalMediaPreviews(editSchedMediaList, 'edit-sched-media-preview', 'removeEditSchedMedia');
+  }
+}
+
+window.handleCreateTaskMediaPicked = handleCreateTaskMediaPicked;
+window.removeCreateTaskMedia = removeCreateTaskMedia;
+window.handleEditTaskMediaPicked = handleEditTaskMediaPicked;
+window.removeEditTaskMedia = removeEditTaskMedia;
+window.handleCreateSchedMediaPicked = handleCreateSchedMediaPicked;
+window.removeCreateSchedMedia = removeCreateSchedMedia;
+window.handleEditSchedMediaPicked = handleEditSchedMediaPicked;
+window.removeEditSchedMedia = removeEditSchedMedia;
+window.renderCardMediaGallery = renderCardMediaGallery;
+window.renderModalMediaPreviews = renderModalMediaPreviews;
+window.processMediaFile = processMediaFile;
+
 function initMayorView() {
   const mayor = window.store.currentUser;
   if (!mayor) return;
@@ -296,12 +505,24 @@ function renderMayorTasks() {
 
         ${task.address ? `<div class="task-address"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px; margin-right:3px;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>${escapeHtml(task.address)}</div>` : ''}
         ${task.description ? `<div class="task-desc">${escapeHtml(task.description)}</div>` : ''}
+        ${renderCardMediaGallery(task.mediaList)}
 
         <!-- Birlashtirilgan ixcham Mas'ul va Ko'rildi footer paneli -->
         <div class="task-footer-row">
-          <div class="task-worker-tag" title="Mas'ul xodim">
+          <div class="task-worker-tag" title="Mas'ul xodim" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
             <span style="font-weight: 600;">${escapeHtml(task.assignedWorkerName || 'Biriktirilmagan')}</span>
+            ${(() => {
+              const assignedWorker = (window.store.users || []).find(u => u.id === task.assignedWorkerId) ||
+                (window.store.users || []).find(u => task.assignedWorkerName && (u.fullName === task.assignedWorkerName || ((u.firstName || '') + ' ' + (u.lastName || '')).trim() === task.assignedWorkerName.trim()));
+              const workerPhone = assignedWorker ? assignedWorker.phone : null;
+              return workerPhone ? `
+                <a href="tel:${workerPhone}" onclick="event.stopPropagation();" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #15803D; background: #DCFCE7; border: 1px solid #86EFAC; padding: 3px 8px; border-radius: 6px; text-decoration: none;" title="${workerPhone} ga to'g'ridan-to'g'ri telefon qilish">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+                  ${escapeHtml(workerPhone)}
+                </a>
+              ` : '';
+            })()}
           </div>
 
           <div class="task-seen-pill ${task.seenAt ? 'is-seen' : 'is-unseen'}">
@@ -443,6 +664,7 @@ function renderMayorSchedules() {
         ${s.location ? `<div class="task-address"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px; margin-right:3px;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>${escapeHtml(s.location)}</div>` : ''}
         ${s.notes ? `<div class="task-desc">${escapeHtml(s.notes)}</div>` : ''}
         ${voicesHtml}
+        ${renderCardMediaGallery(s.mediaList)}
       </div>
     `;
   });
@@ -744,6 +966,14 @@ async function renderMayorWorkers() {
             <div>
               <div style="font-weight: 700; font-size: 15px; color: var(--navy-dark);">${escapeHtml(w.fullName || (w.firstName + ' ' + w.lastName))}</div>
               <div style="font-size: 12px; color: var(--primary-blue); font-weight: 500;">${escapeHtml(w.position || 'Xodim')}</div>
+              ${w.phone ? `
+                <div style="margin-top: 3px;">
+                  <a href="tel:${w.phone}" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: #15803D; background: #DCFCE7; border: 1px solid #86EFAC; padding: 2px 8px; border-radius: 6px; text-decoration: none;" title="${w.phone} ga to'g'ridan-to'g'ri telefon qilish">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+                    ${escapeHtml(w.phone)}
+                  </a>
+                </div>
+              ` : ''}
             </div>
           </div>
           <div style="text-align: right;">
@@ -802,9 +1032,20 @@ async function renderMayorWorkers() {
             <span style="display: inline-flex; align-items: center; gap: 3px;">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="#10B981"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>Parol: <b style="color: #10B981; font-size: 12px;">${escapeHtml(w.password || '')}</b>
             </span>
-            ${w.phone ? `<span style="color: #64748B; display: inline-flex; align-items: center; gap: 3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>${escapeHtml(w.phone)}</span>` : ''}
+            ${w.phone ? `
+              <a href="tel:${w.phone}" style="color: #15803D; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;" title="${w.phone} ga qo'ng'iroq qilish">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+                ${escapeHtml(w.phone)}
+              </a>
+            ` : ''}
           </div>
-          <div style="display: flex; gap: 6px; align-items: center;">
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            ${w.phone ? `
+              <a href="tel:${w.phone}" class="btn" style="width: auto; padding: 4px 10px; font-size: 11px; font-weight: 700; background: #22C55E; color: white; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; box-shadow: 0 1px 3px rgba(34, 197, 94, 0.3);" title="${w.phone} ga to'g'ridan-to'g'ri telefon qilish">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+                Qo'ng'iroq
+              </a>
+            ` : ''}
             <button class="btn btn-outline" style="width: auto; padding: 4px 10px; font-size: 11px; border-color: #CBD5E1; color: var(--navy-dark); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" onclick="openEditWorkerModal('${w.id}')" title="Ma'lumotlar va Login/Parolni tahrirlash">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>Tahrirlash
             </button>
@@ -854,8 +1095,16 @@ function renderMayorChats() {
             <div style="font-weight: 700; font-size: 14px; color: var(--navy-dark);">${escapeHtml(peer.fullName || (peer.firstName + ' ' + peer.lastName))}</div>
             <div style="font-size: 10px; color: #94A3B8;">${timeStr}</div>
           </div>
-          <div style="font-size: 12px; color: #64748B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">
-            ${escapeHtml(preview)}
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+            <div style="font-size: 12px; color: #64748B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">
+              ${escapeHtml(preview)}
+            </div>
+            ${peer.phone ? `
+              <a href="tel:${peer.phone}" onclick="event.stopPropagation();" style="display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: #15803D; background: #DCFCE7; border: 1px solid #86EFAC; padding: 2px 6px; border-radius: 6px; text-decoration: none; margin-left: 6px; flex-shrink: 0;" title="${peer.phone} ga telefon qilish">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+                ${escapeHtml(peer.phone)}
+              </a>
+            ` : ''}
           </div>
         </div>
         ${unreadCount > 0 ? `<span class="badge badge-red" style="border-radius: 12px; font-size: 11px;">${unreadCount}</span>` : ''}
@@ -893,12 +1142,21 @@ function openCreateTaskModal() {
   if (startInput) startInput.value = now.toISOString().slice(0, 10);
   if (endInput) endInput.value = later.toISOString().slice(0, 10);
 
+  const addrInput = document.getElementById('new-task-address');
+  if (addrInput) addrInput.value = '';
+  const descInput = document.getElementById('new-task-desc');
+  if (descInput) descInput.value = '';
+
   // Reset voice modal state
   deleteTaskModalVoice();
   const voiceContainer = document.getElementById('new-task-voice-container');
   if (voiceContainer) voiceContainer.style.display = 'none';
   const toggleBtn = document.getElementById('btn-toggle-task-voice');
   if (toggleBtn) toggleBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px; margin-right:4px;"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Ovoz yozish';
+
+  // Reset media attachments
+  createTaskMediaList = [];
+  renderModalMediaPreviews(createTaskMediaList, 'create-task-media-preview', 'removeCreateTaskMedia');
 
   document.getElementById('create-task-modal').classList.add('active');
 }
@@ -951,7 +1209,7 @@ async function startTaskModalRecording() {
     const btnText = document.getElementById('task-modal-rec-btn-text');
     const recDot = document.getElementById('task-modal-rec-dot');
     if (timerEl) { timerEl.style.display = 'inline'; timerEl.innerText = '00:00'; }
-    if (btnText) btnText.innerText = 'To\'xtatish';
+    if (btnText) btnText.innerText = "To'xtatish";
     if (recDot) recDot.style.animation = 'pulse-dot 1s infinite alternate';
 
     taskModalVoiceState.timerId = setInterval(() => {
@@ -968,72 +1226,85 @@ async function startTaskModalRecording() {
     mediaRecorder.onstop = () => {
       const audioBlob = new Blob(taskModalVoiceState.audioChunks, { type: 'audio/mp4' });
       const audioUrl = URL.createObjectURL(audioBlob);
-      const player = document.getElementById('task-modal-audio-player');
-      const previewBox = document.getElementById('new-task-voice-preview');
-      const recorderBox = document.getElementById('new-task-voice-recorder');
-      if (player) player.src = audioUrl;
-      if (previewBox) previewBox.style.display = 'flex';
-      if (recorderBox) recorderBox.style.display = 'none';
-
       taskModalVoiceState.voiceDurationSec = Math.max(1, taskModalVoiceState.seconds);
 
       const reader = new FileReader();
       reader.onload = () => {
         taskModalVoiceState.voiceBase64 = reader.result.split(',')[1];
+        const preview = document.getElementById('new-task-voice-preview');
+        const player = document.getElementById('task-modal-audio-player');
+        if (preview && player) {
+          player.src = audioUrl;
+          preview.style.display = 'flex';
+        }
       };
       reader.readAsDataURL(audioBlob);
 
       if (taskModalVoiceState.stream) {
         taskModalVoiceState.stream.getTracks().forEach(t => t.stop());
+        taskModalVoiceState.stream = null;
       }
+      resetTaskModalVoiceControls();
     };
 
-    mediaRecorder.start();
+    mediaRecorder.start(250);
   } catch (err) {
-    alert("Mikrofon ruxsati olinmadi: " + err.message);
+    console.error("Task modal voice recording error:", err);
+    alert("Mikrofon ruxsatini yoqing yoki mikrofon ulanmagan!");
+    resetTaskModalVoiceControls();
   }
 }
 
 function stopTaskModalRecording() {
-  if (!taskModalVoiceState.isRecording) return;
-  taskModalVoiceState.isRecording = false;
-  clearInterval(taskModalVoiceState.timerId);
-  const btnText = document.getElementById('task-modal-rec-btn-text');
-  if (btnText) btnText.innerText = 'Ovoz yozishni boshlash';
   if (taskModalVoiceState.mediaRecorder && taskModalVoiceState.mediaRecorder.state !== 'inactive') {
     taskModalVoiceState.mediaRecorder.stop();
   }
 }
 
-function deleteTaskModalVoice() {
-  if (taskModalVoiceState.isRecording) {
-    stopTaskModalRecording();
+function resetTaskModalVoiceControls() {
+  if (taskModalVoiceState.timerId) {
+    clearInterval(taskModalVoiceState.timerId);
+    taskModalVoiceState.timerId = null;
   }
-  taskModalVoiceState.voiceBase64 = null;
-  taskModalVoiceState.voiceDurationSec = 0;
+  taskModalVoiceState.isRecording = false;
+  taskModalVoiceState.mediaRecorder = null;
+  taskModalVoiceState.audioChunks = [];
   taskModalVoiceState.seconds = 0;
 
   const timerEl = document.getElementById('task-modal-rec-timer');
   const btnText = document.getElementById('task-modal-rec-btn-text');
-  const previewBox = document.getElementById('new-task-voice-preview');
-  const recorderBox = document.getElementById('new-task-voice-recorder');
-  const player = document.getElementById('task-modal-audio-player');
-
+  const recDot = document.getElementById('task-modal-rec-dot');
   if (timerEl) { timerEl.style.display = 'none'; timerEl.innerText = '00:00'; }
   if (btnText) btnText.innerText = 'Ovoz yozishni boshlash';
-  if (previewBox) previewBox.style.display = 'none';
-  if (recorderBox) recorderBox.style.display = 'flex';
-  if (player) player.src = '';
+  if (recDot) recDot.style.animation = 'none';
+}
+
+function deleteTaskModalVoice() {
+  resetTaskModalVoiceControls();
+  if (taskModalVoiceState.stream) {
+    taskModalVoiceState.stream.getTracks().forEach(t => t.stop());
+    taskModalVoiceState.stream = null;
+  }
+  taskModalVoiceState.voiceBase64 = null;
+  taskModalVoiceState.voiceDurationSec = 0;
+
+  const preview = document.getElementById('new-task-voice-preview');
+  const player = document.getElementById('task-modal-audio-player');
+  if (preview) preview.style.display = 'none';
+  if (player) {
+    player.pause();
+    player.src = '';
+  }
 }
 
 async function saveNewTask() {
   const mayor = window.store.currentUser;
-  let title = document.getElementById('new-task-title').value.trim();
-  const workerId = document.getElementById('new-task-worker').value;
-  const startVal = document.getElementById('new-task-start').value;
-  const endVal = document.getElementById('new-task-end').value;
-  const startDate = startVal ? new Date(startVal + 'T00:00:00').getTime() : Date.now();
-  const endDate = endVal ? new Date(endVal + 'T23:59:59').getTime() : (Date.now() + 48 * 3600 * 1000);
+  let title = (document.getElementById('new-task-title')?.value || '').trim();
+  const address = (document.getElementById('new-task-address')?.value || '').trim();
+  const description = (document.getElementById('new-task-desc')?.value || '').trim();
+  const workerId = document.getElementById('new-task-worker')?.value;
+  const startDate = document.getElementById('new-task-start')?.value || '';
+  const endDate = document.getElementById('new-task-end')?.value || '';
 
   // Agar yozilayotgan bo'lsa to'xtatamiz
   if (taskModalVoiceState.isRecording) {
@@ -1041,10 +1312,10 @@ async function saveNewTask() {
     await new Promise(r => setTimeout(r, 400));
   }
 
-  const hasVoice = !!taskModalVoiceState.voiceBase64;
+  const hasVoice = Boolean(taskModalVoiceState.voiceBase64);
 
   if (!title && !hasVoice) {
-    alert("Iltimos, topshiriq matnini kiriting yoki ovozli topshiriq yozing!");
+    alert("Iltimos, topshiriq matnini kiriting yoki ovoz yozing!");
     return;
   }
 
@@ -1063,8 +1334,8 @@ async function saveNewTask() {
   const task = {
     id: 'task_' + Date.now(),
     title,
-    description: '',
-    address: '',
+    description: description || '',
+    address: address || '',
     mayorId: mayor.id,
     assignedWorkerId: workerId,
     assignedWorkerName: workerName,
@@ -1073,12 +1344,15 @@ async function saveNewTask() {
     status: 'PENDING_RED',
     voiceBase64: taskModalVoiceState.voiceBase64 || null,
     voiceDurationSec: taskModalVoiceState.voiceDurationSec || 0,
+    mediaList: createTaskMediaList.length > 0 ? createTaskMediaList : null,
     createdAt: Date.now()
   };
 
   await window.dbApi.createTask(task);
   closeModal('create-task-modal');
   deleteTaskModalVoice();
+  createTaskMediaList = [];
+  renderModalMediaPreviews(createTaskMediaList, 'create-task-media-preview', 'removeCreateTaskMedia');
   showToast("Yangi topshiriq biriktirildi!");
 }
 
@@ -1230,6 +1504,10 @@ function openCreateScheduleModal() {
   newScheduleVoices = [];
   resetScheduleVoiceState();
   renderNewScheduleVoices();
+
+  createSchedMediaList = [];
+  renderModalMediaPreviews(createSchedMediaList, 'create-sched-media-preview', 'removeCreateSchedMedia');
+
   document.getElementById('create-schedule-modal').classList.add('active');
 }
 
@@ -1255,6 +1533,7 @@ async function saveNewSchedule() {
     scheduledTime: scheduledTime || Date.now(),
     voiceBase64: voiceList.length > 0 ? voiceList[0] : null,
     voiceList: voiceList,
+    mediaList: createSchedMediaList.length > 0 ? createSchedMediaList : null,
     createdAt: Date.now()
   };
 
@@ -1262,6 +1541,8 @@ async function saveNewSchedule() {
   closeModal('create-schedule-modal');
   newScheduleVoices = [];
   resetScheduleVoiceState();
+  createSchedMediaList = [];
+  renderModalMediaPreviews(createSchedMediaList, 'create-sched-media-preview', 'removeCreateSchedMedia');
   showToast("Yangi reja saqlandi!");
 }
 
@@ -1404,6 +1685,10 @@ function openEditTaskModal(taskId) {
     `).join('');
   }
 
+  // Populate media list
+  editTaskMediaList = Array.isArray(task.mediaList) ? [...task.mediaList] : [];
+  renderModalMediaPreviews(editTaskMediaList, 'edit-task-media-preview', 'removeEditTaskMedia');
+
   const modal = document.getElementById('edit-task-modal');
   if (modal) modal.classList.add('active');
 }
@@ -1431,12 +1716,15 @@ async function saveEditedTask() {
     assignedWorkerId,
     assignedWorkerName,
     startDate,
-    endDate
+    endDate,
+    mediaList: editTaskMediaList.length > 0 ? editTaskMediaList : null
   };
 
   await window.dbApi.updateTask(currentEditingTaskId, updates);
   closeModal('edit-task-modal');
   currentEditingTaskId = null;
+  editTaskMediaList = [];
+  renderModalMediaPreviews(editTaskMediaList, 'edit-task-media-preview', 'removeEditTaskMedia');
   showToast("Topshiriq muvaffaqiyatli yangilandi!");
   if (mayorCurrentTab === 0) renderMayorTasks();
 }
@@ -1609,6 +1897,10 @@ function openEditScheduleModal(scheduleId) {
     if (timeEl) timeEl.value = '';
   }
 
+  // Populate schedule media
+  editSchedMediaList = Array.isArray(schedule.mediaList) ? [...schedule.mediaList] : [];
+  renderModalMediaPreviews(editSchedMediaList, 'edit-sched-media-preview', 'removeEditSchedMedia');
+
   const modal = document.getElementById('edit-schedule-modal');
   if (modal) modal.classList.add('active');
 }
@@ -1637,12 +1929,15 @@ async function saveEditedSchedule() {
     title,
     location,
     notes,
-    scheduledTime
+    scheduledTime,
+    mediaList: editSchedMediaList.length > 0 ? editSchedMediaList : null
   };
 
   await window.dbApi.updateSchedule(currentEditingScheduleId, updates);
   closeModal('edit-schedule-modal');
   currentEditingScheduleId = null;
+  editSchedMediaList = [];
+  renderModalMediaPreviews(editSchedMediaList, 'edit-sched-media-preview', 'removeEditSchedMedia');
   showToast("Reja muvaffaqiyatli yangilandi!");
   if (mayorCurrentTab === 1) renderMayorSchedules();
 }

@@ -12,6 +12,7 @@ data class ScheduleItem(
     val scheduledTime: Long = 0L,        // Rejalashtirilgan sana va soat
     val voiceBase64: String? = null,     // Birinchi ovoz (moslik uchun)
     val voiceList: List<String> = emptyList(), // Ko'p ovozli xabarlar ro'yxati (Base64)
+    val mediaList: List<TaskMediaItem> = emptyList(), // Biriktirilgan rasm va videolar
     val isNotified: Boolean = false,
     val isCompleted: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()

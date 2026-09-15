@@ -387,6 +387,154 @@ html.user-authenticated #login-screen {
   transform: scale(0.92);
 }
 
+/* Media Attachment Styles for Tasks and Schedules */
+.btn-media-attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #EFF6FF;
+  border: 1.5px dashed #3B82F6;
+  color: #1D4ED8;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-media-attach:hover {
+  background: #DBEAFE;
+  border-color: #2563EB;
+}
+
+.btn-media-attach:active {
+  transform: scale(0.96);
+}
+
+.modal-media-preview-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  max-height: 140px;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+.modal-media-item {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #CBD5E1;
+  background: #000;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.modal-media-item img,
+.modal-media-item video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.modal-media-remove-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  z-index: 5;
+}
+
+.modal-media-badge {
+  position: absolute;
+  bottom: 2px;
+  left: 2px;
+  background: rgba(0,0,0,0.65);
+  color: white;
+  font-size: 9px;
+  font-weight: bold;
+  padding: 1px 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Card Gallery */
+.task-media-grid {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-top: 6px;
+  scrollbar-width: thin;
+}
+
+.task-media-grid::-webkit-scrollbar {
+  height: 4px;
+}
+
+.task-media-grid::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+.task-card-media-item {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #E2E8F0;
+  background: #F1F5F9;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.task-card-media-item:hover {
+  transform: scale(1.04);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+}
+
+.task-card-media-item img,
+.task-card-media-item video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.task-card-video-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.task-card-video-overlay svg {
+  width: 24px;
+  height: 24px;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));
+}
+
 .task-address {
   font-size: 11.5px;
   color: #475569;

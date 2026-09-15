@@ -3,6 +3,7 @@ package com.hokimloyha.app.ui.screens
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -1594,23 +1595,62 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    val assignedWorker = remember(users, task.assignedWorkerId, task.assignedWorkerName) {
+                                        users.find { it.id == task.assignedWorkerId }
+                                            ?: users.find { it.fullName.equals(task.assignedWorkerName, ignoreCase = true) }
+                                    }
+                                    val workerPhone = assignedWorker?.phone
+
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(SlateBg)
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        modifier = Modifier.padding(end = 4.dp)
                                     ) {
-                                        Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(14.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            task.assignedWorkerName.ifBlank { "Biriktirilmagan" },
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = NavyDark,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(SlateBg)
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                task.assignedWorkerName.ifBlank { "Biriktirilmagan" },
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = NavyDark,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+
+                                        if (!workerPhone.isNullOrBlank()) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = Color(0xFFDCFCE7),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF86EFAC)),
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .clickable {
+                                                        try {
+                                                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${workerPhone.trim()}"))
+                                                            context.startActivity(intent)
+                                                        } catch (e: Exception) {
+                                                            Toast.makeText(context, "Qo'ng'iroqni ochib bo'lmadi", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    }
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Phone, contentDescription = "Qo'ng'iroq", tint = Color(0xFF15803D), modifier = Modifier.size(11.dp))
+                                                    Spacer(modifier = Modifier.width(3.dp))
+                                                    Text(workerPhone, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF15803D))
+                                                }
+                                            }
+                                        }
                                     }
 
                                     if (task.seenAt != null) {
@@ -2711,7 +2751,31 @@ fun MayorWorkersTab(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         if (!worker.phone.isNullOrBlank()) {
-                                            Text("Tel: ${worker.phone}", fontSize = 11.sp, color = TextSecondary)
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = Color(0xFFDCFCE7),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF86EFAC)),
+                                                modifier = Modifier
+                                                    .padding(bottom = 4.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .clickable {
+                                                        try {
+                                                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${worker.phone.trim()}"))
+                                                            context.startActivity(intent)
+                                                        } catch (e: Exception) {
+                                                            Toast.makeText(context, "Qo'ng'iroqni ochib bo'lmadi", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    }
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Phone, contentDescription = "Qo'ng'iroq qilish", tint = Color(0xFF15803D), modifier = Modifier.size(12.dp))
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(worker.phone, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF15803D))
+                                                }
+                                            }
                                         }
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
@@ -3130,7 +3194,7 @@ fun AiJarvisFloatingOrb(
 
     val conversationHistory = remember {
         mutableStateListOf(
-            "JARVIS" to "Assalomu alaykum, hurmatli Hokim! Men sizning sun'iy intellekt yordamchingizman. Topshiriq biriktirish, rejalarni ochish yoki xodimlarni saralash bo'yicha buyruq berishingiz mumkin."
+            "JARVIS" to "Assalomu alaykum! Men sizning sun'iy intellekt yordamchingizman. Topshiriq biriktirish, rejalarni ochish yoki xodimlarni saralash bo'yicha buyruq berishingiz mumkin."
         )
     }
 
@@ -3386,10 +3450,21 @@ fun AiJarvisFloatingOrb(
             }
         }
 
+        // 2.9 Barcha topshiriqlarni chiqarish / ko'rsatish
+        if (lower.contains("barcha topshiriq") || lower.contains("hamma topshiriq") || lower.contains("barcha vazifa") ||
+            lower.contains("topshiriqlarni chiqar") || lower.contains("topshiriqni chiqar") || lower.contains("hammasini chiqar") ||
+            lower.contains("barchasini ko'rsat") || lower.contains("barchasini chiqar") || lower == "hammasi" || lower == "barchasi") {
+            onSwitchTab(0)
+            val reply = "Barcha topshiriqlar ro'yxati ochildi."
+            conversationHistory.add("JARVIS" to reply)
+            speak(reply)
+            return
+        }
+
         // 3. Sahifalarga o'tish (Aniq navigatsiya)
         // Tab 0: Topshiriqlar
         if (Regex("\\b(?:1[- ]?(?:pej|sahifa|peyj|page|vkladka|bo'lim|bolim)|birinchi\\s+(?:pej|sahifa|pejni|page|bo'lim|bolim)|topshiriqlar|bosh\\s+sahifa|asosiy|glavniy)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower) ||
-            (lower.contains("topshiriq") && (lower.contains("och") || lower.contains("o't") || lower.contains("ot") || lower.contains("ko'rsat") || lower.contains("sahifa") || lower.contains("bo'lim") || lower.contains("bolim")))) {
+            (lower.contains("topshiriq") && (lower.contains("och") || lower.contains("o't") || lower.contains("ot") || lower.contains("chiqar") || lower.contains("ko'rsat") || lower.contains("sahifa") || lower.contains("bo'lim") || lower.contains("bolim")))) {
             onSwitchTab(0)
             val reply = "1-sahifa: Topshiriqlar bo'limi ochildi."
             conversationHistory.add("JARVIS" to reply)
@@ -3399,7 +3474,7 @@ fun AiJarvisFloatingOrb(
 
         // Tab 1: Rejalar
         if (Regex("\\b(?:2[- ]?(?:pej|sahifa|peyj|page|vkladka|bo'lim|bolim)|ikkinchi\\s+(?:pej|sahifa|pejni|page|bo'lim|bolim)|reja|rejalar|rejani|rejalarni|plan|kalendar)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower) ||
-            (lower.contains("reja") && (lower.contains("och") || lower.contains("o't") || lower.contains("ot") || lower.contains("ko'rsat") || lower.contains("sahifa") || lower.contains("bo'lim") || lower.contains("bolim")))) {
+            (lower.contains("reja") && (lower.contains("och") || lower.contains("o't") || lower.contains("ot") || lower.contains("chiqar") || lower.contains("ko'rsat") || lower.contains("sahifa") || lower.contains("bo'lim") || lower.contains("bolim")))) {
             onSwitchTab(1)
             val reply = "2-sahifa: Rejalar bo'limi ochildi."
             conversationHistory.add("JARVIS" to reply)
@@ -3409,7 +3484,7 @@ fun AiJarvisFloatingOrb(
 
         // Tab 2: Xodimlar va reyting
         if (Regex("\\b(?:3[- ]?(?:pej|sahifa|peyj|page|vkladka|bo'lim|bolim)|uchinchi\\s+(?:pej|sahifa|pejni|page|bo'lim|bolim)|xodim|xodimlar|xodimlarni|ishchi|ishchilar|ishchilarni|reyting|reytingni)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower) ||
-            ((lower.contains("xodim") || lower.contains("ishchi")) && (lower.contains("och") || lower.contains("o't") || lower.contains("ot") || lower.contains("ko'rsat") || lower.contains("sahifa") || lower.contains("bo'lim") || lower.contains("bolim")))) {
+            ((lower.contains("xodim") || lower.contains("ishchi")) && (lower.contains("och") || lower.contains("o't") || lower.contains("ot") || lower.contains("chiqar") || lower.contains("ko'rsat") || lower.contains("sahifa") || lower.contains("bo'lim") || lower.contains("bolim")))) {
             onSwitchTab(2)
             val reply = "3-sahifa: Xodimlar va ularning reytingi sahifasiga o'tdik."
             conversationHistory.add("JARVIS" to reply)
@@ -3419,7 +3494,7 @@ fun AiJarvisFloatingOrb(
 
         // Tab 3: Chatlar
         if (Regex("\\b(?:4[- ]?(?:pej|sahifa|peyj|page|vkladka|bo'lim|bolim)|to['ʻ`]?rtinchi\\s+(?:pej|sahifa|pejni|page|bo'lim|bolim)|chat|chatlar|chatlarni|xabar|xabarlar|xabarlarni)\\b", RegexOption.IGNORE_CASE).containsMatchIn(lower) ||
-            ((lower.contains("chat") || lower.contains("xabar")) && (lower.contains("och") || lower.contains("o't") || lower.contains("ot") || lower.contains("ko'rsat") || lower.contains("sahifa") || lower.contains("bo'lim") || lower.contains("bolim")))) {
+            ((lower.contains("chat") || lower.contains("xabar")) && (lower.contains("och") || lower.contains("o't") || lower.contains("ot") || lower.contains("chiqar") || lower.contains("ko'rsat") || lower.contains("sahifa") || lower.contains("bo'lim") || lower.contains("bolim")))) {
             onSwitchTab(3)
             val reply = "4-sahifa: Chatlar bo'limi ochildi."
             conversationHistory.add("JARVIS" to reply)
@@ -3481,13 +3556,13 @@ fun AiJarvisFloatingOrb(
         }
 
         // Tushunarsiz buyruq: Hech qachon "Kechirasiz" yoki xatolik aytilmaydi, har doim faol tayyorlik bildiriladi!
-        val fallback = "Eshitmoqdaman, hurmatli Hokim. Topshiriq, reja, xodimlar yoki chatlar bo'yicha buyrug'ingizni bering, darhol bajaraman."
+        val fallback = "Topshiriq, reja, xodimlar yoki chatlar bo'yicha buyrug'ingizni bering, darhol bajaraman."
         conversationHistory.add("JARVIS" to fallback)
         speak(fallback)
     }
 
     var lastCaption by remember {
-        mutableStateOf("Assalomu alaykum, hurmatli Hokim! Buyrug'ingizni ayting...")
+        mutableStateOf("Buyrug'ingizni ayting...")
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "aiOrbAnim")
