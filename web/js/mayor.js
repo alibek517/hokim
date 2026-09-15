@@ -58,79 +58,90 @@ let editSchedMediaList = [];
 
 async function processMediaFile(file) {
   const isVideo = file.type.startsWith('video');
-
-  // Preview uchun lokal URL (UI preview)
   const localPreviewUrl = URL.createObjectURL(file);
 
-  // Firebase Storage ga yuklash
+  // 1. Firebase Storage — cheksiz hajmli fayllar uchun
   const storage = window.firebaseStorage;
   if (storage) {
     try {
+      let uploadFile = file;
+      // Katta videolarni brauzerda siqish (>5MB)
+      if (isVideo && file.size > 5 * 1024 * 1024) {
+        try {
+          if (typeof showToast === 'function') showToast('Video siqilmoqda...');
+          uploadFile = await compressVideoInBrowser(file);
+        } catch (cErr) {
+          console.warn('Video compress failed, uploading original:', cErr);
+          uploadFile = file;
+        }
+      }
       const folder = isVideo ? 'videos' : 'images';
-      const ext = file.name ? file.name.split('.').pop() : (isVideo ? 'mp4' : 'jpg');
+      const ext = uploadFile.name ? uploadFile.name.split('.').pop() : (isVideo ? 'mp4' : 'jpg');
       const path = `chat/${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      if (typeof showToast === 'function') showToast(isVideo ? 'Video yuklanmoqda...' : 'Rasm yuklanmoqda...');
       const storRef = storage.ref(path);
-      await storRef.put(file);
+      await storRef.put(uploadFile);
       const downloadUrl = await storRef.getDownloadURL();
       return {
         id: (isVideo ? 'vid_' : 'img_') + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
         type: isVideo ? 'VIDEO' : 'IMAGE',
-        base64: localPreviewUrl,   // faqat UI preview uchun (objectURL)
-        url: downloadUrl,           // Firebase Storage URL — RTDB'ga shu saqlanadi
+        base64: localPreviewUrl,
+        url: downloadUrl,
         name: file.name,
-        size: file.size,
+        size: uploadFile.size,
         isStorageUrl: true
       };
     } catch (err) {
       console.warn('Storage upload failed, falling back to base64:', err);
-      // Storage ishlamasa base64 ga qaytamiz
     }
   }
 
-  // Fallback: base64 (Storage yo'q bo'lganda)
-  return new Promise((resolve) => {
+  // 2. Fallback: base64 (Storage ishlamasa)
+  return new Promise(async (resolve) => {
     if (isVideo) {
-      if (file.size > 7.2 * 1024 * 1024) {
-        alert(`"${file.name}" hajmi 7.2MB dan katta! Iltimos, kichikroq video tanlang.`);
-        return resolve(null);
+      let videoFile = file;
+      // Katta videolarni siqish (>5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        try {
+          if (typeof showToast === 'function') showToast('Video siqilmoqda...');
+          videoFile = await compressVideoInBrowser(file);
+        } catch (_) {}
       }
       const reader = new FileReader();
       reader.onload = (e) => {
+        const result = e.target.result;
+        const b64 = result.split(',')[1] || result;
+        if (b64.length > 9500000) {
+          if (typeof showToast === 'function') showToast('Video hajmi hali ham katta — iltimos qisqaroq video tanlang');
+          return resolve(null);
+        }
         resolve({
           id: 'vid_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-          type: 'VIDEO',
-          base64: e.target.result,
-          url: null,
-          name: file.name,
-          size: file.size
+          type: 'VIDEO', base64: result, url: null,
+          name: file.name, size: videoFile.size
         });
       };
       reader.onerror = () => resolve(null);
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(videoFile);
     } else {
-      // Image: compress with canvas
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          let width = img.width;
-          let height = img.height;
+          let w = img.width, h = img.height;
           const maxDim = 1280;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) { height = Math.round((height * maxDim) / width); width = maxDim; }
-            else { width = Math.round((width * maxDim) / height); height = maxDim; }
+          if (w > maxDim || h > maxDim) {
+            if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+            else { w = Math.round(w * maxDim / h); h = maxDim; }
           }
-          const canvas = document.createElement('canvas');
-          canvas.width = width; canvas.height = height;
-          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          const dataUrl = c.toDataURL('image/jpeg', 0.82);
           resolve({
             id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-            type: 'IMAGE',
-            base64: dataUrl,
-            url: null,
-            name: file.name,
-            size: dataUrl.length
+            type: 'IMAGE', base64: dataUrl, url: null,
+            name: file.name, size: dataUrl.length
           });
         };
         img.onerror = () => resolve(null);
@@ -139,6 +150,71 @@ async function processMediaFile(file) {
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(file);
     }
+  });
+}
+
+// Brauzerda video siqish — canvas + captureStream + MediaRecorder
+function compressVideoInBrowser(file) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    const objUrl = URL.createObjectURL(file);
+    video.src = objUrl;
+
+    video.onloadedmetadata = () => {
+      let w = video.videoWidth, h = video.videoHeight;
+      const maxW = 640;
+      if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      const stream = canvas.captureStream(24);
+
+      let mimeType = 'video/webm;codecs=vp8';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'video/mp4';
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            URL.revokeObjectURL(objUrl);
+            return reject(new Error('MediaRecorder not supported'));
+          }
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 800000 });
+      const chunks = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+      recorder.onstop = () => {
+        URL.revokeObjectURL(objUrl);
+        const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+        const blob = new Blob(chunks, { type: mimeType });
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.' + ext), { type: mimeType }));
+      };
+      recorder.onerror = e => { URL.revokeObjectURL(objUrl); reject(e); };
+
+      recorder.start();
+      video.play();
+
+      const drawFrame = () => {
+        if (video.ended || video.paused) { recorder.stop(); return; }
+        ctx.drawImage(video, 0, 0, w, h);
+        requestAnimationFrame(drawFrame);
+      };
+      requestAnimationFrame(drawFrame);
+
+      video.onended = () => {
+        setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 200);
+      };
+      // 5 daqiqa himoya
+      setTimeout(() => {
+        if (recorder.state === 'recording') { video.pause(); recorder.stop(); }
+      }, Math.min((video.duration || 300) * 1000 + 2000, 300000));
+    };
+    video.onerror = () => { URL.revokeObjectURL(objUrl); reject(new Error('Video load failed')); };
   });
 }
 
@@ -1691,15 +1767,16 @@ function openEditTaskModal(taskId) {
   currentEditingTaskId = taskId;
 
   const titleEl = document.getElementById('edit-task-title');
-  const addrEl = document.getElementById('edit-task-address');
-  const descEl = document.getElementById('edit-task-desc');
   const workerSelect = document.getElementById('edit-task-worker');
   const startEl = document.getElementById('edit-task-start');
   const endEl = document.getElementById('edit-task-end');
 
-  if (titleEl) titleEl.value = task.title || '';
-  if (addrEl) addrEl.value = task.address || '';
-  if (descEl) descEl.value = task.description || '';
+  if (titleEl) {
+    const parts = [task.title || ''];
+    if (task.address && !task.title.includes(task.address)) parts.push(task.address);
+    if (task.description && !task.title.includes(task.description)) parts.push(task.description);
+    titleEl.value = parts.filter(Boolean).join('\n');
+  }
   if (startEl) startEl.value = task.startDate || '';
   if (endEl) endEl.value = task.endDate || '';
 
@@ -1724,8 +1801,6 @@ function openEditTaskModal(taskId) {
 async function saveEditedTask() {
   if (!currentEditingTaskId) return;
   const title = (document.getElementById('edit-task-title')?.value || '').trim();
-  const address = (document.getElementById('edit-task-address')?.value || '').trim();
-  const description = (document.getElementById('edit-task-desc')?.value || '').trim();
   const workerSelect = document.getElementById('edit-task-worker');
   const assignedWorkerId = workerSelect?.value || '';
   const assignedWorkerName = workerSelect?.options[workerSelect.selectedIndex]?.text.split(' (')[0] || '';
@@ -1733,14 +1808,14 @@ async function saveEditedTask() {
   const endDate = document.getElementById('edit-task-end')?.value || '';
 
   if (!title) {
-    alert("Topshiriq nomini kiriting!");
+    alert("Topshiriq matnini kiriting!");
     return;
   }
 
   const updates = {
     title,
-    address,
-    description,
+    address: '',
+    description: '',
     assignedWorkerId,
     assignedWorkerName,
     startDate,

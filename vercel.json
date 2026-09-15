@@ -18,11 +18,11 @@
       "destination": "/web/js/$1"
     },
     {
-      "source": "/web/manifest.json",
+      "source": "/(.*)manifest.json",
       "destination": "/web/manifest.json"
     },
     {
-      "source": "/web/sw.js",
+      "source": "/(.*)sw.js",
       "destination": "/web/sw.js"
     },
     {

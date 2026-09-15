@@ -223,18 +223,33 @@ function closeMessageActionsModal() {
 async function uploadToFirebaseStorage(file, folder) {
   const storage = window.firebaseStorage;
   if (!storage) {
-    // Fallback: base64 (kichik fayllar uchun)
+    // Fallback: base64 + compress
+    let uploadFile = file;
+    if (file.type.startsWith('video') && file.size > 5 * 1024 * 1024 && typeof compressVideoInBrowser === 'function') {
+      try {
+        showToast('Video siqilmoqda...');
+        uploadFile = await compressVideoInBrowser(file);
+      } catch (_) { uploadFile = file; }
+    }
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve({ url: null, base64: reader.result.split(',')[1] });
       reader.onerror = reject;
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(uploadFile);
     });
   }
-  const ext = file.name ? file.name.split('.').pop() : 'bin';
+  // Storage bor — katta videolarni compress qilish
+  let uploadFile = file;
+  if (file.type.startsWith('video') && file.size > 5 * 1024 * 1024 && typeof compressVideoInBrowser === 'function') {
+    try {
+      showToast('Video siqilmoqda...');
+      uploadFile = await compressVideoInBrowser(file);
+    } catch (_) { uploadFile = file; }
+  }
+  const ext = uploadFile.name ? uploadFile.name.split('.').pop() : 'bin';
   const path = `chat/${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
   const storRef = storage.ref(path);
-  await storRef.put(file);
+  await storRef.put(uploadFile);
   const url = await storRef.getDownloadURL();
   return { url, base64: null };
 }
@@ -271,7 +286,6 @@ function handleVideoPicked(e) {
   if (!file || !activeChatPeer || !window.store.currentUser) return;
   e.target.value = '';
 
-  // Hajm cheklovini olib tashladik — Storage cheksiz katta fayllarni qabul qiladi
   showToast('Video yuklanmoqda... (bir oz kuting)');
   uploadToFirebaseStorage(file, 'videos').then(({ url, base64 }) => {
     const msg = {

