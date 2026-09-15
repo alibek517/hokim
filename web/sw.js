@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ijro-pwa-v20260915_50';
+const CACHE_NAME = 'ijro-pwa-v20260915_60';
 
 const PRECACHE_ASSETS = [
   './',
@@ -100,7 +100,8 @@ self.addEventListener('fetch', event => {
     (async () => {
       try {
         const response = await fetch(event.request);
-        if (response && response.status === 200 && response.type === 'basic') {
+        const cType = response.headers.get('content-type') || '';
+        if (response && response.status === 200 && !cType.includes('text/html')) {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then(cache => {
             cache.put(event.request, responseClone).catch(() => {});

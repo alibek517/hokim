@@ -1602,7 +1602,8 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                             ?: users.find { it.firstName.isNotBlank() && task.assignedWorkerName.contains(it.firstName.trim(), ignoreCase = true) }
                                             ?: users.find { it.lastName.isNotBlank() && task.assignedWorkerName.contains(it.lastName.trim(), ignoreCase = true) }
                                     }
-                                    val workerPhone = assignedWorker?.phone?.takeIf { it.isNotBlank() }
+                                    val workerPhone = task.assignedWorkerPhone.takeIf { it.isNotBlank() }
+                                        ?: assignedWorker?.phone?.takeIf { it.isNotBlank() }
 
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -1853,6 +1854,7 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                     mayorId = currentUser.id,
                     assignedWorkerId = worker.id,
                     assignedWorkerName = worker.fullName,
+                    assignedWorkerPhone = worker.phone ?: "",
                     startDate = startDate,
                     endDate = endDate,
                     status = TaskStatus.PENDING_RED,
@@ -2561,6 +2563,7 @@ fun EditTaskDialog(
                         address = address.trim(),
                         assignedWorkerId = selectedWorker.id,
                         assignedWorkerName = selectedWorker.fullName,
+                        assignedWorkerPhone = selectedWorker.phone ?: "",
                         startDate = startDateMillis,
                         endDate = endDateMillis,
                         voicePath = recordedVoicePath,
@@ -3013,7 +3016,10 @@ fun MayorWorkersTab(
                                                     .clip(RoundedCornerShape(6.dp))
                                                     .clickable {
                                                         try {
-                                                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${worker.phone.trim()}"))
+                                                            val cleanPhone = worker.phone.filter { it.isDigit() || it == '+' }
+                                                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$cleanPhone")).apply {
+                                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                            }
                                                             context.startActivity(intent)
                                                         } catch (e: Exception) {
                                                             Toast.makeText(context, "Qo'ng'iroqni ochib bo'lmadi", Toast.LENGTH_SHORT).show()
@@ -3631,6 +3637,7 @@ fun AiJarvisFloatingOrb(
                         mayorId = currentUser.id,
                         assignedWorkerId = w.id,
                         assignedWorkerName = w.fullName,
+                        assignedWorkerPhone = w.phone ?: "",
                         startDate = draftTask.startDate,
                         endDate = draftTask.endDate,
                         status = TaskStatus.PENDING_RED

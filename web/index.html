@@ -14,11 +14,12 @@
   <link rel="icon" type="image/png" href="assets/icon-192.png">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0F172A">
+  <base href="/">
 
   <script>
     // Eski keshni avtomatik tozalash
     (function() {
-      const APP_VER = '20260915_50';
+      const APP_VER = '20260915_60';
       if (localStorage.getItem('ijro_sw_ver') !== APP_VER) {
         localStorage.setItem('ijro_sw_ver', APP_VER);
         if ('caches' in window) {
@@ -42,7 +43,7 @@
       }
     }, true);
   </script>
-  <link rel="stylesheet" href="css/style.css?v=20260915_01">
+  <link rel="stylesheet" href="/css/style.css?v=20260915_60">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -797,13 +798,13 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="js/firebase-config.js?v=20260915_50"></script>
-  <script src="js/chat.js?v=20260915_50"></script>
-  <script src="js/mayor.js?v=20260915_50"></script>
-  <script src="js/ai-assistant.js?v=20260915_50"></script>
-  <script src="js/worker.js?v=20260915_50"></script>
-  <script src="js/admin.js?v=20260915_50"></script>
-  <script src="js/app.js?v=20260915_50"></script>
+  <script src="/js/firebase-config.js?v=20260915_60"></script>
+  <script src="/js/chat.js?v=20260915_60"></script>
+  <script src="/js/mayor.js?v=20260915_60"></script>
+  <script src="/js/ai-assistant.js?v=20260915_60"></script>
+  <script src="/js/worker.js?v=20260915_60"></script>
+  <script src="/js/admin.js?v=20260915_60"></script>
+  <script src="/js/app.js?v=20260915_60"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
@@ -818,7 +819,7 @@
       window.addEventListener('load', () => {
         try {
           const isSub = window.location.pathname.startsWith('/web');
-          const swScript = isSub ? '/web/sw.js?v=20260915_50' : '/sw.js?v=20260915_50';
+          const swScript = isSub ? '/web/sw.js?v=20260915_60' : '/sw.js?v=20260915_60';
           const swScope = isSub ? '/web/' : '/';
           navigator.serviceWorker.register(swScript, { scope: swScope })
             .then(reg => {

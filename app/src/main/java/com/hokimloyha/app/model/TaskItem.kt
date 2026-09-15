@@ -21,6 +21,7 @@ data class TaskItem(
     val mayorId: String = "",
     val assignedWorkerId: String = "",
     val assignedWorkerName: String = "",
+    val assignedWorkerPhone: String = "",
     val startDate: Long = 0L,                    // Belgilangan boshlanish sanasi va vaqti
     val endDate: Long = 0L,                      // Belgilangan tugash sanasi va vaqti
     val status: TaskStatus = TaskStatus.PENDING_RED,

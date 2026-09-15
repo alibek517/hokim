@@ -6,24 +6,24 @@
       "destination": "/api/$1"
     },
     {
-      "source": "/web/assets/(.*)",
-      "destination": "/assets/$1"
-    },
-    {
-      "source": "/web/css/(.*)",
-      "destination": "/css/$1"
-    },
-    {
-      "source": "/web/js/(.*)",
-      "destination": "/js/$1"
-    },
-    {
       "source": "/(.*)manifest.json",
       "destination": "/manifest.json"
     },
     {
       "source": "/(.*)sw.js",
       "destination": "/sw.js"
+    },
+    {
+      "source": "/(.*)css/(.*)",
+      "destination": "/css/$2"
+    },
+    {
+      "source": "/(.*)js/(.*)",
+      "destination": "/js/$2"
+    },
+    {
+      "source": "/(.*)assets/(.*)",
+      "destination": "/assets/$2"
     },
     {
       "source": "/web/(.*)",

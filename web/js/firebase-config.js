@@ -26,8 +26,8 @@ function getAudioContext() {
   }
 }
 
-// Foydalanuvchi birinchi marta ekranga bosganida audio tizimini uyg'otish
-function unlockAudioOnGesture() {
+// Foydalanuvchi ekranga har qanday bosganida audio tizimini doimo uyg'oq tutish
+function keepAudioUnlocked() {
   const ctx = getAudioContext();
   if (ctx && ctx.state === 'suspended') {
     ctx.resume().catch(() => {});
@@ -36,55 +36,92 @@ function unlockAudioOnGesture() {
     Notification.requestPermission().catch(() => {});
   }
 }
-window.addEventListener('click', unlockAudioOnGesture, { once: true });
-window.addEventListener('touchstart', unlockAudioOnGesture, { once: true });
+window.addEventListener('click', keepAudioUnlocked, { passive: true });
+window.addEventListener('touchstart', keepAudioUnlocked, { passive: true });
+window.addEventListener('pointerdown', keepAudioUnlocked, { passive: true });
+window.addEventListener('keydown', keepAudioUnlocked, { passive: true });
 
 function playNotificationSound(type = 'default') {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
-    const now = ctx.currentTime;
 
-    if (type === 'message') {
-      // 2 tonli yoqimli xabar signali (F#5 -> A5)
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(740, now); // F#5
-      osc.frequency.setValueAtTime(880, now + 0.1); // A5
-      gain.gain.setValueAtTime(0.35, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.45);
-    } else if (type === 'task') {
-      // 3 tonli e'tibor tortuvchi topshiriq signali (E5 -> G#5 -> B5)
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = 'triangle';
-      osc1.frequency.setValueAtTime(659.25, now); // E5
-      osc1.frequency.setValueAtTime(830.61, now + 0.12); // G#5
-      osc1.frequency.setValueAtTime(987.77, now + 0.24); // B5
-      gain1.gain.setValueAtTime(0.4, now);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-      osc1.connect(gain1);
-      gain1.connect(ctx.destination);
-      osc1.start(now);
-      osc1.stop(now + 0.6);
+    const playWithContext = (context) => {
+      const now = context.currentTime;
+      if (type === 'send') {
+        // Yuborildi signali (C6 -> E6 tez, yoqimli yuborish chime)
+        const osc = context.createOscillator();
+        const gain = context.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1046.5, now); // C6
+        osc.frequency.setValueAtTime(1318.5, now + 0.08); // E6
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+        osc.connect(gain);
+        gain.connect(context.destination);
+        osc.start(now);
+        osc.stop(now + 0.28);
+      } else if (type === 'message') {
+        // 2 tonli yoqimli xabar kelishi signali (F#5 -> A5)
+        const osc = context.createOscillator();
+        const gain = context.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(740, now); // F#5
+        osc.frequency.setValueAtTime(880, now + 0.1); // A5
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        osc.connect(gain);
+        gain.connect(context.destination);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      } else if (type === 'task') {
+        // 3 tonli e'tibor tortuvchi topshiriq signali (E5 -> G#5 -> B5)
+        const osc1 = context.createOscillator();
+        const gain1 = context.createGain();
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(659.25, now); // E5
+        osc1.frequency.setValueAtTime(830.61, now + 0.12); // G#5
+        osc1.frequency.setValueAtTime(987.77, now + 0.24); // B5
+        gain1.gain.setValueAtTime(0.45, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+        osc1.connect(gain1);
+        gain1.connect(context.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.65);
+      } else if (type === 'urgent') {
+        // Favqulodda ogohlantirish signali (B5 -> E6 -> B5)
+        const osc = context.createOscillator();
+        const gain = context.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(987.77, now);
+        osc.frequency.setValueAtTime(1318.5, now + 0.15);
+        osc.frequency.setValueAtTime(987.77, now + 0.3);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+        osc.connect(gain);
+        gain.connect(context.destination);
+        osc.start(now);
+        osc.stop(now + 0.55);
+      } else {
+        // Standart chime signali (D5 -> A5)
+        const osc = context.createOscillator();
+        const gain = context.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, now); // D5
+        osc.frequency.setValueAtTime(880, now + 0.15); // A5
+        gain.gain.setValueAtTime(0.38, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        osc.connect(gain);
+        gain.connect(context.destination);
+        osc.start(now);
+        osc.stop(now + 0.5);
+      }
+    };
+
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => playWithContext(ctx)).catch(() => {});
     } else {
-      // Standart chime signali (D5 -> A5)
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, now); // D5
-      osc.frequency.setValueAtTime(880, now + 0.15); // A5
-      gain.gain.setValueAtTime(0.35, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.5);
+      playWithContext(ctx);
     }
   } catch (e) {
     console.warn('Notification sound error:', e);
@@ -241,11 +278,22 @@ function initFirebase() {
           if (currentUser) {
             list.forEach(task => {
               if (!task || !task.id) return;
+              const isMyTaskAsWorker = (task.assignedWorkerId === currentUser.id || (currentUser.username && task.assignedWorkerId === currentUser.username));
+              const isMyTaskAsMayor = (task.mayorId === currentUser.id || (currentUser.username && task.mayorId === currentUser.username));
+
               if (!seenTaskIds.has(task.id)) {
                 seenTaskIds.add(task.id);
                 // Worker: Yangi topshiriq biriktirildi
-                if (currentUser.role === 'WORKER' && task.assignedWorkerId === currentUser.id) {
+                if (currentUser.role === 'WORKER' && isMyTaskAsWorker) {
                   triggerWebNotification("Yangi topshiriq!", task.title || "Sizga yangi topshiriq biriktirildi", 'task');
+                }
+              } else {
+                // Task update (bajarildi yoki tasdiqlandi)
+                const prevTask = (window.store.tasks || []).find(t => t.id === task.id);
+                if (prevTask && prevTask.status !== task.status) {
+                  if (currentUser.role === 'MAYOR' && isMyTaskAsMayor && task.status === 'COMPLETED_GREEN') {
+                    triggerWebNotification("Topshiriq bajarildi!", `${task.assignedWorkerName || 'Xodim'} topshiriqni yakunladi: ${task.title}`, 'task');
+                  }
                 }
               }
             });
@@ -339,12 +387,19 @@ async function pollRestDatabase() {
         taskList.forEach(t => { if (t && t.id) restSeenTaskIds.add(t.id); });
       } else {
         const currentUser = window.store.currentUser;
-        if (currentUser && currentUser.role === 'WORKER') {
+        if (currentUser) {
           taskList.forEach(t => {
             if (t && t.id && !restSeenTaskIds.has(t.id)) {
               restSeenTaskIds.add(t.id);
-              if (t.assignedWorkerId === currentUser.id) {
+              const isMyTaskAsWorker = (t.assignedWorkerId === currentUser.id || (currentUser.username && t.assignedWorkerId === currentUser.username));
+              if (currentUser.role === 'WORKER' && isMyTaskAsWorker) {
                 triggerWebNotification("Yangi topshiriq!", t.title || "Sizga yangi topshiriq biriktirildi", 'task');
+              }
+            } else if (t && t.id) {
+              const isMyTaskAsMayor = (t.mayorId === currentUser.id || (currentUser.username && t.mayorId === currentUser.username));
+              const prevTask = (window.store.tasks || []).find(x => x.id === t.id);
+              if (prevTask && prevTask.status !== t.status && currentUser.role === 'MAYOR' && isMyTaskAsMayor && t.status === 'COMPLETED_GREEN') {
+                triggerWebNotification("Topshiriq bajarildi!", `${t.assignedWorkerName || 'Xodim'} topshiriqni yakunladi: ${t.title}`, 'task');
               }
             }
           });

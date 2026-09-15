@@ -6,18 +6,6 @@
       "destination": "/api/$1"
     },
     {
-      "source": "/web/assets/(.*)",
-      "destination": "/web/assets/$1"
-    },
-    {
-      "source": "/web/css/(.*)",
-      "destination": "/web/css/$1"
-    },
-    {
-      "source": "/web/js/(.*)",
-      "destination": "/web/js/$1"
-    },
-    {
       "source": "/(.*)manifest.json",
       "destination": "/web/manifest.json"
     },
@@ -26,24 +14,16 @@
       "destination": "/web/sw.js"
     },
     {
-      "source": "/assets/(.*)",
-      "destination": "/web/assets/$1"
+      "source": "/(.*)css/(.*)",
+      "destination": "/web/css/$2"
     },
     {
-      "source": "/css/(.*)",
-      "destination": "/web/css/$1"
+      "source": "/(.*)js/(.*)",
+      "destination": "/web/js/$2"
     },
     {
-      "source": "/js/(.*)",
-      "destination": "/web/js/$1"
-    },
-    {
-      "source": "/manifest.json",
-      "destination": "/web/manifest.json"
-    },
-    {
-      "source": "/sw.js",
-      "destination": "/web/sw.js"
+      "source": "/(.*)assets/(.*)",
+      "destination": "/web/assets/$2"
     },
     {
       "source": "/web/(.*)",
