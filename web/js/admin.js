@@ -354,6 +354,124 @@ function renderAdminSubDevices() {
   `;
 }
 
+function updateAdminStatusHeader() {
+  const badgeEl = document.getElementById('admin-device-status-badge');
+  if (!badgeEl) return;
+
+  const now = Date.now();
+  const isOnline = (now - adminDeviceData.heartbeat) < 65000;
+  const batteryStr = adminDeviceData.battery !== null ? `${adminDeviceData.battery}%` : '--';
+
+  badgeEl.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${isOnline ? '#16A34A' : '#F59E0B'};"></span>
+      <span style="font-weight: bold; color: ${isOnline ? '#16A34A' : '#D97706'};">${isOnline ? 'Online (Faol)' : 'Offline (Kutish rejimida)'}</span>
+      ${!isOnline ? '<span style="font-size: 10px; color: var(--text-secondary); margin-left: 4px;">(Buyruqlar navbatga yoziladi)</span>' : ''}
+    </div>
+    <div style="color: var(--text-secondary); font-weight: 600; display: flex; align-items: center; gap: 4px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+      ${batteryStr}
+    </div>
+  `;
+}
+
+let adminLeafletMap = null;
+let adminLeafletMarker = null;
+
+function resetAdminMap() {
+  if (adminLeafletMap) {
+    try {
+      adminLeafletMap.remove();
+    } catch (_) {}
+    adminLeafletMap = null;
+    adminLeafletMarker = null;
+  }
+}
+
+function updateAdminMapLocation(lat, lon) {
+  const coordsEl = document.getElementById('admin-coords-text');
+  if (coordsEl) coordsEl.innerText = `${lat.toString().substring(0, 8)}, ${lon.toString().substring(0, 8)}`;
+
+  const latNum = parseFloat(lat);
+  const lonNum = parseFloat(lon);
+  if (isNaN(latNum) || isNaN(lonNum)) return;
+
+  const mapContainer = document.getElementById('admin-map-container');
+  if (!mapContainer) return;
+
+  // Leaflet kutubxonasi yuklanganligini tekshirish
+  if (typeof L === 'undefined') {
+    mapContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: #94A3B8; font-size: 12px;">Xarita yuklanmoqda (${latNum}, ${lonNum})...</div>`;
+    return;
+  }
+
+  const webCustomPin = L.divIcon({
+    className: 'web-pulse-marker',
+    html: '<div style="position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;"><div style="position:absolute;width:36px;height:36px;border-radius:50%;background:rgba(220,38,38,0.35);"></div><svg viewBox="0 0 24 24" width="30" height="30" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" fill="#DC2626"/><circle cx="12" cy="9" r="3.5" fill="#FFFFFF"/></svg></div>',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32]
+  });
+
+  if (!adminLeafletMap) {
+    try {
+      adminLeafletMap = L.map('admin-map-container', {
+        zoomControl: true,
+        attributionControl: false
+      }).setView([latNum, lonNum], 16);
+
+      const googleLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        attribution: 'Google'
+      });
+      const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        attribution: 'Google Satellite'
+      });
+      const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: 'OSM'
+      });
+      const cartoLayer = L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
+        maxZoom: 19,
+        attribution: 'CARTO'
+      });
+
+      googleLayer.addTo(adminLeafletMap);
+
+      L.control.layers({
+        "Google Standart": googleLayer,
+        "Sun'iy yo'ldosh (Google)": googleHybrid,
+        "OpenStreetMap": osmLayer,
+        "CARTO": cartoLayer
+      }).addTo(adminLeafletMap);
+
+      adminLeafletMarker = L.marker([latNum, lonNum], { icon: webCustomPin }).addTo(adminLeafletMap);
+      adminLeafletMarker.bindPopup("<b>Xodim jonli joylashuvi</b>").openPopup();
+    } catch (e) {
+      console.warn("Leaflet init error:", e);
+    }
+  } else {
+    try {
+      adminLeafletMap.setView([latNum, lonNum], 16);
+      if (adminLeafletMarker) {
+        adminLeafletMarker.setLatLng([latNum, lonNum]);
+      } else {
+        adminLeafletMarker = L.marker([latNum, lonNum], { icon: webCustomPin }).addTo(adminLeafletMap);
+        adminLeafletMarker.bindPopup("<b>Xodim jonli joylashuvi</b>").openPopup();
+      }
+    } catch (e) {
+      console.warn("Leaflet update error:", e);
+    }
+  }
+
+  setTimeout(() => {
+    if (adminLeafletMap) {
+      adminLeafletMap.invalidateSize();
+    }
+  }, 200);
+}
+
 // Commands
 let lastAdminTakePhotoTime = 0;
 function adminSendTakePhoto() {
@@ -712,6 +830,9 @@ window.adminNextScreen = adminNextScreen;
 window.adminDownloadPhoto = adminDownloadPhoto;
 window.adminDownloadAudio = adminDownloadAudio;
 window.adminDownloadScreen = adminDownloadScreen;
+window.resetAdminMap = resetAdminMap;
+window.updateAdminStatusHeader = updateAdminStatusHeader;
+window.updateAdminMapLocation = updateAdminMapLocation;
 
 // React to global store user changes
 window.onStoreChange('users', () => {
