@@ -1596,10 +1596,13 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     val assignedWorker = remember(users, task.assignedWorkerId, task.assignedWorkerName) {
-                                        users.find { it.id == task.assignedWorkerId }
-                                            ?: users.find { it.fullName.equals(task.assignedWorkerName, ignoreCase = true) }
+                                        users.find { it.id.isNotBlank() && it.id == task.assignedWorkerId }
+                                            ?: users.find { it.username.isNotBlank() && it.username.equals(task.assignedWorkerId, ignoreCase = true) }
+                                            ?: users.find { it.fullName.isNotBlank() && it.fullName.equals(task.assignedWorkerName.trim(), ignoreCase = true) }
+                                            ?: users.find { it.firstName.isNotBlank() && task.assignedWorkerName.contains(it.firstName.trim(), ignoreCase = true) }
+                                            ?: users.find { it.lastName.isNotBlank() && task.assignedWorkerName.contains(it.lastName.trim(), ignoreCase = true) }
                                     }
-                                    val workerPhone = assignedWorker?.phone
+                                    val workerPhone = assignedWorker?.phone?.takeIf { it.isNotBlank() }
 
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -1610,6 +1613,21 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(6.dp))
                                                 .background(SlateBg)
+                                                .then(
+                                                    if (workerPhone != null) {
+                                                        Modifier.clickable {
+                                                            try {
+                                                                val cleanPhone = workerPhone.filter { it.isDigit() || it == '+' }
+                                                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$cleanPhone")).apply {
+                                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                                }
+                                                                context.startActivity(intent)
+                                                            } catch (e: Exception) {
+                                                                Toast.makeText(context, "Qo'ng'iroqni ochib bo'lmadi", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        }
+                                                    } else Modifier
+                                                )
                                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                                         ) {
                                             Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(14.dp))
@@ -1624,7 +1642,7 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                             )
                                         }
 
-                                        if (!workerPhone.isNullOrBlank()) {
+                                        if (workerPhone != null) {
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Surface(
                                                 shape = RoundedCornerShape(6.dp),
@@ -1634,7 +1652,10 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                                     .clip(RoundedCornerShape(6.dp))
                                                     .clickable {
                                                         try {
-                                                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${workerPhone.trim()}"))
+                                                            val cleanPhone = workerPhone.filter { it.isDigit() || it == '+' }
+                                                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$cleanPhone")).apply {
+                                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                            }
                                                             context.startActivity(intent)
                                                         } catch (e: Exception) {
                                                             Toast.makeText(context, "Qo'ng'iroqni ochib bo'lmadi", Toast.LENGTH_SHORT).show()
@@ -1643,11 +1664,11 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                             ) {
                                                 Row(
                                                     verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
                                                 ) {
-                                                    Icon(Icons.Default.Phone, contentDescription = "Qo'ng'iroq", tint = Color(0xFF15803D), modifier = Modifier.size(11.dp))
+                                                    Icon(Icons.Default.Phone, contentDescription = "Qo'ng'iroq qilish", tint = Color(0xFF15803D), modifier = Modifier.size(12.dp))
                                                     Spacer(modifier = Modifier.width(3.dp))
-                                                    Text(workerPhone, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF15803D))
+                                                    Text(workerPhone, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF15803D))
                                                 }
                                             }
                                         }
@@ -2893,7 +2914,10 @@ fun MayorWorkersTab(
                                                     .clip(RoundedCornerShape(6.dp))
                                                     .clickable {
                                                         try {
-                                                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${worker.phone.trim()}"))
+                                                            val cleanPhone = worker.phone!!.filter { it.isDigit() || it == '+' }
+                                                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$cleanPhone")).apply {
+                                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                            }
                                                             context.startActivity(intent)
                                                         } catch (e: Exception) {
                                                             Toast.makeText(context, "Qo'ng'iroqni ochib bo'lmadi", Toast.LENGTH_SHORT).show()

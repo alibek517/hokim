@@ -1846,6 +1846,13 @@ MUHIM QOIDALAR:
     try {
       const geminiResult = await callGeminiAssistant(userSpeech);
       if (geminiResult) {
+        // "Hurmatli hokim" prefiksini Gemini javobidan olib tashlaymiz
+        if (geminiResult.speechReply) {
+          geminiResult.speechReply = geminiResult.speechReply
+            .replace(/^(?:hurmatli\s+hokim[!,.]?\s*)+/i, '')
+            .trim() || geminiResult.speechReply;
+        }
+
         if (geminiResult.intent === 'CLEAR_SEARCH') {
           if (window.mayorAiHelpers && window.mayorAiHelpers.clearSearch) {
             window.mayorAiHelpers.clearSearch();
@@ -1869,9 +1876,10 @@ MUHIM QOIDALAR:
         if (geminiResult.intent === 'FILTER_STATUS') {
           if (window.mayorAiHelpers) {
             window.mayorAiHelpers.switchToTab(0);
-            window.mayorAiHelpers.filterTasksByStatus(geminiResult.statusIdx ?? 1);
+            const sIdx = (geminiResult.statusIdx != null) ? geminiResult.statusIdx : 1;
+            window.mayorAiHelpers.filterTasksByStatus(sIdx);
           }
-          const msg = geminiResult.speechReply || "Topshiriqlar saralandi.";
+          let msg = geminiResult.speechReply || "Topshiriqlar saralandi.";
           appendAiMessage('jarvis', msg);
           speakText(msg);
           return;
