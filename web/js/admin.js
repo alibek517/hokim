@@ -738,6 +738,13 @@ function adminDownloadScreen(idx) {
   }
 }
 
+window.initAdminView = initAdminView;
+window.renderAdminView = renderAdminView;
+window.selectAdminDevice = selectAdminDevice;
+window.adminSendTakePhoto = adminSendTakePhoto;
+window.adminToggleRecordAudio = adminToggleRecordAudio;
+window.adminToggleRecordScreen = adminToggleRecordScreen;
+window.adminSendRequestGps = adminSendRequestGps;
 window.adminPrevPhoto = adminPrevPhoto;
 window.adminNextPhoto = adminNextPhoto;
 window.adminPrevAudio = adminPrevAudio;

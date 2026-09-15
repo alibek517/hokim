@@ -173,8 +173,7 @@
           </button>
         </div>
       </div>
-      <div id="admin-map" style="width: 100%; height: 260px; min-height: 260px; z-index: 1;"></div>
-      <div id="admin-device-list" class="task-list" style="flex: 1; min-height: 0;"></div>
+      <div id="admin-content" class="task-list main-content" style="flex: 1; min-height: 0; padding-bottom: calc(30px + var(--safe-bottom));"></div>
     </div>
 
     <!-- 5. CHAT SCREEN -->
@@ -802,13 +801,13 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="js/firebase-config.js?v=20260915_01"></script>
-  <script src="js/chat.js?v=20260915_01"></script>
-  <script src="js/mayor.js?v=20260915_01"></script>
-  <script src="js/ai-assistant.js?v=20260915_01"></script>
-  <script src="js/worker.js?v=20260915_01"></script>
-  <script src="js/admin.js?v=20260915_01"></script>
-  <script src="js/app.js?v=20260915_01"></script>
+  <script src="js/firebase-config.js?v=20260915_02"></script>
+  <script src="js/chat.js?v=20260915_02"></script>
+  <script src="js/mayor.js?v=20260915_02"></script>
+  <script src="js/ai-assistant.js?v=20260915_02"></script>
+  <script src="js/worker.js?v=20260915_02"></script>
+  <script src="js/admin.js?v=20260915_02"></script>
+  <script src="js/app.js?v=20260915_02"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
@@ -821,7 +820,7 @@
         }
       });
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=20260915_01')
+        navigator.serviceWorker.register('./sw.js?v=20260915_02')
           .then(reg => {
             reg.update();
           })
