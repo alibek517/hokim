@@ -11,6 +11,7 @@
   let ignoreSpeechUntil = 0;
   let currentSpeakingText = '';
   let recognition = null;
+  let lastHeartbeatTime = Date.now();
   let aiState = 'IDLE'; // 'IDLE' | 'DRAFTING_TASK' | 'CONFIRMING_TASK' | 'DRAFTING_SCHEDULE' | 'CONFIRMING_SCHEDULE' | 'DRAFTING_WORKER' | 'CONFIRMING_WORKER'
 
   // Device & Platform Detection
@@ -136,12 +137,33 @@
 
       recognition.onstart = () => {
         isListening = true;
+        lastHeartbeatTime = Date.now();
         if (!isSpeaking) {
           updateAiStatus('listening', 'Eshitmoqda...');
         }
       };
 
+      recognition.onspeechstart = () => {
+        lastHeartbeatTime = Date.now();
+        if (isSpeaking) {
+          console.log("[AI] Foydalanuvchi gapira boshladi -> AI darhol jim bo'ldi");
+          stopSpeaking();
+        }
+      };
+
+      recognition.onaudiostart = () => {
+        lastHeartbeatTime = Date.now();
+      };
+
+      recognition.onsoundstart = () => {
+        lastHeartbeatTime = Date.now();
+        if (isSpeaking) {
+          stopSpeaking();
+        }
+      };
+
       recognition.onresult = (event) => {
+        lastHeartbeatTime = Date.now();
         let interim = '';
         let finalTranscript = '';
 
@@ -155,6 +177,11 @@
 
         const text = (finalTranscript || interim).trim();
         if (!text) return;
+
+        // Foydalanuvchi gapirayotganda AI QAT'IYAN jim bo'ladi:
+        if (isSpeaking) {
+          stopSpeaking();
+        }
 
         // 1. "30224", "30.00.24", "00.24", "00:24" kabi shovqin va fantom raqamlarni butunlay bloklash
         if (text.includes('30224') || text.includes('30.00.24') || text.includes('00.24') || text.includes('00:24') || /^[\d\s.:\-_/]+$/.test(text)) {
@@ -170,15 +197,6 @@
         const lettersOnly = text.replace(/[^a-zA-Zа-яА-ЯўқғҳЎҚҒҲ]/g, '').toLowerCase();
         if (lettersOnly.length < 2 && lettersOnly !== 'ha' && lettersOnly !== 'xa' && lettersOnly !== 'yo' && lettersOnly !== 'no') {
           return;
-        }
-
-        // 3. BARGE-IN (Foydalanuvchi gapira boshlashi bilan AI nutqini to'xtatish):
-        if (isSpeaking) {
-          if (isEchoOfCurrentSpeech(text, currentSpeakingText)) {
-            return;
-          }
-          console.log("[AI Barge-in] Foydalanuvchi gapirdi -> AI nutqi to'xtatildi va tinglanmoqda:", text);
-          stopSpeaking();
         }
 
         if (text) {
@@ -291,10 +309,20 @@
   function startWatchdog() {
     if (watchdogTimer) clearInterval(watchdogTimer);
     watchdogTimer = setInterval(() => {
-      if (shouldKeepListening && !isListening) {
+      if (!shouldKeepListening) return;
+      if (!isListening) {
         safeStartRecognition();
+      } else if (!isSpeaking && (Date.now() - lastHeartbeatTime > 6500)) {
+        // Agar 6.5 soniyadan beri hech qanday signal kelmagan bo'lsa va recognition muzlab qolgan bo'lsa
+        console.log("[AI Watchdog] Recognition muzlab qolgan bo'lishi mumkin, yangilanmoqda...");
+        try { if (recognition) recognition.stop(); } catch (_) {}
+        isListening = false;
+        lastHeartbeatTime = Date.now();
+        setTimeout(() => {
+          if (shouldKeepListening) safeStartRecognition();
+        }, 120);
       }
-    }, 800);
+    }, 1000);
   }
 
   function stopWatchdog() {
@@ -375,13 +403,23 @@
     isTemporarilyPausedForTts = false;
     ignoreSpeechUntil = 0;
     currentSpeakingText = '';
+    lastHeartbeatTime = Date.now();
+
+    // Audio ijrosi tugagach, brauzer mikrofon oqimini yangilash uchun recognition ni toza qayta ishga tushirish
+    try {
+      if (recognition) {
+        recognition.stop();
+      }
+    } catch (_) {}
+    isListening = false;
+
     if (shouldKeepListening) {
       updateAiStatus('listening', 'Eshitmoqda...');
       setTimeout(() => {
-        if (shouldKeepListening && !isListening) {
+        if (shouldKeepListening) {
           safeStartRecognition();
         }
-      }, 100);
+      }, 120);
     } else {
       updateAiStatus('idle', 'Kutilmoqda');
     }
@@ -470,17 +508,17 @@
 
   async function fetchTtsAudioBlob(text) {
     const q = '?text=' + encodeURIComponent(text);
-    const urls = [];
-    if (window.location.protocol.startsWith('http')) {
-      urls.push('/api/tts' + q);
-    }
-    urls.push('https://hokim.vercel.app/api/tts' + q);
+    const urls = [
+      '/api/tts' + q,
+      window.location.origin + '/api/tts' + q,
+      'https://ijro-nine.vercel.app/api/tts' + q
+    ];
 
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i];
       try {
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 10000);
+        const timer = setTimeout(() => ctrl.abort(), 8000);
         const res = await fetch(url, { signal: ctrl.signal });
         clearTimeout(timer);
         if (!res.ok) continue;
@@ -508,7 +546,7 @@
     }
   }
 
-  // Mahalliy O'zbekcha Fallback (Brauzer SpeechSynthesis)
+  // Mahalliy O'zbekcha Fallback (Faqat O'zbek tili, inglizcha butunlay taqiqlangan)
   function speakLocalUzbek(text, callback) {
     if (!('speechSynthesis' in window)) {
       finishSpeechCleanup(callback);
@@ -519,16 +557,17 @@
       window.speechSynthesis.cancel();
 
       const voices = cachedVoices.length > 0 ? cachedVoices : (window.speechSynthesis.getVoices() || []);
-      // 1-o'rinda o'zbek tili ovozini topish (uz-UZ, Madina, Sardor, Uzbek)
+      // Faqat va faqat o'zbek tili ovozini topish (uz-UZ, Madina, Sardor, Uzbek)
       let selectedVoice = voices.find(v => 
         (v.lang && (v.lang.toLowerCase().startsWith('uz') || v.lang.toLowerCase().includes('uzb'))) ||
         (v.name && (v.name.toLowerCase().includes('uzbek') || v.name.toLowerCase().includes('madina') || v.name.toLowerCase().includes('sardor')))
       );
 
-      // Agar brauzerda (masalan iOS Safari/WebKit) sof o'zbekcha ovoz o'rnatilmagan bo'lsa,
-      // butunlay ovozsiz qolib ketmasligi uchun mavjud tizim ovozini tanlaymiz
-      if (!selectedVoice && voices.length > 0) {
-        selectedVoice = voices.find(v => v.lang && (v.lang.startsWith('ru') || v.lang.startsWith('tr') || v.lang.startsWith('en'))) || voices[0];
+      // Inglizcha, ruscha yoki boshqa tillardagi ovoz QAT'IYAN TAQIQLANGAN:
+      if (!selectedVoice) {
+        console.log("[TTS] Brauzerda sof o'zbekcha ovoz topilmadi, inglizcha ovoz bloklandi.");
+        finishSpeechCleanup(callback);
+        return;
       }
 
       const utterance = new SpeechSynthesisUtterance(text);
@@ -1641,6 +1680,13 @@ MUHIM QOIDALAR:
         appendAiMessage('jarvis', reply);
         speakText(reply);
         return;
+      } else {
+        // Agar foydalanuvchi "ha/tasdiq" demasdan yangi buyruq aytsa yoki gapini davom ettirsa:
+        // Avvalgi to'liq topshiriqni avtomatik saqlaymiz va yangi buyruqqa o'tamiz
+        if (draftTask.title && draftTask.workerId && window.mayorAiHelpers && window.mayorAiHelpers.saveCurrentTask) {
+          try { await window.mayorAiHelpers.saveCurrentTask(); } catch (_) {}
+        }
+        aiState = 'IDLE';
       }
     }
 
@@ -1750,6 +1796,11 @@ MUHIM QOIDALAR:
         appendAiMessage('jarvis', reply);
         speakText(reply);
         return;
+      } else {
+        if (draftSchedule.title && window.mayorAiHelpers && window.mayorAiHelpers.saveCurrentSchedule) {
+          try { await window.mayorAiHelpers.saveCurrentSchedule(); } catch (_) {}
+        }
+        aiState = 'IDLE';
       }
     }
 
@@ -1811,6 +1862,11 @@ MUHIM QOIDALAR:
         appendAiMessage('jarvis', reply);
         speakText(reply);
         return;
+      } else {
+        if (draftWorker.fullName && window.mayorAiHelpers && window.mayorAiHelpers.saveCurrentWorker) {
+          try { await window.mayorAiHelpers.saveCurrentWorker(); } catch (_) {}
+        }
+        aiState = 'IDLE';
       }
     }
 
