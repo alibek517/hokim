@@ -1895,6 +1895,8 @@ fun CreateTaskDialog(
 ) {
     val context = LocalContext.current
     var title by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
     var selectedWorker by remember { mutableStateOf(workers.first()) }
     var expanded by remember { mutableStateOf(false) }
 
@@ -1948,12 +1950,15 @@ fun CreateTaskDialog(
         },
         title = { Text("Yangi Topshiriq Biriktirish", fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Topshiriq") },
-                    placeholder = { Text("Topshiriqni yozing...") },
+                    label = { Text("Topshiriq nomi *") },
+                    placeholder = { Text("Topshiriq nomini yozing...") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -1982,7 +1987,6 @@ fun CreateTaskDialog(
                                     Text("Yozilmoqda: ${recordingDuration}s", color = Color(0xFFDC2626), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    // Xato gapirib qo'ysa o'chirish / bekor qilish
                                     Button(
                                         onClick = {
                                             voiceRecorder.cancelRecording()
@@ -2001,7 +2005,6 @@ fun CreateTaskDialog(
                                         Text("O'chirish", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
                                     }
 
-                                    // To'xtatish
                                     Button(
                                         onClick = {
                                             val res = voiceRecorder.stopRecording()
@@ -2094,13 +2097,31 @@ fun CreateTaskDialog(
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Phone, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Phone, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("Ovozli topshiriq yozish", color = PrimaryBlue, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             }
                         }
                     }
                 }
+
+                OutlinedTextField(
+                    value = address,
+                    onValueChange = { address = it },
+                    label = { Text("Manzil (joylashuv)") },
+                    placeholder = { Text("Masalan: Hamidovjon ko'chasi, 12-uy ro'parasi") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Batafsil izoh") },
+                    placeholder = { Text("Topshiriq yuzasidan qo'shimcha ko'rsatmalar...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 3
+                )
 
                 ExposedDropdownMenuBox(
                     expanded = expanded,
@@ -2110,7 +2131,7 @@ fun CreateTaskDialog(
                         value = selectedWorker.fullName + " (" + (selectedWorker.position ?: "Xodim") + ")",
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Biriktiriladigan Mas'ul Xodim") },
+                        label = { Text("Biriktiriladigan Mas'ul Xodim *") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                         modifier = Modifier
                             .menuAnchor()
@@ -2162,7 +2183,7 @@ fun CreateTaskDialog(
                         modifier = Modifier.weight(1f)
                     ) {
                         Column {
-                            Text("Tugash sanasi:", fontSize = 10.sp, color = TextSecondary)
+                            Text("Tugash muddati:", fontSize = 10.sp, color = TextSecondary)
                             Text(dateFormat.format(Date(endDateMillis)), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
@@ -2193,7 +2214,7 @@ fun CreateTaskDialog(
                             return@Button
                         }
                     }
-                    onTaskCreated(finalTitle, "", "", selectedWorker, startDateMillis, endDateMillis, recordedVoicePath, recordedVoiceDuration)
+                    onTaskCreated(finalTitle, description.trim(), address.trim(), selectedWorker, startDateMillis, endDateMillis, recordedVoicePath, recordedVoiceDuration)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
             ) {
@@ -2222,8 +2243,8 @@ fun EditTaskDialog(
 ) {
     val context = LocalContext.current
     var title by remember(task.id) { mutableStateOf(task.title) }
-    var description by remember(task.id) { mutableStateOf(task.description) }
     var address by remember(task.id) { mutableStateOf(task.address) }
+    var description by remember(task.id) { mutableStateOf(task.description) }
     var selectedWorker by remember(task.id) {
         mutableStateOf(workers.find { it.id == task.assignedWorkerId } ?: workers.firstOrNull() ?: User(id = task.assignedWorkerId, username = "", password = "", role = UserRole.WORKER, firstName = task.assignedWorkerName, lastName = ""))
     }
@@ -2233,11 +2254,54 @@ fun EditTaskDialog(
     var endDateMillis by remember(task.id) { mutableLongStateOf(task.endDate) }
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
+    // Ovozli topshiriq yozish state
+    val voiceRecorder = remember { VoiceRecorder(context) }
+    val app = context.applicationContext as HokimApp
+    val voicePlayer = app.voicePlayer
+    var isRecordingVoice by remember { mutableStateOf(false) }
+    var recordingDuration by remember { mutableIntStateOf(0) }
+    var recordedVoicePath by remember(task.id) { mutableStateOf(task.voicePath) }
+    var recordedVoiceDuration by remember(task.id) { mutableIntStateOf(task.voiceDurationSec) }
+    var isPlayingVoicePreview by remember { mutableStateOf(false) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            val p = voiceRecorder.startRecording()
+            if (p != null) {
+                isRecordingVoice = true
+                recordingDuration = 0
+            } else {
+                Toast.makeText(context, "Ovoz yozishni boshlab bo'lmadi", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Ovoz yozish uchun mikrofon ruxsati kerak!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(isRecordingVoice) {
+        if (isRecordingVoice) {
+            recordingDuration = 0
+            while (isRecordingVoice) {
+                delay(1000L)
+                recordingDuration++
+            }
+        }
+    }
+
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (isRecordingVoice) voiceRecorder.cancelRecording()
+            if (isPlayingVoicePreview) voicePlayer.stop()
+            onDismiss()
+        },
         title = { Text("Topshiriqni Tahrirlash", fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
@@ -2246,19 +2310,162 @@ fun EditTaskDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                // OVOZLI TOPSHIRIQ PANELI
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        if (isRecordingVoice) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFEF4444))
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Yozilmoqda: ${recordingDuration}s", color = Color(0xFFDC2626), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Button(
+                                        onClick = {
+                                            voiceRecorder.cancelRecording()
+                                            isRecordingVoice = false
+                                            recordedVoicePath = null
+                                            recordedVoiceDuration = 0
+                                            Toast.makeText(context, "Ovoz o'chirildi", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(32.dp)
+                                    ) {
+                                        Icon(Icons.Default.Delete, contentDescription = "O'chirish", tint = Color.White, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("O'chirish", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            val res = voiceRecorder.stopRecording()
+                                            isRecordingVoice = false
+                                            if (res != null) {
+                                                recordedVoicePath = res.first
+                                                recordedVoiceDuration = res.second
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(32.dp)
+                                    ) {
+                                        Text("To'xtatish", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        } else if (recordedVoicePath != null) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(PrimaryBlue.copy(alpha = 0.1f))
+                                        .clickable {
+                                            if (isPlayingVoicePreview) {
+                                                voicePlayer.stop()
+                                                isPlayingVoicePreview = false
+                                            } else {
+                                                isPlayingVoicePreview = true
+                                                voicePlayer.play(recordedVoicePath!!) {
+                                                    isPlayingVoicePreview = false
+                                                }
+                                            }
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (isPlayingVoicePreview) Icons.Default.Close else Icons.Default.PlayArrow,
+                                        contentDescription = null,
+                                        tint = PrimaryBlue,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        if (isPlayingVoicePreview) "Tinglanmoqda..." else "Ovozni eshitish (${recordedVoiceDuration}s)",
+                                        color = PrimaryBlue,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        voicePlayer.stop()
+                                        isPlayingVoicePreview = false
+                                        try { File(recordedVoicePath!!).delete() } catch (_: Exception) {}
+                                        recordedVoicePath = null
+                                        recordedVoiceDuration = 0
+                                    }
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "O'chirish", tint = StatusRed, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val hasPerm = ContextCompat.checkSelfPermission(
+                                            context,
+                                            Manifest.permission.RECORD_AUDIO
+                                        ) == PackageManager.PERMISSION_GRANTED
+                                        if (hasPerm) {
+                                            val p = voiceRecorder.startRecording()
+                                            if (p != null) {
+                                                isRecordingVoice = true
+                                                recordingDuration = 0
+                                            }
+                                        } else {
+                                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                        }
+                                    }
+                                    .padding(vertical = 6.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Phone, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Ovozli topshiriq yozish", color = PrimaryBlue, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = address,
                     onValueChange = { address = it },
                     label = { Text("Manzil (joylashuv)") },
-                    placeholder = { Text("Manzilni kiriting...") },
+                    placeholder = { Text("Masalan: Hamidovjon ko'chasi, 12-uy ro'parasi") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Batafsil ma'lumot") },
-                    placeholder = { Text("Izoh yoki tavsif...") },
+                    label = { Text("Batafsil izoh") },
+                    placeholder = { Text("Topshiriq yuzasidan qo'shimcha ko'rsatmalar...") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                     maxLines = 3
@@ -2273,7 +2480,7 @@ fun EditTaskDialog(
                             value = selectedWorker.fullName + " (" + (selectedWorker.position ?: "Xodim") + ")",
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Biriktiriladigan Mas'ul Xodim") },
+                            label = { Text("Biriktiriladigan Mas'ul Xodim *") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                             modifier = Modifier
                                 .menuAnchor()
@@ -2326,7 +2533,7 @@ fun EditTaskDialog(
                         modifier = Modifier.weight(1f)
                     ) {
                         Column {
-                            Text("Tugash sanasi:", fontSize = 10.sp, color = TextSecondary)
+                            Text("Tugash muddati:", fontSize = 10.sp, color = TextSecondary)
                             Text(dateFormat.format(Date(endDateMillis)), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
@@ -2336,18 +2543,37 @@ fun EditTaskDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (title.isBlank()) {
-                        Toast.makeText(context, "Topshiriq nomini kiriting!", Toast.LENGTH_SHORT).show()
-                        return@Button
+                    if (isRecordingVoice) {
+                        val res = voiceRecorder.stopRecording()
+                        isRecordingVoice = false
+                        if (res != null) {
+                            recordedVoicePath = res.first
+                            recordedVoiceDuration = res.second
+                        }
+                    }
+                    if (isPlayingVoicePreview) {
+                        voicePlayer.stop()
+                        isPlayingVoicePreview = false
+                    }
+
+                    val finalTitle = when {
+                        title.isNotBlank() -> title.trim()
+                        recordedVoicePath != null -> "Ovozli topshiriq (${recordedVoiceDuration}s)"
+                        else -> {
+                            Toast.makeText(context, "Topshiriq matnini kiriting yoki ovoz yozing!", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
                     }
                     val updated = task.copy(
-                        title = title.trim(),
+                        title = finalTitle,
                         description = description.trim(),
                         address = address.trim(),
                         assignedWorkerId = selectedWorker.id,
                         assignedWorkerName = selectedWorker.fullName,
                         startDate = startDateMillis,
-                        endDate = endDateMillis
+                        endDate = endDateMillis,
+                        voicePath = recordedVoicePath,
+                        voiceDurationSec = recordedVoiceDuration
                     )
                     onTaskUpdated(updated)
                 },
@@ -2357,7 +2583,11 @@ fun EditTaskDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = {
+                if (isRecordingVoice) voiceRecorder.cancelRecording()
+                if (isPlayingVoicePreview) voicePlayer.stop()
+                onDismiss()
+            }) {
                 Text("Bekor qilish")
             }
         }
