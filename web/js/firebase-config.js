@@ -166,7 +166,8 @@ function initFirebase() {
     if (typeof firebase !== 'undefined') {
       const config = {
         databaseURL: FIREBASE_DB_URL,
-        projectId: 'hokimlik'
+        projectId: 'hokimlik',
+        storageBucket: 'hokimlik.appspot.com'
       };
       
       if (!firebase.apps.length) {
@@ -175,6 +176,16 @@ function initFirebase() {
       
       database = firebase.database();
       window.firebaseRtdb = database;
+
+      // Firebase Storage (video, rasm, audio uchun — 10MB RTDB cheklovidan xalos bo'lish)
+      if (typeof firebase.storage !== 'undefined') {
+        try {
+          window.firebaseStorage = firebase.storage();
+        } catch (storErr) {
+          console.warn('Firebase Storage init failed:', storErr);
+          window.firebaseStorage = null;
+        }
+      }
 
       // Polyfill setValue on Firebase Database Reference to prevent any runtime exceptions
       try {

@@ -503,8 +503,9 @@ async function confirmWorkerComplete() {
         senderId: worker.id,
         receiverId: mayor.id,
         senderName: worker.fullName || worker.firstName,
-        messageType: m.type === 'video' ? 'VIDEO' : 'IMAGE',
-        mediaBase64: m.base64,
+        messageType: m.type === 'VIDEO' ? 'VIDEO' : 'IMAGE',
+        mediaPath: m.url || null,
+        mediaBase64: m.url ? null : (m.base64 && m.base64.startsWith('data:') ? m.base64.split(',')[1] : m.base64),
         textContent: `Topshiriq hisoboti: ${task.title}`,
         timestamp: Date.now(),
         isRead: false

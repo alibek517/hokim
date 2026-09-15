@@ -219,70 +219,79 @@ function closeMessageActionsModal() {
   if (modal) modal.classList.remove('active');
 }
 
+// ─── Firebase Storage yordamchi funksiya ────────────────────────────────────
+async function uploadToFirebaseStorage(file, folder) {
+  const storage = window.firebaseStorage;
+  if (!storage) {
+    // Fallback: base64 (kichik fayllar uchun)
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ url: null, base64: reader.result.split(',')[1] });
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  const ext = file.name ? file.name.split('.').pop() : 'bin';
+  const path = `chat/${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const storRef = storage.ref(path);
+  await storRef.put(file);
+  const url = await storRef.getDownloadURL();
+  return { url, base64: null };
+}
+
 function handleImagePicked(e) {
   const file = e.target.files[0];
   if (!file || !activeChatPeer || !window.store.currentUser) return;
+  e.target.value = '';
 
-  const reader = new FileReader();
-  reader.onload = async function() {
-    const base64 = reader.result.split(',')[1];
+  showToast('Rasm yuklanmoqda...');
+  uploadToFirebaseStorage(file, 'images').then(({ url, base64 }) => {
     const msg = {
       id: 'msg_img_' + Date.now(),
       senderId: window.store.currentUser.id,
       receiverId: activeChatPeer.id,
       senderName: window.store.currentUser.fullName || window.store.currentUser.firstName,
       messageType: 'IMAGE',
-      mediaBase64: base64,
+      mediaPath: url || null,
+      mediaBase64: base64 || null,
       timestamp: Date.now(),
       isRead: false
     };
-    await window.dbApi.sendMessage(msg);
-    showToast('Rasm yuborildi');
-  };
-  reader.readAsDataURL(file);
-  e.target.value = '';
+    return window.dbApi.sendMessage(msg);
+  }).then(() => {
+    showToast('Rasm yuborildi ✓');
+  }).catch(err => {
+    console.error('Rasm yuborishda xatolik:', err);
+    showToast('Xatolik: rasm yuborilmadi');
+  });
 }
 
 function handleVideoPicked(e) {
   const file = e.target.files[0];
   if (!file || !activeChatPeer || !window.store.currentUser) return;
+  e.target.value = '';
 
-  // Firebase RTDB bitta string qiymat uchun maksimum 10,485,760 bayt (10MB) qabul qiladi.
-  // Base64 33% hajm qo'shgani sababli xom video fayl ko'pi bilan 7.2 MB bo'lishi shart!
-  if (file.size > 7.2 * 1024 * 1024) {
-    alert("Video hajmi 7.2 MB dan oshmasligi lozim (Server/Firebase cheklovi: 10MB). Iltimos, qisqaroq yoki siqilgan video tanlang.");
-    e.target.value = '';
-    return;
-  }
-
-  showToast('Video yuklanmoqda...');
-  const reader = new FileReader();
-  reader.onload = async function() {
-    const base64 = reader.result.split(',')[1];
-    if (base64.length > 10000000) {
-      alert("Video hajmi 10MB limitidan oshib ketdi. Iltimos, kichikroq video tanlang.");
-      return;
-    }
+  // Hajm cheklovini olib tashladik — Storage cheksiz katta fayllarni qabul qiladi
+  showToast('Video yuklanmoqda... (bir oz kuting)');
+  uploadToFirebaseStorage(file, 'videos').then(({ url, base64 }) => {
     const msg = {
       id: 'msg_vid_' + Date.now(),
       senderId: window.store.currentUser.id,
       receiverId: activeChatPeer.id,
       senderName: window.store.currentUser.fullName || window.store.currentUser.firstName,
       messageType: 'VIDEO',
-      mediaBase64: base64,
+      mediaPath: url || null,
+      mediaBase64: base64 || null,
       timestamp: Date.now(),
       isRead: false
     };
-    try {
-      await window.dbApi.sendMessage(msg);
-      showToast('Video yuborildi');
-    } catch (err) {
-      console.error("Video send error:", err);
-      alert("Videoni yuborishda xatolik yuz berdi: " + (err.message || err));
-    }
-  };
-  reader.readAsDataURL(file);
-  e.target.value = '';
+    return window.dbApi.sendMessage(msg);
+  }).then(() => {
+    showToast('Video yuborildi ✓');
+  }).catch(err => {
+    console.error('Video yuborishda xatolik:', err);
+    showToast('Xatolik: video yuborilmadi. ' + (err.message || ''));
+  });
 }
 
 function openAttachChoiceModal() {
@@ -358,24 +367,40 @@ async function sendChatVoiceRecording() {
   chatVoiceRecorder.onstop = async () => {
     try {
       const audioBlob = new Blob(chatVoiceChunks, { type: 'audio/mp4' });
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = reader.result.split(',')[1];
-        const msg = {
-          id: 'msg_voice_' + Date.now(),
-          senderId: window.store.currentUser.id,
-          receiverId: activeChatPeer.id,
-          senderName: window.store.currentUser.fullName || window.store.currentUser.firstName,
-          messageType: 'VOICE',
-          mediaBase64: base64,
-          audioDurationSec: durationSec,
-          timestamp: Date.now(),
-          isRead: false
-        };
-        await window.dbApi.sendMessage(msg);
-        showToast('Ovozli xabar yuborildi!');
+      const storage = window.firebaseStorage;
+      let mediaPath = null;
+      let mediaBase64 = null;
+
+      if (storage) {
+        // Firebase Storage orqali yuklash
+        const path = `chat/voices/${Date.now()}_${Math.random().toString(36).slice(2)}.mp4`;
+        const storRef = storage.ref(path);
+        await storRef.put(audioBlob);
+        mediaPath = await storRef.getDownloadURL();
+      } else {
+        // Fallback: base64
+        mediaBase64 = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(r.result.split(',')[1]);
+          r.onerror = rej;
+          r.readAsDataURL(audioBlob);
+        });
+      }
+
+      const msg = {
+        id: 'msg_voice_' + Date.now(),
+        senderId: window.store.currentUser.id,
+        receiverId: activeChatPeer.id,
+        senderName: window.store.currentUser.fullName || window.store.currentUser.firstName,
+        messageType: 'VOICE',
+        mediaPath: mediaPath || null,
+        mediaBase64: mediaBase64 || null,
+        audioDurationSec: durationSec,
+        timestamp: Date.now(),
+        isRead: false
       };
-      reader.readAsDataURL(audioBlob);
+      await window.dbApi.sendMessage(msg);
+      showToast('Ovozli xabar yuborildi!');
     } catch (e) {
       console.error("Chat voice send error:", e);
       alert("Ovoz yuborishda xatolik yuz berdi");

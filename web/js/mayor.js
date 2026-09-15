@@ -57,11 +57,41 @@ let createSchedMediaList = [];
 let editSchedMediaList = [];
 
 async function processMediaFile(file) {
+  const isVideo = file.type.startsWith('video');
+
+  // Preview uchun lokal URL (UI preview)
+  const localPreviewUrl = URL.createObjectURL(file);
+
+  // Firebase Storage ga yuklash
+  const storage = window.firebaseStorage;
+  if (storage) {
+    try {
+      const folder = isVideo ? 'videos' : 'images';
+      const ext = file.name ? file.name.split('.').pop() : (isVideo ? 'mp4' : 'jpg');
+      const path = `chat/${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const storRef = storage.ref(path);
+      await storRef.put(file);
+      const downloadUrl = await storRef.getDownloadURL();
+      return {
+        id: (isVideo ? 'vid_' : 'img_') + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        type: isVideo ? 'VIDEO' : 'IMAGE',
+        base64: localPreviewUrl,   // faqat UI preview uchun (objectURL)
+        url: downloadUrl,           // Firebase Storage URL — RTDB'ga shu saqlanadi
+        name: file.name,
+        size: file.size,
+        isStorageUrl: true
+      };
+    } catch (err) {
+      console.warn('Storage upload failed, falling back to base64:', err);
+      // Storage ishlamasa base64 ga qaytamiz
+    }
+  }
+
+  // Fallback: base64 (Storage yo'q bo'lganda)
   return new Promise((resolve) => {
-    const isVideo = file.type.startsWith('video');
     if (isVideo) {
       if (file.size > 7.2 * 1024 * 1024) {
-        alert(`"${file.name}" hajmi 7.2MB dan katta! Server/Firebase cheklovi 10MB. Iltimos, kichikroq video tanlang.`);
+        alert(`"${file.name}" hajmi 7.2MB dan katta! Iltimos, kichikroq video tanlang.`);
         return resolve(null);
       }
       const reader = new FileReader();
@@ -70,6 +100,7 @@ async function processMediaFile(file) {
           id: 'vid_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
           type: 'VIDEO',
           base64: e.target.result,
+          url: null,
           name: file.name,
           size: file.size
         });
@@ -77,7 +108,7 @@ async function processMediaFile(file) {
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(file);
     } else {
-      // Image: compress with canvas to keep size light and fast
+      // Image: compress with canvas
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
@@ -86,24 +117,18 @@ async function processMediaFile(file) {
           let height = img.height;
           const maxDim = 1280;
           if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
+            if (width > height) { height = Math.round((height * maxDim) / width); width = maxDim; }
+            else { width = Math.round((width * maxDim) / height); height = maxDim; }
           }
           const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
+          canvas.width = width; canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
           const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
           resolve({
             id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
             type: 'IMAGE',
             base64: dataUrl,
+            url: null,
             name: file.name,
             size: dataUrl.length
           });
@@ -128,7 +153,8 @@ function renderModalMediaPreviews(mediaList, containerId, removeFnName) {
   container.style.display = 'flex';
   container.innerHTML = mediaList.map((m, idx) => {
     const isVid = m.type === 'VIDEO';
-    const src = m.base64.startsWith('data:') ? m.base64 : ('data:' + (isVid ? 'video/mp4' : 'image/jpeg') + ';base64,' + m.base64);
+    // m.url = Firebase Storage URL; m.base64 = local preview/objectURL/base64
+    const src = m.url || (m.base64 && m.base64.startsWith('data:') ? m.base64 : ('data:' + (isVid ? 'video/mp4' : 'image/jpeg') + ';base64,' + m.base64));
     return `
       <div class="modal-media-item">
         ${isVid ? `<video src="${src}"></video><div class="modal-media-badge">🎥 Video</div>` : `<img src="${src}" alt="media"><div class="modal-media-badge">📷 Rasm</div>`}
@@ -144,7 +170,9 @@ function renderCardMediaGallery(mediaList) {
     <div class="task-media-grid">
       ${mediaList.map((m) => {
         const isVid = m.type === 'VIDEO';
-        const src = m.base64.startsWith('data:') ? m.base64 : ('data:' + (isVid ? 'video/mp4' : 'image/jpeg') + ';base64,' + m.base64);
+        // Support both Storage URL (m.url or m.mediaPath) and base64
+        const src = m.url || m.mediaPath ||
+          (m.base64 ? (m.base64.startsWith('data:') ? m.base64 : ('data:' + (isVid ? 'video/mp4' : 'image/jpeg') + ';base64,' + m.base64)) : '');
         if (isVid) {
           return `
             <div class="task-card-media-item" onclick="playVideo('${src}')" title="Videoni ko'rish">
@@ -2067,32 +2095,46 @@ async function sendTaskVoiceMessage(taskId) {
     try {
       const audioBlob = new Blob(audioChunks, { type: 'audio/mp4' });
       const durationSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = reader.result.split(',')[1];
-        const msg = {
-          id: 'msg_voice_' + Date.now(),
-          senderId: window.store.currentUser.id,
-          receiverId: workerId,
-          senderName: window.store.currentUser.fullName || window.store.currentUser.firstName,
-          messageType: 'VOICE',
-          mediaBase64: base64,
-          audioDurationSec: durationSec,
-          textContent: `Topshiriq: "${taskTitle}"`,
-          timestamp: Date.now(),
-          isRead: false
-        };
-        await window.dbApi.sendMessage(msg);
+      const storage = window.firebaseStorage;
+      let mediaPath = null;
+      let mediaBase64 = null;
 
-        // Topshiriq kartochkasiga ham ovozni biriktiramiz
-        if (taskId && window.dbApi.updateTaskVoice) {
-          await window.dbApi.updateTaskVoice(taskId, base64, durationSec);
-        }
+      if (storage) {
+        const path = `chat/voices/${Date.now()}_${Math.random().toString(36).slice(2)}.mp4`;
+        const storRef = storage.ref(path);
+        await storRef.put(audioBlob);
+        mediaPath = await storRef.getDownloadURL();
+      } else {
+        mediaBase64 = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(r.result.split(',')[1]);
+          r.onerror = rej;
+          r.readAsDataURL(audioBlob);
+        });
+      }
 
-        showToast(`Ovozli xabar biriktirildi va ${workerName} ga yuborildi!`);
-        renderMayorTasks();
+      const msg = {
+        id: 'msg_voice_' + Date.now(),
+        senderId: window.store.currentUser.id,
+        receiverId: workerId,
+        senderName: window.store.currentUser.fullName || window.store.currentUser.firstName,
+        messageType: 'VOICE',
+        mediaPath: mediaPath || null,
+        mediaBase64: mediaBase64 || null,
+        audioDurationSec: durationSec,
+        textContent: `Topshiriq: "${taskTitle}"`,
+        timestamp: Date.now(),
+        isRead: false
       };
-      reader.readAsDataURL(audioBlob);
+      await window.dbApi.sendMessage(msg);
+
+      // Topshiriq kartochkasiga ham ovozni biriktiramiz
+      if (taskId && window.dbApi.updateTaskVoice) {
+        await window.dbApi.updateTaskVoice(taskId, mediaPath || mediaBase64, durationSec);
+      }
+
+      showToast(`Ovozli xabar biriktirildi va ${workerName} ga yuborildi!`);
+      renderMayorTasks();
     } catch (e) {
       console.error("Voice send error:", e);
       alert("Ovoz yuborishda xatolik yuz berdi");
