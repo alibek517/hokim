@@ -2652,6 +2652,35 @@ fun MayorWorkersTab(
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Medium
                                         )
+
+                                        if (!worker.phone.isNullOrBlank()) {
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = Color(0xFFDCFCE7),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF86EFAC)),
+                                                modifier = Modifier
+                                                    .padding(top = 4.dp, bottom = 2.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .clickable {
+                                                        try {
+                                                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${worker.phone.trim()}"))
+                                                            context.startActivity(intent)
+                                                        } catch (e: Exception) {
+                                                            Toast.makeText(context, "Qo'ng'iroqni ochib bo'lmadi", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    }
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Phone, contentDescription = "Qo'ng'iroq qilish", tint = Color(0xFF15803D), modifier = Modifier.size(13.dp))
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(worker.phone, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF15803D))
+                                                }
+                                            }
+                                        }
+
                                         Text(
                                             "Baholash: ${stats.gradeText}",
                                             fontSize = 11.sp,
