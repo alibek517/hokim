@@ -646,7 +646,11 @@ function renderMayorTasks() {
         <div class="task-footer-row">
           <div class="task-worker-tag" title="Mas'ul xodim" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-            <span style="font-weight: 600;">${escapeHtml(task.assignedWorkerName || 'Biriktirilmagan')}</span>
+            ${(() => {
+              const w = (window.store.users || []).find(u => u.id === task.assignedWorkerId);
+              const posTag = w?.position ? `<span style="background: rgba(37,99,235,0.1); color: #1D4ED8; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">[${escapeHtml(w.position)}]</span>` : '';
+              return `${posTag}<span style="font-weight: 600;">${escapeHtml(task.assignedWorkerName || 'Biriktirilmagan')}</span>`;
+            })()}
             ${(() => {
               const workerPhone = findWorkerPhoneForTask(task);
               if (!workerPhone) return '';
@@ -1099,7 +1103,10 @@ async function renderMayorWorkers() {
               ${rankBadge}
             </div>
             <div>
-              <div style="font-weight: 700; font-size: 15px; color: var(--navy-dark);">${escapeHtml(w.fullName || (w.firstName + ' ' + w.lastName))}</div>
+              <div style="font-weight: 700; font-size: 15px; color: var(--navy-dark); display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                ${w.position ? `<span style="background: rgba(37,99,235,0.1); color: #1D4ED8; font-size: 11.5px; font-weight: 700; padding: 2px 7px; border-radius: 5px;">[${escapeHtml(w.position)}]</span>` : ''}
+                <span>${escapeHtml(w.fullName || (w.firstName + ' ' + w.lastName))}</span>
+              </div>
               <div style="font-size: 12px; color: var(--primary-blue); font-weight: 500;">${escapeHtml(w.position || 'Xodim')}</div>
               ${w.phone ? `
                 <div style="margin-top: 3px;">
@@ -1227,7 +1234,10 @@ function renderMayorChats() {
         <div class="user-avatar" style="width: 46px; height: 46px;">${(peer.firstName || peer.fullName || 'U')[0]}</div>
         <div style="flex: 1; overflow: hidden;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="font-weight: 700; font-size: 14px; color: var(--navy-dark);">${escapeHtml(peer.fullName || (peer.firstName + ' ' + peer.lastName))}</div>
+            <div style="font-weight: 700; font-size: 14px; color: var(--navy-dark); display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+              ${peer.position ? `<span style="background: rgba(37,99,235,0.1); color: #1D4ED8; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px;">[${escapeHtml(peer.position)}]</span>` : ''}
+              <span>${escapeHtml(peer.fullName || (peer.firstName + ' ' + peer.lastName))}</span>
+            </div>
             <div style="font-size: 10px; color: #94A3B8;">${timeStr}</div>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
@@ -1267,7 +1277,10 @@ function openCreateTaskModal() {
 
   const select = document.getElementById('new-task-worker');
   if (select) {
-    select.innerHTML = '<option value="">-- Xodimni tanlang --</option>' + workers.map(w => `<option value="${w.id}">${escapeHtml(w.fullName || (w.firstName + ' ' + w.lastName))}</option>`).join('');
+    select.innerHTML = '<option value="">-- Xodimni tanlang --</option>' + workers.map(w => {
+      const pos = w.position ? `[${w.position}] ` : '';
+      return `<option value="${w.id}">${escapeHtml(pos + (w.fullName || (w.firstName + ' ' + w.lastName)))}</option>`;
+    }).join('');
   }
 
   const now = new Date();
@@ -1814,11 +1827,14 @@ function openEditTaskModal(taskId) {
   // Populate worker options
   if (workerSelect) {
     const workers = (window.store.users || []).filter(u => u.role === 'WORKER');
-    workerSelect.innerHTML = workers.map(w => `
-      <option value="${w.id}" ${w.id === task.assignedWorkerId ? 'selected' : ''}>
-        ${escapeHtml(w.fullName || ((w.firstName || '') + ' ' + (w.lastName || '')).trim())} (${escapeHtml(w.position || 'Xodim')})
-      </option>
-    `).join('');
+    workerSelect.innerHTML = workers.map(w => {
+      const pos = w.position ? `[${w.position}] ` : '';
+      return `
+        <option value="${w.id}" ${w.id === task.assignedWorkerId ? 'selected' : ''}>
+          ${escapeHtml(pos + (w.fullName || ((w.firstName || '') + ' ' + (w.lastName || '')).trim()))}
+        </option>
+      `;
+    }).join('');
   }
 
   // Populate media list
@@ -1834,7 +1850,8 @@ async function saveEditedTask() {
   const title = (document.getElementById('edit-task-title')?.value || '').trim();
   const workerSelect = document.getElementById('edit-task-worker');
   const assignedWorkerId = workerSelect?.value || '';
-  const assignedWorkerName = workerSelect?.options[workerSelect.selectedIndex]?.text.split(' (')[0] || '';
+  const editWorkerObj = window.store.users.find(u => u.id === assignedWorkerId);
+  const assignedWorkerName = editWorkerObj ? (editWorkerObj.fullName || (editWorkerObj.firstName + ' ' + editWorkerObj.lastName)) : '';
   const startDate = document.getElementById('edit-task-start')?.value || '';
   const endDate = document.getElementById('edit-task-end')?.value || '';
 

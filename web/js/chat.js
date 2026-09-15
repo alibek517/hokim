@@ -10,7 +10,8 @@ function openChat(peer, updateUrl = true) {
   if (!peer) return;
   activeChatPeer = peer;
 
-  const fullName = peer.fullName || ((peer.firstName || '') + ' ' + (peer.lastName || '')).trim() || peer.username || 'Foydalanuvchi';
+  const orgPrefix = peer.position ? `[${peer.position}] ` : '';
+  const fullName = orgPrefix + (peer.fullName || ((peer.firstName || '') + ' ' + (peer.lastName || '')).trim() || peer.username || 'Foydalanuvchi');
   const roleText = peer.role === 'MAYOR' ? 'Tuman Hokimi' : (peer.position || 'Xodim');
 
   const nameEl = document.getElementById('chat-header-name') || document.getElementById('chat-peer-name');

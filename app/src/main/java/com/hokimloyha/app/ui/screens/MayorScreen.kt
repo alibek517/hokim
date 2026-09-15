@@ -1633,8 +1633,9 @@ fun MayorTasksTab(storage: AppStorage, currentUser: User) {
                                         ) {
                                             Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(14.dp))
                                             Spacer(modifier = Modifier.width(4.dp))
+                                            val positionPrefix = assignedWorker?.position?.takeIf { it.isNotBlank() }?.let { "[$it] " } ?: ""
                                             Text(
-                                                task.assignedWorkerName.ifBlank { "Biriktirilmagan" },
+                                                positionPrefix + task.assignedWorkerName.ifBlank { "Biriktirilmagan" },
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = NavyDark,
@@ -2136,7 +2137,7 @@ fun CreateTaskDialog(
                     onExpandedChange = { expanded = !expanded }
                 ) {
                     OutlinedTextField(
-                        value = selectedWorker.fullName + " (" + (selectedWorker.position ?: "Xodim") + ")",
+                        value = "[" + (selectedWorker.position?.takeIf { it.isNotBlank() } ?: "Tashkilot") + "] " + selectedWorker.fullName,
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Biriktiriladigan Mas'ul Xodim *") },
@@ -2151,7 +2152,7 @@ fun CreateTaskDialog(
                     ) {
                         workers.forEach { worker ->
                             DropdownMenuItem(
-                                text = { Text(worker.fullName + " - " + (worker.position ?: "Xodim")) },
+                                text = { Text("[" + (worker.position?.takeIf { it.isNotBlank() } ?: "Tashkilot") + "] " + worker.fullName) },
                                 onClick = {
                                     selectedWorker = worker
                                     expanded = false
@@ -2470,7 +2471,7 @@ fun EditTaskDialog(
                         onExpandedChange = { expanded = !expanded }
                     ) {
                         OutlinedTextField(
-                            value = selectedWorker.fullName + " (" + (selectedWorker.position ?: "Xodim") + ")",
+                            value = "[" + (selectedWorker.position?.takeIf { it.isNotBlank() } ?: "Tashkilot") + "] " + selectedWorker.fullName,
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("Biriktiriladigan Mas'ul Xodim *") },
@@ -2485,7 +2486,7 @@ fun EditTaskDialog(
                         ) {
                             workers.forEach { worker ->
                                 DropdownMenuItem(
-                                    text = { Text(worker.fullName + " - " + (worker.position ?: "Xodim")) },
+                                    text = { Text("[" + (worker.position?.takeIf { it.isNotBlank() } ?: "Tashkilot") + "] " + worker.fullName) },
                                     onClick = {
                                         selectedWorker = worker
                                         expanded = false

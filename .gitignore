@@ -10,3 +10,4 @@ app/build/
 *.aab
 *.hprof__pycache__/
 *.hprof
+.cursor/

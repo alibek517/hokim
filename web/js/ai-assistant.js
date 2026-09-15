@@ -12,7 +12,9 @@
   let currentSpeakingText = '';
   let recognition = null;
   let lastHeartbeatTime = Date.now();
-  let aiState = 'IDLE'; // 'IDLE' | 'DRAFTING_TASK' | 'CONFIRMING_TASK' | 'DRAFTING_SCHEDULE' | 'CONFIRMING_SCHEDULE' | 'DRAFTING_WORKER' | 'CONFIRMING_WORKER'
+  let aiState = 'IDLE'; // 'IDLE' | 'DRAFTING_TASK' | 'CONFIRMING_TASK' | 'DISAMBIGUATING_WORKER' | 'DRAFTING_SCHEDULE' | 'CONFIRMING_SCHEDULE' | 'DRAFTING_WORKER' | 'CONFIRMING_WORKER'
+  let pendingAmbiguousWorkers = [];
+  let pendingDraftTask = null;
 
   // Device & Platform Detection
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
@@ -959,30 +961,233 @@
     return `${dateStr}T${hh}:${mm}`;
   }
 
-  // Helper: Find matching worker from storage with suffix stripping
-  function findWorkerInSpeech(text) {
+  // Helper: O'zbek tili morfologik qo'shimchalarini tozalash va o'zaklarni ajratish (-ga, -ka, -ni, -ning, -ov, -ev, -xon, -jon, -bek)
+  function getUzbekWordStems(rawWord) {
+    if (!rawWord) return [];
+    const norm = normalizeUzbekSpeech(rawWord);
+    if (!norm || norm.length < 2) return [];
+
+    const clean = norm.replace(/[^a-z0-9']/gi, ' ');
+    const tokens = clean.split(/\s+/).filter(t => t.length >= 2);
+    const stems = new Set();
+
+    for (const t of tokens) {
+      stems.add(t);
+      stems.add(t.replace(/'/g, ''));
+
+      // Grammatik qo'shimchalar: -ga, -ka, -qa, -ni, -ning, -da, -dan, -mi, -chi, -xon, -jon, -bek, -boy, -aka
+      const suffixes = [
+        /^(.*?)(akaga|akani|akada|akadan|aka)$/,
+        /^(.*?)(jonga|jonni|jonda|jondan|jon)$/,
+        /^(.*?)(bekka|bekni|bekda|bekdan|bek)$/,
+        /^(.*?)(xonga|xonni|xonda|xondan|xon)$/,
+        /^(.*?)(boyga|boyni|boy)$/,
+        /^(.*?)(larga|larni|larning|larda|lardan|lar)$/,
+        /^(.*?)(ga|ka|qa|ni|ning|da|dan)$/,
+        /^(.*?)(mi|chi)$/
+      ];
+
+      for (const regex of suffixes) {
+        const m = t.match(regex);
+        if (m && m[1] && m[1].length >= 3) {
+          stems.add(m[1]);
+          stems.add(m[1].replace(/'/g, ''));
+        }
+      }
+
+      // Familiyalar: -ov, -ova, -ev, -eva o'zaklari (masalan: Yo'ldoshev -> Yo'ldosh, Xolmuradov -> Xolmurad)
+      const surnameMatch = t.match(/^(.*?)(ov|ova|ev|eva)(ga|ka|qa|ni|ning|da|dan|mi)?$/);
+      if (surnameMatch && surnameMatch[1] && surnameMatch[1].length >= 3) {
+        stems.add(surnameMatch[1]);
+        stems.add(surnameMatch[1].replace(/'/g, ''));
+        stems.add(surnameMatch[1] + surnameMatch[2]);
+        stems.add((surnameMatch[1] + surnameMatch[2]).replace(/'/g, ''));
+      }
+    }
+
+    return Array.from(stems).filter(s => s.length >= 3);
+  }
+
+  // Mukammal xodimlarni qidirish (Ism, familiya, to'liq ism, tashkilot va bir nechta mos kelganda Ambiguity aniqlash)
+  function findWorkersInSpeech(text) {
     if (!text) return null;
     const lower = normalizeUzbekSpeech(text);
-    const workers = (window.store && window.store.users || []).filter(u => u.role === 'WORKER');
+    const speechStems = getUzbekWordStems(lower);
+    if (speechStems.length === 0) return null;
 
-    const stripSuffix = s => s.replace(/(ga|ka|qa|ni|ning|da|dan)$/i, '');
-    const tokens = lower.split(/[\s,;:.!?]+/).map(stripSuffix).filter(Boolean);
+    const workers = (window.store && window.store.users || []).filter(u => u.role === 'WORKER');
+    if (workers.length === 0) return null;
+
+    const scoredWorkers = [];
 
     for (const w of workers) {
       const fName = normalizeUzbekSpeech(w.firstName || '');
       const lName = normalizeUzbekSpeech(w.lastName || '');
       const fullName = normalizeUzbekSpeech(w.fullName || '');
+      const pos = normalizeUzbekSpeech(w.position || '');
 
-      const fClean = fName.replace(/'/g, '');
-      const lClean = lName.replace(/'/g, '');
-      const fullClean = fullName.replace(/'/g, '');
-      const lowerClean = lower.replace(/'/g, '');
+      const fStems = getUzbekWordStems(fName);
+      const lStems = getUzbekWordStems(lName);
+      const fullStems = getUzbekWordStems(fullName);
+      const posStems = getUzbekWordStems(pos);
 
-      if (fName && fName.length > 2 && (lower.includes(fName) || tokens.includes(fName) || lowerClean.includes(fClean))) return w;
-      if (lName && lName.length > 2 && (lower.includes(lName) || tokens.includes(lName) || lowerClean.includes(lClean))) return w;
-      if (fullName && fullName.length > 2 && (lower.includes(fullName) || lowerClean.includes(fullClean))) return w;
+      let score = 0;
+      let matchedTerm = '';
+
+      // 1. To'liq ism aniq uchrasa (masalan: "Xolmuradov Jalil" yoki "Yo'ldoshev Murod")
+      if (fullName && fullName.length > 4 && (lower.includes(fullName) || lower.replace(/'/g, '').includes(fullName.replace(/'/g, '')))) {
+        score += 30;
+        matchedTerm = fullName;
+      }
+
+      // 2. Familiya mos kelsa (masalan: "Xolmuradovga" yoki "Yo'ldoshevga")
+      for (const ls of lStems) {
+        if (speechStems.includes(ls) || lower.includes(ls)) {
+          score += 15;
+          if (!matchedTerm) matchedTerm = ls;
+          break;
+        }
+      }
+
+      // 3. Ism mos kelsa (masalan: "Jalilga" yoki "Murodga")
+      for (const fs of fStems) {
+        if (speechStems.includes(fs) || lower.includes(fs)) {
+          score += 10;
+          if (!matchedTerm) matchedTerm = fs;
+          break;
+        }
+      }
+
+      // 4. To'liq ismning alohida bo'laklari mos kelsa
+      for (const fws of fullStems) {
+        if (speechStems.includes(fws) && !fStems.includes(fws) && !lStems.includes(fws)) {
+          score += 8;
+          if (!matchedTerm) matchedTerm = fws;
+          break;
+        }
+      }
+
+      // 5. Tashkilot yoki lavozim mos kelsa (masalan: "Toza hududga", "Obodonlashtirishga")
+      for (const ps of posStems) {
+        if (speechStems.includes(ps)) {
+          score += 7;
+          if (!matchedTerm) matchedTerm = ps;
+          break;
+        }
+      }
+
+      if (score > 0) {
+        scoredWorkers.push({ worker: w, score, matchedTerm });
+      }
     }
-    return null;
+
+    if (scoredWorkers.length === 0) return null;
+
+    scoredWorkers.sort((a, b) => b.score - a.score);
+    const topScore = scoredWorkers[0].score;
+
+    // Agar eng yuqori ballni olgan faqat 1 ta xodim bo'lsa (yoki birortasida familiya+ism ikkalasi ham bo'lsa):
+    const topMatches = scoredWorkers.filter(sw => sw.score === topScore);
+
+    if (topMatches.length === 1) {
+      return { match: topMatches[0].worker };
+    }
+
+    // Agar bir xil ismli bir nechta xodim bo'lsa (masalan ikkita "Murod" bo'lsa):
+    const ambiguousWorkers = topMatches.map(tm => tm.worker);
+    const commonName = topMatches[0].matchedTerm || 'xodim';
+    return {
+      ambiguous: ambiguousWorkers,
+      commonName: commonName
+    };
+  }
+
+  // Bir nechta xodim chiqqanda aniqlashtiruvchi savol tuzish: "Qaysi Murodga? Yo'ldoshevmi yoki Karimovmi?"
+  function formatWorkerDisambiguationQuestion(workers, commonName) {
+    const nameCap = commonName ? (commonName.charAt(0).toUpperCase() + commonName.slice(1)) : 'xodim';
+    const labels = workers.map(w => {
+      // Har bir xodimning ajratib turuvchi familiyasini topish
+      let lName = (w.lastName || '').trim();
+      if (!lName && w.fullName) {
+        const parts = w.fullName.trim().split(/\s+/);
+        if (parts.length > 1) lName = parts[0];
+      }
+      if (lName && lName.toLowerCase() !== commonName.toLowerCase()) {
+        const cleanL = lName.charAt(0).toUpperCase() + lName.slice(1);
+        return cleanL + 'mi';
+      }
+      // Agar familiyalar ham bir xil bo'lsa, tashkilot/lavozimini aytamiz
+      const pos = w.position ? `[${w.position}] ` : '';
+      return (pos + (w.fullName || w.firstName)) + 'mi';
+    });
+
+    if (labels.length === 2) {
+      return `Qaysi ${nameCap}ga? ${labels[0]} yoki ${labels[1]}?`;
+    } else {
+      const last = labels.pop();
+      return `Qaysi ${nameCap}ga? ${labels.join(', ')} yoki ${last}?`;
+    }
+  }
+
+  // Ambiguity savoliga berilgan javobni tahlil qilib, kerakli xodimni topish
+  function resolveAmbiguousWorker(text, workers) {
+    if (!text || !Array.isArray(workers) || workers.length === 0) return null;
+    const lower = normalizeUzbekSpeech(text);
+    const stems = getUzbekWordStems(lower);
+
+    // 1. Tartib bo'yicha: "birinchisiga", "1", "ikkinchisiga", "2"
+    if (lower.includes('birinchi') || lower.includes('1-chi') || lower.includes('1 chi') || /\b1\b/.test(lower)) {
+      return workers[0];
+    }
+    if (lower.includes('ikkinchi') || lower.includes('2-chi') || lower.includes('2 chi') || /\b2\b/.test(lower)) {
+      return workers[1] || workers[0];
+    }
+    if (lower.includes('uchinchi') || lower.includes('3-chi') || lower.includes('3 chi') || /\b3\b/.test(lower)) {
+      return workers[2] || workers[0];
+    }
+
+    // 2. Familiya, ism, lavozim/tashkilot bo'yicha qidirish
+    let bestWorker = null;
+    let maxScore = 0;
+
+    for (const w of workers) {
+      let score = 0;
+      const lName = normalizeUzbekSpeech(w.lastName || '');
+      const fName = normalizeUzbekSpeech(w.firstName || '');
+      const fullName = normalizeUzbekSpeech(w.fullName || '');
+      const pos = normalizeUzbekSpeech(w.position || '');
+
+      const wStems = [
+        ...getUzbekWordStems(lName),
+        ...getUzbekWordStems(fName),
+        ...getUzbekWordStems(fullName),
+        ...getUzbekWordStems(pos)
+      ];
+
+      for (const s of stems) {
+        if (wStems.includes(s)) {
+          score += 10;
+        } else if (lName.includes(s) || lower.includes(lName)) {
+          score += 8;
+        } else if (pos.includes(s) || lower.includes(pos)) {
+          score += 6;
+        }
+      }
+
+      if (score > maxScore) {
+        maxScore = score;
+        bestWorker = w;
+      }
+    }
+
+    return maxScore > 0 ? bestWorker : null;
+  }
+
+  // Backward compatible helper
+  function findWorkerInSpeech(text) {
+    const res = findWorkersInSpeech(text);
+    if (!res) return null;
+    return res.match || (res.ambiguous ? res.ambiguous[0] : null);
   }
 
   // Gemini AI Cloud Integration
@@ -1155,13 +1360,15 @@ MUHIM QOIDALAR:
       text.includes('zadaniya sozdat')
     );
     if (isExplicitTaskCreate) {
-      const detectedWorker = findWorkerInSpeech(text);
+      const workerRes = findWorkersInSpeech(text);
       const cleanTitle = extractTaskTitle(rawText);
       const todayStr = new Date().toISOString().slice(0, 10);
       const endStr = parseDateFromSpeech(text);
       return {
         intent: 'CREATE_TASK',
-        worker: detectedWorker,
+        worker: workerRes?.match || null,
+        ambiguousWorkers: workerRes?.ambiguous || null,
+        commonName: workerRes?.commonName || '',
         title: cleanTitle,
         startDate: todayStr,
         endDate: endStr
@@ -1370,11 +1577,14 @@ MUHIM QOIDALAR:
       }
     }
 
-    // 12. Implitsit (bevosita) topshiriq topshirish: "Yo'lni asfaltlash kerak", "Chiroqlarni tuzatishsin"
-    const detectedWorker = findWorkerInSpeech(text);
-    const isTaskContext = text.includes('kerak') || text.includes('asfaltlash') || text.includes('tozalash') || text.includes('ta\'mirlash') || text.includes('qurish') || text.includes('qilsin') || text.includes('etsin') || text.includes('biriktir');
+    // 12. Implitsit (bevosita) topshiriq topshirish: "Yo'lni asfaltlash kerak", "Jalilga biriktir", "Murodga ber"
+    const workerRes = findWorkersInSpeech(text);
+    const detectedWorker = workerRes?.match || null;
+    const ambiguousWorkers = workerRes?.ambiguous || null;
+    const commonName = workerRes?.commonName || '';
+    const isTaskContext = text.includes('kerak') || text.includes('asfaltlash') || text.includes('tozalash') || text.includes('ta\'mirlash') || text.includes('qurish') || text.includes('qilsin') || text.includes('etsin') || text.includes('biriktir') || text.includes('topshir') || text.includes('vazifa');
 
-    if (detectedWorker || isTaskContext) {
+    if (detectedWorker || ambiguousWorkers || isTaskContext) {
       const cleanTitle = extractTaskTitle(rawText);
       const todayStr = new Date().toISOString().slice(0, 10);
       const endStr = parseDateFromSpeech(text);
@@ -1382,6 +1592,8 @@ MUHIM QOIDALAR:
       return {
         intent: 'CREATE_TASK',
         worker: detectedWorker,
+        ambiguousWorkers: ambiguousWorkers,
+        commonName: commonName,
         title: cleanTitle,
         startDate: todayStr,
         endDate: endStr
@@ -1564,8 +1776,31 @@ MUHIM QOIDALAR:
 
       if (localAction.intent === 'CREATE_TASK') {
         const todayStr = new Date().toISOString().slice(0, 10);
-        const worker = localAction.worker;
         const endStr = localAction.endDate || parseDateFromSpeech(userSpeech);
+
+        // Ikkita yoki undan ortiq bir xil ismli xodim aniqlanganda (masalan ikkita "Murod" bo'lsa):
+        if (localAction.ambiguousWorkers && localAction.ambiguousWorkers.length > 1) {
+          aiState = 'DISAMBIGUATING_WORKER';
+          pendingAmbiguousWorkers = localAction.ambiguousWorkers;
+          pendingDraftTask = {
+            title: localAction.title || "Topshiriq ijrosini ta'minlash",
+            startDate: todayStr,
+            endDate: endStr
+          };
+          if (window.mayorAiHelpers && window.mayorAiHelpers.openTaskModalWithData) {
+            window.mayorAiHelpers.openTaskModalWithData({
+              title: pendingDraftTask.title,
+              startDate: todayStr,
+              endDate: endStr
+            });
+          }
+          const question = formatWorkerDisambiguationQuestion(localAction.ambiguousWorkers, localAction.commonName);
+          appendAiMessage('jarvis', question);
+          speakText(question);
+          return;
+        }
+
+        const worker = localAction.worker;
 
         if (window.mayorAiHelpers && window.mayorAiHelpers.openTaskModalWithData) {
           window.mayorAiHelpers.openTaskModalWithData({
@@ -1633,6 +1868,57 @@ MUHIM QOIDALAR:
         const reply = `"${localAction.query}" bo'yicha qidiruv natijalari ko'rsatilmoqda.`;
         appendAiMessage('jarvis', reply);
         speakText(reply);
+        return;
+      }
+    }
+
+    // A.0. DISAMBIGUATING_WORKER bosqichi: "Qaysi Murodga? Yo'ldoshevmi yoki Karimovmi?"
+    if (aiState === 'DISAMBIGUATING_WORKER') {
+      const parsed = analyzeIntent(userSpeech);
+
+      if (parsed.intent === 'CANCEL') {
+        if (window.mayorAiHelpers && window.mayorAiHelpers.closeTaskModal) {
+          window.mayorAiHelpers.closeTaskModal();
+        }
+        aiState = 'IDLE';
+        pendingAmbiguousWorkers = [];
+        pendingDraftTask = null;
+        const reply = "Topshiriq bekor qilindi.";
+        appendAiMessage('jarvis', reply);
+        speakText(reply);
+        return;
+      }
+
+      const chosen = resolveAmbiguousWorker(userSpeech, pendingAmbiguousWorkers);
+      if (chosen) {
+        draftTask = {
+          title: pendingDraftTask?.title || "Topshiriq ijrosini ta'minlash",
+          workerId: chosen.id,
+          workerName: chosen.fullName || (chosen.firstName + ' ' + chosen.lastName),
+          startDate: pendingDraftTask?.startDate || new Date().toISOString().slice(0, 10),
+          endDate: pendingDraftTask?.endDate || parseDateFromSpeech('ertaga')
+        };
+        aiState = 'CONFIRMING_TASK';
+        pendingAmbiguousWorkers = [];
+        pendingDraftTask = null;
+
+        if (window.mayorAiHelpers && window.mayorAiHelpers.updateTaskFields) {
+          window.mayorAiHelpers.updateTaskFields({
+            workerId: draftTask.workerId,
+            title: draftTask.title,
+            endDate: draftTask.endDate
+          });
+        }
+
+        const orgTag = chosen.position ? ` [${chosen.position}]` : '';
+        const reply = `${chosen.fullName}${orgTag} ga "${draftTask.title}" topshirig'i tayyorlandi. Muddati: ${draftTask.endDate}. Topshiriqni tasdiqlaysizmi?`;
+        appendAiMessage('jarvis', reply);
+        speakText(reply);
+        return;
+      } else {
+        const question = formatWorkerDisambiguationQuestion(pendingAmbiguousWorkers, 'xodim');
+        appendAiMessage('jarvis', "Iltimos, aniqroq ayting: " + question);
+        speakText("Iltimos, aniqroq ayting: " + question);
         return;
       }
     }
@@ -1713,8 +1999,18 @@ MUHIM QOIDALAR:
         }
       }
 
-      // 2. Xodimni aniqlash
-      const worker = findWorkerInSpeech(userSpeech) || parsed.worker;
+      // 2. Xodimni aniqlash (Ambiguity tekshiruvi)
+      const workerRes = findWorkersInSpeech(userSpeech);
+      if (workerRes?.ambiguous && workerRes.ambiguous.length > 1) {
+        aiState = 'DISAMBIGUATING_WORKER';
+        pendingAmbiguousWorkers = workerRes.ambiguous;
+        pendingDraftTask = { ...draftTask };
+        const question = formatWorkerDisambiguationQuestion(workerRes.ambiguous, workerRes.commonName);
+        appendAiMessage('jarvis', question);
+        speakText(question);
+        return;
+      }
+      const worker = workerRes?.match || parsed.worker;
       if (worker) {
         draftTask.workerId = worker.id;
         draftTask.workerName = worker.fullName || (worker.firstName + ' ' + worker.lastName);
