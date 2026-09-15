@@ -30,11 +30,20 @@
       }
     })();
 
-    // Injected third-party / web-vitals / DevTools / reportAllChanges xatolarini zararsizlantirish
+    // Injected third-party / Chromium DevTools Soft Navigation / reportAllChanges xatolarini zararsizlantirish
+    window.onerror = function(message, source, lineno, colno, error) {
+      const msgStr = String(message || '');
+      const stackStr = String(error && error.stack || '');
+      if (msgStr.includes("reading 'startTime'") || msgStr.includes('startTime') || stackStr.includes('reportAllChanges')) {
+        return true; // Suppress from console
+      }
+      return false;
+    };
+
     window.addEventListener('error', function(e) {
       if (e && (
-        (e.message && e.message.includes("reading 'startTime'")) ||
-        (e.error && e.error.message && e.error.message.includes("reading 'startTime'")) ||
+        (e.message && e.message.includes("startTime")) ||
+        (e.error && e.error.message && e.error.message.includes("startTime")) ||
         (e.error && e.error.stack && e.error.stack.includes('reportAllChanges'))
       )) {
         if (e.preventDefault) e.preventDefault();
