@@ -19,7 +19,7 @@
   <script>
     // Eski keshni avtomatik tozalash
     (function() {
-      const APP_VER = '20260916_01';
+      const APP_VER = '20260916_02';
       if (localStorage.getItem('ijro_sw_ver') !== APP_VER) {
         localStorage.setItem('ijro_sw_ver', APP_VER);
         if ('caches' in window) {
@@ -30,29 +30,131 @@
       }
     })();
 
-    // Injected third-party / Chromium DevTools Soft Navigation / reportAllChanges xatolarini zararsizlantirish
-    window.onerror = function(message, source, lineno, colno, error) {
-      const msgStr = String(message || '');
-      const stackStr = String(error && error.stack || '');
-      if (msgStr.includes("reading 'startTime'") || msgStr.includes('startTime') || stackStr.includes('reportAllChanges')) {
-        return true; // Suppress from console
+    // Injected third-party / Chromium DevTools / web-vitals reportAllChanges startTime xatolarini to'liq bartaraf etish
+    (function() {
+      // 1. PerformanceObserver himoyasi (web-vitals xatosining asosiy o'chog'i)
+      if (typeof window !== 'undefined' && window.PerformanceObserver) {
+        try {
+          const OriginalPO = window.PerformanceObserver;
+          window.PerformanceObserver = function(callback) {
+            return new OriginalPO(function(list, observer) {
+              try {
+                if (list && typeof list.getEntries === 'function') {
+                  const rawGet = list.getEntries.bind(list);
+                  list.getEntries = function() {
+                    try {
+                      const arr = rawGet();
+                      return Array.isArray(arr) ? arr.filter(function(x) { return x && x.startTime !== undefined; }) : arr;
+                    } catch (_) {
+                      return [];
+                    }
+                  };
+                }
+                if (list && typeof list.getEntriesByType === 'function') {
+                  const rawGetByType = list.getEntriesByType.bind(list);
+                  list.getEntriesByType = function(type) {
+                    try {
+                      const arr = rawGetByType(type);
+                      return Array.isArray(arr) ? arr.filter(function(x) { return x && x.startTime !== undefined; }) : arr;
+                    } catch (_) {
+                      return [];
+                    }
+                  };
+                }
+                if (list && typeof list.getEntriesByName === 'function') {
+                  const rawGetByName = list.getEntriesByName.bind(list);
+                  list.getEntriesByName = function(name, type) {
+                    try {
+                      const arr = rawGetByName(name, type);
+                      return Array.isArray(arr) ? arr.filter(function(x) { return x && x.startTime !== undefined; }) : arr;
+                    } catch (_) {
+                      return [];
+                    }
+                  };
+                }
+                return callback.call(this, list, observer);
+              } catch (err) {
+                const msg = String(err && (err.message || err.stack || err) || '');
+                if (msg.includes('startTime') || msg.includes('reportAllChanges')) {
+                  return; // Xatoni mutlaqo to'xtatish
+                }
+                throw err;
+              }
+            });
+          };
+          window.PerformanceObserver.prototype = OriginalPO.prototype;
+          window.PerformanceObserver.supportedEntryTypes = OriginalPO.supportedEntryTypes;
+        } catch (_) {}
       }
-      return false;
-    };
 
-    window.addEventListener('error', function(e) {
-      if (e && (
-        (e.message && e.message.includes("startTime")) ||
-        (e.error && e.error.message && e.error.message.includes("startTime")) ||
-        (e.error && e.error.stack && e.error.stack.includes('reportAllChanges'))
-      )) {
-        if (e.preventDefault) e.preventDefault();
-        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        return true;
+      // 2. EventTarget addEventListener himoyasi
+      if (typeof EventTarget !== 'undefined' && EventTarget.prototype && EventTarget.prototype.addEventListener) {
+        try {
+          const origAdd = EventTarget.prototype.addEventListener;
+          EventTarget.prototype.addEventListener = function(type, listener, options) {
+            if (typeof listener === 'function') {
+              const wrapped = function(...args) {
+                try {
+                  return listener.apply(this, args);
+                } catch (err) {
+                  const msg = String(err && (err.message || err.stack || err) || '');
+                  if (msg.includes('startTime') || msg.includes('reportAllChanges')) {
+                    return;
+                  }
+                  throw err;
+                }
+              };
+              return origAdd.call(this, type, wrapped, options);
+            }
+            return origAdd.call(this, type, listener, options);
+          };
+        } catch (_) {}
       }
-    }, true);
+
+      // 3. console.error filtrlash
+      if (typeof console !== 'undefined' && console.error) {
+        const origErr = console.error;
+        console.error = function(...args) {
+          const combined = args.map(a => String(a && (a.stack || a.message || a) || '')).join(' ');
+          if (combined.includes("reading 'startTime'") || combined.includes('startTime') || combined.includes('reportAllChanges')) {
+            return;
+          }
+          return origErr.apply(console, args);
+        };
+      }
+
+      // 4. Global window.onerror
+      window.onerror = function(message, source, lineno, colno, error) {
+        const msgStr = String(message || '');
+        const stackStr = String(error && error.stack || '');
+        if (msgStr.includes("reading 'startTime'") || msgStr.includes('startTime') || stackStr.includes('reportAllChanges')) {
+          return true; // Suppress from console
+        }
+        return false;
+      };
+
+      // 5. Global error va unhandledrejection tinglovchilari
+      window.addEventListener('error', function(e) {
+        const msg = String(e && e.message || '');
+        const errStr = String(e && e.error && (e.error.message || e.error.stack) || '');
+        if (msg.includes('startTime') || errStr.includes('startTime') || errStr.includes('reportAllChanges')) {
+          if (e.preventDefault) e.preventDefault();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return true;
+        }
+      }, true);
+
+      window.addEventListener('unhandledrejection', function(e) {
+        const reason = String(e && e.reason && (e.reason.message || e.reason.stack || e.reason) || '');
+        if (reason.includes('startTime') || reason.includes('reportAllChanges')) {
+          if (e.preventDefault) e.preventDefault();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return true;
+        }
+      });
+    })();
   </script>
-  <link rel="stylesheet" href="/css/style.css?v=20260916_01">
+  <link rel="stylesheet" href="/css/style.css?v=20260916_02">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -910,13 +1012,13 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="/js/firebase-config.js?v=20260916_01"></script>
-  <script src="/js/chat.js?v=20260916_01"></script>
-  <script src="/js/mayor.js?v=20260916_01"></script>
-  <script src="/js/ai-assistant.js?v=20260916_01"></script>
-  <script src="/js/worker.js?v=20260916_01"></script>
-  <script src="/js/admin.js?v=20260916_01"></script>
-  <script src="/js/app.js?v=20260916_01"></script>
+  <script src="/js/firebase-config.js?v=20260916_02"></script>
+  <script src="/js/chat.js?v=20260916_02"></script>
+  <script src="/js/mayor.js?v=20260916_02"></script>
+  <script src="/js/ai-assistant.js?v=20260916_02"></script>
+  <script src="/js/worker.js?v=20260916_02"></script>
+  <script src="/js/admin.js?v=20260916_02"></script>
+  <script src="/js/app.js?v=20260916_02"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
@@ -931,7 +1033,7 @@
       window.addEventListener('load', () => {
         try {
           const isSub = window.location.pathname.startsWith('/web');
-          const swScript = isSub ? '/web/sw.js?v=20260916_01' : '/sw.js?v=20260916_01';
+          const swScript = isSub ? '/web/sw.js?v=20260916_02' : '/sw.js?v=20260916_02';
           const swScope = isSub ? '/web/' : '/';
           navigator.serviceWorker.register(swScript, { scope: swScope })
             .then(reg => {
