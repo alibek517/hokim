@@ -1284,8 +1284,11 @@ function openChatFromWorkerId(workerId) {
 
 // Modal Handlers
 function openCreateTaskModal() {
-  const mayor = window.store.currentUser;
-  const workers = window.store.users.filter(u => u.role === 'WORKER' && u.mayorId === mayor.id);
+  const mayor = window.store.currentUser || {};
+  let workers = (window.store.users || []).filter(u => u.role === 'WORKER' && (!mayor.id || !u.mayorId || u.mayorId === mayor.id));
+  if (workers.length === 0) {
+    workers = (window.store.users || []).filter(u => u.role === 'WORKER');
+  }
 
   if (workers.length === 0) {
     alert("Avval 'Ishchilar' bo'limidan xodim qo'shing!");

@@ -125,6 +125,24 @@
   // Check Web Speech Recognition support
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+  // Foydalanuvchi gapirib turgan paytda AI indamay eshitib turishi uchun Sukut va Akkumulyator buferi:
+  let speechAccumulatedChunks = [];
+  let speechSilenceTimer = null;
+  let lastInterimText = '';
+
+  function flushSpeechAndProcess() {
+    if (speechSilenceTimer) {
+      clearTimeout(speechSilenceTimer);
+      speechSilenceTimer = null;
+    }
+    const fullSpokenText = speechAccumulatedChunks.join(' ').replace(/\s+/g, ' ').trim() || lastInterimText.trim();
+    speechAccumulatedChunks = [];
+    lastInterimText = '';
+    if (!fullSpokenText) return;
+
+    handleUserSpeech(fullSpokenText);
+  }
+
   // Initialize Speech Recognition
   function initSpeechRecognition() {
     if (!SpeechRecognition) {
@@ -150,14 +168,22 @@
 
       recognition.onspeechstart = () => {
         lastHeartbeatTime = Date.now();
+        // Foydalanuvchi gapira boshlaganda AI HAR DOIM darhol jim bo'ladi va kutadi!
         if (isSpeaking) {
           console.log("[AI] Foydalanuvchi gapira boshladi -> AI darhol jim bo'ldi");
           stopSpeaking();
+        }
+        if (speechSilenceTimer) {
+          clearTimeout(speechSilenceTimer);
+          speechSilenceTimer = null;
         }
       };
 
       recognition.onaudiostart = () => {
         lastHeartbeatTime = Date.now();
+        if (isSpeaking) {
+          stopSpeaking();
+        }
       };
 
       recognition.onsoundstart = () => {
@@ -204,12 +230,36 @@
           return;
         }
 
-        if (text) {
-          showTemporaryUserText(text);
-        }
-
         if (finalTranscript.trim()) {
-          handleUserSpeech(finalTranscript.trim());
+          speechAccumulatedChunks.push(finalTranscript.trim());
+          lastInterimText = '';
+          const currentTotal = speechAccumulatedChunks.join(' ').trim();
+          showTemporaryUserText(currentTotal);
+
+          // Agar foydalanuvchi "to'xta", "jim", "bas", "stop" desa darhol bajaramiz:
+          const currentLower = currentTotal.toLowerCase();
+          const isImmediateStop = /^(to['`]?xta|toxtat|jim|bas|stop|yetadi|yopil|xayr)$/i.test(currentLower);
+          if (isImmediateStop) {
+            flushSpeechAndProcess();
+            return;
+          }
+
+          // Foydalanuvchi gapirib turgan paytda AI indamasdan turadi!
+          // Foydalanuvchi fikrini tugatib, 1.4 soniya to'liq jim bo'lgandagina butun gap qayta ishlanadi:
+          if (speechSilenceTimer) clearTimeout(speechSilenceTimer);
+          speechSilenceTimer = setTimeout(() => {
+            flushSpeechAndProcess();
+          }, 1400);
+        } else if (interim.trim()) {
+          lastInterimText = interim.trim();
+          const display = (speechAccumulatedChunks.join(' ') + ' ' + lastInterimText).trim();
+          showTemporaryUserText(display);
+
+          // Foydalanuvchi hali gapirmoqda, timer bo'lsa yangilaymiz
+          if (speechSilenceTimer) clearTimeout(speechSilenceTimer);
+          speechSilenceTimer = setTimeout(() => {
+            flushSpeechAndProcess();
+          }, 1800);
         }
       };
 
@@ -241,6 +291,12 @@
 
       recognition.onend = () => {
         isListening = false;
+        // Agar gap to'plangan bo'lsa, uni yo'qotmay qayta ishlaymiz:
+        if (speechAccumulatedChunks.length > 0 && !speechSilenceTimer) {
+          speechSilenceTimer = setTimeout(() => {
+            flushSpeechAndProcess();
+          }, 400);
+        }
         // Infinity continuous listening: agar to'xtash buyrug'i berilmagan bo'lsa, zudlik bilan qayta yoqiladi
         if (shouldKeepListening) {
           setTimeout(() => {
@@ -346,6 +402,12 @@
   function stopListening() {
     shouldKeepListening = false;
     stopWatchdog();
+    if (speechSilenceTimer) {
+      clearTimeout(speechSilenceTimer);
+      speechSilenceTimer = null;
+    }
+    speechAccumulatedChunks = [];
+    lastInterimText = '';
     if (recognition) {
       try {
         recognition.onend = null;
@@ -847,7 +909,7 @@
   };
 
   // Helper: Extract task title cleanly from Hokim speech (handling refinement & Uzbek/Xorazm speech)
-  function extractTaskTitle(rawText) {
+  function extractTaskTitle(rawText, matchedWorker) {
     if (!rawText) return "Topshiriq ijrosini ta'minlash";
 
     // Split into sentences if user refined their speech
@@ -855,7 +917,7 @@
     let candidatePhrase = "";
     for (let i = phrases.length - 1; i >= 0; i--) {
       const pClean = phrases[i].trim();
-      if (pClean.length > 3 && !/^(yangi topshiriq|topshiriq yarat|ha|yoq|tasdiqlayman)$/i.test(pClean)) {
+      if (pClean.length > 3 && !/^(yangi topshiriq|topshiriq yarat|ha|xa|yoq|yo'q|tasdiqlayman|bekor)$/i.test(pClean)) {
         candidatePhrase = pClean;
         break;
       }
@@ -863,14 +925,46 @@
     if (!candidatePhrase) candidatePhrase = rawText;
 
     let title = candidatePhrase;
-    title = title.replace(/\b(?:yangi\s+)?(?:topshiriq|vazifa|ish)\s+(?:yarat(?:ish)?|ber(?:ish)?|yukla(?:sh)?)\b/gi, '');
-    title = title.replace(/\byangi\s+topshiriq\b|\btopshiriq\s+yarat\b|\bvazifa\s+ber\b|\bish\s+ber\b/gi, '');
-    title = title.replace(/\biltimos\b|\bmenga\b|\bbizga\b|\bshu\s+topshiriqni\b|\btopshiriq\s+u\s+topshiriq\s+bo['ʻ`]?ladi\b|\bqayerni\??\b/gi, '');
-    title = title.replace(/\b[A-Za-z'ʻ‘’]+ga\s+(?:biriktir|topshir|ber|yukla)\b/gi, '');
-    title = title.replace(/\b\d{1,2}[-–\s]*(?:chi|nchi)?\s*(?:sentabr|sentyabr|oktabr|oktyabr|noyabr|dekabr|yanvar|fevral|mart|aprel|may|iyun|iyul|avgust)[a-z]*\b/gi, '');
-    title = title.replace(/\b(?:bugun|ertaga|indin|juma|shanba|yakshanba|dushanba|seshanba|chorshanba|payshanba)\b/gi, '');
-    title = title.replace(/\b(?:gacha|kuni|boshlansin|tugasin)\b/gi, '');
-    title = title.replace(/\b(?:kerak|qilsin|etsin|bo['ʻ`]?lsin|boldin|bajarilsin)\b/gi, '');
+
+    // 1. AI ga murojaat va kirish so'zlarini tozalash ("ai ga", "aiga", "ayga", "ey ai", "jarvis", "iltimos", "qara", "eshit")
+    title = title.replace(/\b(?:ey\s+)?(?:ai|ay|aiga|ayga|ai\s+ga|ay\s+ga|jarvis|yordamchi)\b/gi, ' ');
+    title = title.replace(/\b(?:iltimos|menga|bizga|qara|eshit|e'tibor\s+ber|bundoq\s+qil)\b/gi, ' ');
+
+    // 2. Agar aniqlangan xodim bo'lsa, uning ism/familiyasini va unga ergashgan qo'shimchalarni sarlavhadan olib tashlaymiz
+    if (matchedWorker) {
+      const wNames = [
+        matchedWorker.fullName,
+        matchedWorker.firstName,
+        matchedWorker.lastName
+      ].filter(Boolean);
+      for (const wn of wNames) {
+        if (wn && wn.length >= 3) {
+          const esc = wn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/'/g, "['`ʻ’]?");
+          const wRegex = new RegExp(`\\b${esc}(?:akaga|akani|jonga|jonni|bekka|bekni|xonga|xonni|boyga|boyni|ga|ka|qa|ni|ning|da|dan)?\\b`, 'gi');
+          title = title.replace(wRegex, ' ');
+        }
+      }
+    }
+    // Generic worker directive: "falonchiga biriktir / topshir / ber"
+    title = title.replace(/\b[A-Za-z'ʻ‘’]+(?:akaga|jonga|bekka|xonga|boyga|ga|ka|qa)\s+(?:biriktir(?:ish|vor|gin|ib)?|topshir(?:ish|vor|gin|ib)?|ber(?:ish|vor|gin|ib)?|yukla(?:sh|vor|gin|b)?)\b/gi, ' ');
+
+    // 3. Topshiriq yaratish/buyurish fe'llari va barcha sheva shakllarini tozalash:
+    title = title.replace(/\b(?:yangi\s+)?(?:topshiriq|vazifa|ish)(?:ni|larni|ini)?\s+(?:yarat(?:ish|vor|gin)?|ber(?:ish|yapman|yabman|vomman|votman|ayapman|jakman|aman|amiz|moqchiman|aylik|gin|vor|voring)?|yukla(?:sh|vor|gin|nsin)?|biriktir(?:ish|vor|gin|ib\s+qo['ʻ`]?y(?:gin)?)?|och(?:ish|vor|ib\s+ber)?|kirit(?:ish|vor|gin)?|qo['ʻ`]?sh(?:ish|vor|gin)?|qo['ʻ`]?y(?:ish|vor|gin)?)\b/gi, ' ');
+    title = title.replace(/\byangi\s+topshiriq\b|\btopshiriq\s+yarat\b|\bvazifa\s+ber\b|\bish\s+ber\b|\btopshiriq\s+ber\b|\btopshiriq\s+biriktir\b|\bshu\s+topshiriq(?:ni)?\b/gi, ' ');
+    title = title.replace(/\b(?:biriktir(?:ish|vor|gin|ib\s+qo['ʻ`]?y(?:gin)?)?|topshir(?:ish|vor|gin|ib)?|topshirilsin|biriktirilsin)\b/gi, ' ');
+
+    // 4. "deb ayt", "deb yoz", "deb kirit", "deb", "da", "ekan", "shekilli"
+    title = title.replace(/\bdeb\s+(?:ayt(?:dim|yapman|vor|gin)?|yoz(?:ib\s+qo['ʻ`]?y)?|biriktir(?:vor|gin)?|topshir(?:vor|gin)?|topshiriq\s+ber(?:yapman|yabman|dim)?)\b/gi, ' ');
+    title = title.replace(/\bdeb\b/gi, ' ');
+    title = title.replace(/\b(?:da|ekan|shekilli|xolos)\b/gi, ' ');
+
+    // 5. Sanalar va muddatlarni tozalash
+    title = title.replace(/\b\d{1,2}[-–\s]*(?:chi|nchi)?\s*(?:sentabr|sentyabr|oktabr|oktyabr|noyabr|dekabr|yanvar|fevral|mart|aprel|may|iyun|iyul|avgust)[a-z]*\b/gi, ' ');
+    title = title.replace(/\b(?:bugun|ertaga|ertangi|indin|indinga|juma|shanba|yakshanba|dushanba|seshanba|chorshanba|payshanba)(?:ga|gacha|kuni)?\b/gi, ' ');
+    title = title.replace(/\b(?:muddat|muddati|vaqti|gacha|boshlansin|tugasin|bitkazilsin)\b/gi, ' ');
+    title = title.replace(/\b(?:kerak|kerek|qilsin|etsin|bo['ʻ`]?lsin|boldin|bajarilsin)\b/gi, ' ');
+
+    // 6. Tinish belgilari va ortiqcha bo'shliqlarni tozalash
     title = title.replace(/[,;:.!?]/g, ' ').replace(/\s+/g, ' ').trim();
 
     if (!title || title.length < 3) {
@@ -1461,28 +1555,29 @@ MUHIM QOIDALAR:
     }
 
     // 1. Yangi topshiriq yaratish (Create Task - MUST BE CHECKED BEFORE NAVIGATE)
+    const hasTaskWord = /\b(?:topshiriq|topshiriqni|topshiriqlar|topshiriqlarni|vazifa|vazifani|vazifalar|ish|ishni)\b/i.test(text);
+    const hasAssignVerb = /\b(?:yarat|yaratgin|yaratvor|yaratish|ber|bergin|bervor|bervoring|berish|beryap|beryab|bervom|bervot|berayap|berjak|beraman|beramiz|bermoqchi|beraylik|yukla|yuklagin|yuklavor|yuklash|biriktir|biriktirgin|biriktirvor|biriktirib|biriktirish|biriktirilsin|topshir|topshirgin|topshirvor|topshirib|topshirish|topshirilsin|qo['`]?sh|qo['`]?y|qoy|och|ochvor|ochib\s+ber|kirit|kiritvor|yoz|yozib\s+qo['`]?y)\b/i.test(text);
+
+    const workerRes = findWorkersInSpeech(text);
+    const hasWorkerDirective = Boolean(workerRes && /\b(?:biriktir|topshir|yukla|ber|et|ayt)\b/i.test(text));
+
     const isExplicitTaskCreate = (
+      (hasTaskWord && hasAssignVerb) ||
       text.includes('yangi topshiriq') ||
-      text.includes('topshiriq yarat') ||
-      text.includes('topshiriq ber') ||
-      text.includes('topshiriq qo\'sh') ||
-      text.includes('topshiriq qosh') ||
-      text.includes('vazifa ber') ||
-      text.includes('vazifa yarat') ||
       text.includes('yangi vazifa') ||
       text.includes('plyusni bos') ||
       text.includes('plyus bos') ||
-      text.includes('ish ber') ||
-      text.includes('zadaniya sozdat')
+      text.includes('zadaniya sozdat') ||
+      hasWorkerDirective
     );
     if (isExplicitTaskCreate) {
-      const workerRes = findWorkersInSpeech(text);
-      const cleanTitle = extractTaskTitle(rawText);
+      const chosenWorker = workerRes?.match || null;
+      const cleanTitle = extractTaskTitle(rawText, chosenWorker);
       const todayStr = new Date().toISOString().slice(0, 10);
       const endStr = parseDateFromSpeech(text);
       return {
         intent: 'CREATE_TASK',
-        worker: workerRes?.match || null,
+        worker: chosenWorker,
         ambiguousWorkers: workerRes?.ambiguous || null,
         commonName: workerRes?.commonName || '',
         title: cleanTitle,
@@ -1541,9 +1636,12 @@ MUHIM QOIDALAR:
 
     // 5. Tasdiqlash javoblari (Confirmation)
     const confirmWords = [
-      'ha', 'xa', 'albatta', 'bo\'ldi', 'boldi', 'to\'g\'ri', 'tasdiqlayman', 'tasdiqla',
-      'saqla', 'saqlab qo\'y', 'saqlansin', 'yubor', 'tamom', 'tayyor', 'yaxshi',
-      'ok', 'yes', 'shunday', 'etdim', 'yetadi', 'da', 'podtverjdayu', 'davay', 'ladno', 'bajarilsin'
+      'ha', 'xa', 'albatta', 'bo\'ldi', 'boldi', 'to\'g\'ri', 'togri', 'tasdiqlayman', 'tasdiqla',
+      'saqla', 'saqlab qo\'y', 'saqlab qoy', 'saqlansin', 'yubor', 'tamom', 'tayyor', 'yaxshi',
+      'ok', 'yes', 'shunday', 'etdim', 'yetadi', 'da', 'podtverjdayu', 'davay', 'ladno',
+      'bajar', 'bajarilsin', 'bajarib ber', 'bajarvor', 'shuni bajar', 'shuni qil',
+      'biriktir', 'biriktirvor', 'biriktirib qo\'y', 'biriktirib qoy',
+      'bo\'laveradi', 'bolaveradi', 'shunday qil', 'kirit', 'kiritib qo\'y'
     ];
     if (confirmWords.some(w => text === w || text.startsWith(w + ' ') || text.endsWith(' ' + w) || text.includes(' ' + w + ' '))) {
       return { intent: 'CONFIRM' };
@@ -1719,14 +1817,14 @@ MUHIM QOIDALAR:
     }
 
     // 12. Implitsit (bevosita) topshiriq topshirish: "Yo'lni asfaltlash kerak", "Jalilga biriktir", "Murodga ber"
-    const workerRes = findWorkersInSpeech(text);
-    const detectedWorker = workerRes?.match || null;
-    const ambiguousWorkers = workerRes?.ambiguous || null;
-    const commonName = workerRes?.commonName || '';
+    const implicitWorkerRes = findWorkersInSpeech(text);
+    const detectedWorker = implicitWorkerRes?.match || null;
+    const ambiguousWorkers = implicitWorkerRes?.ambiguous || null;
+    const commonName = implicitWorkerRes?.commonName || '';
     const isTaskContext = text.includes('kerak') || text.includes('asfaltlash') || text.includes('tozalash') || text.includes('ta\'mirlash') || text.includes('qurish') || text.includes('qilsin') || text.includes('etsin') || text.includes('biriktir') || text.includes('topshir') || text.includes('vazifa');
 
     if (detectedWorker || ambiguousWorkers || isTaskContext) {
-      const cleanTitle = extractTaskTitle(rawText);
+      const cleanTitle = extractTaskTitle(rawText, detectedWorker);
       const todayStr = new Date().toISOString().slice(0, 10);
       const endStr = parseDateFromSpeech(text);
 
@@ -1960,6 +2058,18 @@ MUHIM QOIDALAR:
             startDate: todayStr,
             endDate: endStr
           };
+
+          // Agar foydalanuvchi "saqlab qo'y", "darhol saqla", "biriktirib qo'y", "bajar" kabi to'g'ridan-to'g'ri ijro so'zini aytgan bo'lsa:
+          const isImmediateSave = /\b(?:darhol|darrov|saqlab\s+qo['`]?y|saqlab\s+qoy|biriktirib\s+qo['`]?y|biriktirib\s+qoy|saqla|saqlansin|bajar|bajarilsin)\b/i.test(userSpeech);
+          if (isImmediateSave && window.mayorAiHelpers && window.mayorAiHelpers.saveCurrentTask) {
+            await window.mayorAiHelpers.saveCurrentTask();
+            aiState = 'IDLE';
+            const doneMsg = `Topshiriq muvaffaqiyatli saqlandi va ${draftTask.workerName}ga biriktirildi!`;
+            appendAiMessage('jarvis', doneMsg);
+            speakText(doneMsg);
+            return;
+          }
+
           aiState = 'CONFIRMING_TASK';
           const promptSpeech = `${draftTask.workerName} ga "${draftTask.title}" topshirig'i tayyorlandi. Muddati: ${draftTask.endDate}. Topshiriqni tasdiqlaysizmi?`;
           appendAiMessage('jarvis', promptSpeech);
@@ -2291,7 +2401,12 @@ MUHIM QOIDALAR:
     if (aiState === 'CONFIRMING_TASK') {
       const parsed = analyzeIntent(userSpeech);
 
-      if (parsed.intent === 'CONFIRM') {
+      const isConfirm = (
+        parsed.intent === 'CONFIRM' ||
+        /\b(?:ha|xa|albatta|bo['`]?ldi|boldi|to['`]?g['`]?ri|togri|tasdiq|tasdiqlayman|saqla|saqlansin|saqlab\s+qo['`]?y|saqlab\s+qoy|biriktir|biriktirvor|biriktirib\s+qo['`]?y|biriktirib\s+qoy|bajar|bajarilsin|bajarib\s+ber|bajarvor|shuni\s+bajar|shuni\s+qil|yubor|tamom|tayyor|yaxshi|bo['`]?laveradi|bolaveradi|shunday|shunday\s+qil|kirit|kiritib\s+qo['`]?y)\b/i.test(userSpeech)
+      );
+
+      if (isConfirm) {
         if (window.mayorAiHelpers && window.mayorAiHelpers.saveCurrentTask) {
           await window.mayorAiHelpers.saveCurrentTask();
           aiState = 'IDLE';
@@ -2356,15 +2471,21 @@ MUHIM QOIDALAR:
       }
 
       // 1. Agar topshiriq sarlavhasi hali kiritilmagan bo'lsa, nutqdan sarlavhani olamiz
+      const workerRes = findWorkersInSpeech(userSpeech);
+      const worker = workerRes?.match || parsed.worker;
+      if (worker) {
+        draftTask.workerId = worker.id;
+        draftTask.workerName = worker.fullName || (worker.firstName + ' ' + worker.lastName);
+      }
+
       if (!draftTask.title || draftTask.title === "Topshiriq ijrosini ta'minlash") {
-        const titleCandidate = extractTaskTitle(userSpeech);
+        const titleCandidate = extractTaskTitle(userSpeech, worker);
         if (titleCandidate && titleCandidate.length > 2) {
           draftTask.title = titleCandidate;
         }
       }
 
       // 2. Xodimni aniqlash (Ambiguity tekshiruvi)
-      const workerRes = findWorkersInSpeech(userSpeech);
       if (workerRes?.ambiguous && workerRes.ambiguous.length > 1) {
         aiState = 'DISAMBIGUATING_WORKER';
         pendingAmbiguousWorkers = workerRes.ambiguous;
@@ -2373,11 +2494,6 @@ MUHIM QOIDALAR:
         appendAiMessage('jarvis', question);
         speakText(question);
         return;
-      }
-      const worker = workerRes?.match || parsed.worker;
-      if (worker) {
-        draftTask.workerId = worker.id;
-        draftTask.workerName = worker.fullName || (worker.firstName + ' ' + worker.lastName);
       }
 
       // 3. Muddatni aniqlash
