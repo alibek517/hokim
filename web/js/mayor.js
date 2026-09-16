@@ -1210,7 +1210,24 @@ function renderMayorChats() {
   const mayor = window.store.currentUser;
   if (!container || !mayor) return;
 
-  const peers = window.store.users.filter(u => u.id !== mayor.id);
+  const peers = window.store.users.filter(u => {
+    if (!u || u.id === mayor.id) return false;
+    const role = (u.role || '').toUpperCase();
+    if (role === 'ADMIN' || u.username === 'admin' || (u.id && u.id.startsWith('admin'))) return false;
+    if (u.fullName && u.fullName.toLowerCase().includes('administrator')) return false;
+    if (u.position && u.position.toLowerCase().includes('dasturchi')) return false;
+    return role === 'WORKER' || role === 'ISHCHI' || (!role && !u.id.startsWith('mayor'));
+  });
+
+  if (peers.length === 0) {
+    container.innerHTML = `
+      <div class="main-content" style="align-items: center; justify-content: center; color: #94A3B8; padding: 40px 20px; text-align: center;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" style="opacity: 0.3; margin-bottom: 12px;"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+        <div>Hozircha birorta ham mas'ul xodim mavjud emas.</div>
+      </div>
+    `;
+    return;
+  }
 
   let html = '<div class="main-content">';
   peers.forEach(peer => {

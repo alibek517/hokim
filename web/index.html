@@ -52,7 +52,7 @@
       }
     }, true);
   </script>
-  <link rel="stylesheet" href="/css/style.css?v=20260915_65">
+  <link rel="stylesheet" href="/css/style.css?v=20260915_66">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -879,13 +879,13 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="/js/firebase-config.js?v=20260915_65"></script>
-  <script src="/js/chat.js?v=20260915_65"></script>
-  <script src="/js/mayor.js?v=20260915_65"></script>
-  <script src="/js/ai-assistant.js?v=20260915_65"></script>
-  <script src="/js/worker.js?v=20260915_65"></script>
-  <script src="/js/admin.js?v=20260915_65"></script>
-  <script src="/js/app.js?v=20260915_65"></script>
+  <script src="/js/firebase-config.js?v=20260915_66"></script>
+  <script src="/js/chat.js?v=20260915_66"></script>
+  <script src="/js/mayor.js?v=20260915_66"></script>
+  <script src="/js/ai-assistant.js?v=20260915_66"></script>
+  <script src="/js/worker.js?v=20260915_66"></script>
+  <script src="/js/admin.js?v=20260915_66"></script>
+  <script src="/js/app.js?v=20260915_66"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
@@ -900,7 +900,7 @@
       window.addEventListener('load', () => {
         try {
           const isSub = window.location.pathname.startsWith('/web');
-          const swScript = isSub ? '/web/sw.js?v=20260915_65' : '/sw.js?v=20260915_65';
+          const swScript = isSub ? '/web/sw.js?v=20260915_66' : '/sw.js?v=20260915_66';
           const swScope = isSub ? '/web/' : '/';
           navigator.serviceWorker.register(swScript, { scope: swScope })
             .then(reg => {
