@@ -13,8 +13,20 @@
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="icon" type="image/png" href="assets/icon-192.png">
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#0F172A">
-  <base href="/">
+  <script>
+    // Smart base href: file:// yoki subpath bo'lsa avtomatik moslashadi
+    (function() {
+      if (window.location.protocol === 'file:') return;
+      var b = document.createElement('base');
+      var path = window.location.pathname || '';
+      if (path.startsWith('/web/')) {
+        b.href = '/web/';
+      } else {
+        b.href = '/';
+      }
+      document.head.appendChild(b);
+    })();
+  </script>
 
   <script>
     // Eski keshni avtomatik tozalash
@@ -154,7 +166,86 @@
       });
     })();
   </script>
-  <link rel="stylesheet" href="/css/style.css?v=20260917_01">
+  <style>
+    /* Asosiy ekranlar va shriftlar uchun tezkor himoya (FOUC to'xtatish) */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #0F172A;
+      color: #0F172A;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+    *, *::before, *::after {
+      box-sizing: inherit;
+    }
+    #app-container {
+      width: 100%;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #0F172A;
+      position: relative;
+    }
+    .screen {
+      display: none !important;
+      width: 100%;
+      min-height: 100vh;
+      box-sizing: border-box;
+      flex-direction: column;
+    }
+    .screen.active {
+      display: flex !important;
+    }
+    button, input, select, textarea {
+      font-family: inherit;
+      font-size: 14px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: #2563EB;
+      color: #FFFFFF;
+    }
+    .form-input, .form-textarea, .form-select {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid #CBD5E1;
+      background: #FFFFFF;
+      box-sizing: border-box;
+      outline: none;
+    }
+  </style>
+  <link id="main-stylesheet" rel="stylesheet" href="/css/style.css?v=20260917_06">
+  <script>
+    (function() {
+      var l = document.getElementById('main-stylesheet');
+      if (l) {
+        l.onerror = function() {
+          console.warn("Main stylesheet failed, loading fallback...");
+          var alt = document.createElement('link');
+          alt.rel = 'stylesheet';
+          var isWeb = window.location.pathname.startsWith('/web');
+          alt.href = (isWeb ? '/web/css/style.css' : 'css/style.css') + '?v=20260917_06';
+          document.head.appendChild(alt);
+        };
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
@@ -214,7 +305,7 @@
     <!-- 1. LOGIN SCREEN (Defolt active emas, faqat tizimga kirmagan bo'lsa ko'rinadi) -->
     <div id="login-screen" class="screen" style="justify-content: center; align-items: center; padding: 24px; background: linear-gradient(180deg, #0F172A 0%, #1E293B 100%);">
       <div style="width: 100%; max-width: 360px; text-align: center;">
-        <img src="assets/logo.png" alt="IJRO" style="width: 100px; height: 100px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); margin-bottom: 16px;">
+        <img src="assets/logo.png" onerror="if(!this._t){this._t=1; this.src=(window.location.pathname.startsWith('/web')?'/web/assets/logo.png':'assets/logo.png');}" alt="IJRO" style="width: 100px; height: 100px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); margin-bottom: 16px;">
         <h1 style="color: #FFFFFF; font-size: 26px; font-weight: 800; letter-spacing: 1px;">IJRO</h1>
         <p style="color: #94A3B8; font-size: 13px; margin-bottom: 28px;">Tezkor Boshqaruv va Nazorat Tizimi</p>
 

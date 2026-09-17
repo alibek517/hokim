@@ -5,6 +5,9 @@ const PRECACHE_ASSETS = [
   './index.html',
   './manifest.json',
   './css/style.css',
+  '/css/style.css',
+  './assets/logo.png',
+  '/assets/logo.png',
   './js/store.js',
   './js/app.js',
   './js/mayor.js',
@@ -109,10 +112,17 @@ self.addEventListener('fetch', event => {
         }
         return response;
       } catch (err) {
-        const cached = await caches.match(event.request);
+        let cached = await caches.match(event.request, { ignoreSearch: true });
         if (cached) return cached;
 
-        // Keshda bo'lmasa, soxta 408 bermaymiz, Response.error() qaytaramiz
+        if (event.request.url.includes('style.css')) {
+          cached = await caches.match('./css/style.css') || await caches.match('/css/style.css');
+          if (cached) return cached;
+        } else if (event.request.url.includes('logo.png')) {
+          cached = await caches.match('./assets/logo.png') || await caches.match('/assets/logo.png');
+          if (cached) return cached;
+        }
+
         return Response.error();
       }
     })()
