@@ -1650,3 +1650,329 @@ html.user-authenticated #login-screen {
   border-radius: 4px;
   white-space: nowrap;
 }
+
+/* ==========================================================================
+   DESKTOP / COMPUTER VERSION STYLES (@media min-width: 900px)
+   Telefon versiyaga zarracha ta'sir qilmaydi (<900px to'liq tegilmagan).
+   Kompyuterda esa keng, qulay va zamonaviy boshqaruv paneli (Dashboard)
+   ========================================================================== */
+
+@media (min-width: 900px) {
+
+  /* 1. Global Viewport & Container */
+  html, body {
+    position: static;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    background-color: #0F172A;
+  }
+
+  #app-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background-color: #F8FAFC !important;
+  }
+
+  /* 2. Modern Desktop Scrollbars */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #F1F5F9;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+  }
+
+  /* 3. Top App Bar on Desktop */
+  .top-bar {
+    padding: 14px 36px !important;
+    height: 68px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12) !important;
+  }
+
+  .user-avatar {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 16px !important;
+  }
+
+  .user-info .user-name {
+    font-size: 16px !important;
+  }
+
+  .user-info .user-role {
+    font-size: 12px !important;
+  }
+
+  .top-bar-actions {
+    gap: 12px !important;
+  }
+
+  .ai-header-btn,
+  .broadcast-header-btn {
+    padding: 8px 18px !important;
+    font-size: 13px !important;
+    border-radius: 20px !important;
+  }
+
+  .icon-btn {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  /* 4. Mayor Navigation Bar: Moves to TOP beneath Top-Bar like a modern SaaS */
+  #mayor-screen.active {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  #mayor-screen .top-bar {
+    order: 0 !important;
+  }
+
+  #mayor-bottom-nav {
+    order: 1 !important;
+    position: static !important;
+    background: #FFFFFF !important;
+    border-top: none !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03) !important;
+    padding: 0 36px !important;
+    min-height: 52px !important;
+    height: 52px !important;
+    justify-content: flex-start !important;
+    gap: 12px !important;
+    z-index: 15 !important;
+  }
+
+  #mayor-bottom-nav .nav-item {
+    flex: 0 0 auto !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    padding: 12px 22px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    border-bottom: 3px solid transparent !important;
+    border-radius: 0 !important;
+    transition: all 0.2s ease !important;
+  }
+
+  #mayor-bottom-nav .nav-item svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  #mayor-bottom-nav .nav-item:hover {
+    color: var(--primary-blue) !important;
+    background: rgba(37, 99, 235, 0.05) !important;
+  }
+
+  #mayor-bottom-nav .nav-item.active {
+    color: var(--primary-blue) !important;
+    border-bottom-color: var(--primary-blue) !important;
+    background: transparent !important;
+  }
+
+  #mayor-tab-content {
+    order: 2 !important;
+  }
+
+  /* 5. Search Bar & Filter Tabs on Desktop */
+  #mayor-task-header-area,
+  #mayor-schedule-header-area {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    background: #FFFFFF !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    padding: 12px 36px !important;
+    gap: 20px !important;
+  }
+
+  #mayor-task-header-area .search-bar-container,
+  #mayor-schedule-header-area .search-bar-container,
+  #mayor-worker-header-area .search-bar-container {
+    padding: 0 !important;
+    width: 380px !important;
+    flex-shrink: 0 !important;
+  }
+
+  #mayor-worker-header-area {
+    background: #FFFFFF !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    padding: 12px 36px !important;
+  }
+
+  #mayor-task-header-area .filter-tabs-wrapper,
+  #mayor-schedule-header-area .filter-tabs-wrapper {
+    border-bottom: none !important;
+    padding: 0 !important;
+    overflow-x: visible !important;
+    flex-wrap: wrap !important;
+  }
+
+  .filter-tab {
+    padding: 8px 18px !important;
+    font-size: 13px !important;
+  }
+
+  /* 6. Dashboard Multi-Column Grid Layout for Tasks, Schedules, Workers */
+  #mayor-task-list-area > .main-content,
+  #mayor-schedule-list-area > .main-content,
+  #mayor-worker-list-area > .main-content,
+  #worker-tasks-list,
+  #mayor-tab-content > .main-content {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)) !important;
+    gap: 20px !important;
+    align-content: flex-start !important;
+    padding: 24px 36px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Worker Podium Card spans full width */
+  #mayor-worker-list-area .main-content > .task-card:first-child {
+    grid-column: 1 / -1 !important;
+  }
+
+  /* Cards on Desktop */
+  .task-card {
+    border-radius: 14px !important;
+    padding: 16px 18px !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+  }
+
+  .task-card:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+    border-color: #CBD5E1 !important;
+  }
+
+  .task-card-media-item {
+    width: 84px !important;
+    height: 84px !important;
+  }
+
+  /* 7. Admin Screen Dashboard on Desktop */
+  #admin-content {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)) !important;
+    gap: 20px !important;
+    align-content: flex-start !important;
+    padding: 24px 36px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  #admin-map-container {
+    height: 320px !important;
+  }
+
+  /* 8. Chat Screen on Desktop (Centered, Elegant Messaging Console) */
+  #chat-screen .top-bar {
+    padding: 14px 36px !important;
+  }
+
+  #chat-messages-container {
+    max-width: 960px !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 24px 20px !important;
+    border-left: 1px solid #CBD5E1;
+    border-right: 1px solid #CBD5E1;
+    background: #F8FAFC !important;
+  }
+
+  .chat-input-bar {
+    max-width: 960px !important;
+    width: 100% !important;
+    margin: 0 auto 16px auto !important;
+    border-radius: 16px !important;
+    border: 1px solid #CBD5E1 !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08) !important;
+    padding: 12px 18px !important;
+  }
+
+  .chat-input {
+    font-size: 15px !important;
+  }
+
+  .message-bubble {
+    max-width: 65% !important;
+    font-size: 14.5px !important;
+  }
+
+  /* 9. Floating Action Button (FAB) on Desktop */
+  .fab {
+    bottom: 32px !important;
+    right: 36px !important;
+    width: 60px !important;
+    height: 60px !important;
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.45) !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  .fab:hover {
+    transform: scale(1.08) !important;
+    box-shadow: 0 12px 32px rgba(37, 99, 235, 0.55) !important;
+  }
+
+  /* 10. Modals on Desktop (Centered Dialogs with Zoom Entrance) */
+  .modal-overlay {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 24px !important;
+  }
+
+  .modal-sheet {
+    border-radius: 20px !important;
+    max-width: 680px !important;
+    width: 100% !important;
+    max-height: 88vh !important;
+    padding: 26px 30px !important;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35) !important;
+    animation: modalDesktopZoom 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  @keyframes modalDesktopZoom {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  #broadcast-workers-list {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    max-height: 280px !important;
+  }
+
+  /* 11. Login Screen on Desktop */
+  #login-screen {
+    background: radial-gradient(circle at 50% 30%, #1E293B 0%, #0F172A 100%) !important;
+  }
+
+  #login-screen > div {
+    max-width: 440px !important;
+    background: rgba(30, 41, 59, 0.85) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 24px !important;
+    padding: 44px 36px !important;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(37, 99, 235, 0.15) !important;
+  }
+}

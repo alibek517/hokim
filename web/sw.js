@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ijro-pwa-v20260916_04';
+const CACHE_NAME = 'ijro-pwa-v20260917_01';
 
 const PRECACHE_ASSETS = [
   './',
