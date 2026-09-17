@@ -1,9 +1,0 @@
-[project]
-name = "hokimloyha"
-version = "0.1.0"
-dependencies = [
-    "edge-tts==7.2.8"
-]
-
-[tool.vercel]
-entrypoint = "api.tts:handler"

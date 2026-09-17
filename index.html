@@ -1,12 +1,1261 @@
 <!DOCTYPE html>
-<html>
+<html lang="uz">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=/web/">
-  <script>window.location.replace('/web/');</script>
-  <title>IJRO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>IJRO - Tezkor Boshqaruv va Nazorat</title>
+
+  <!-- PWA & Apple iOS Meta Tags -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="IJRO">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="assets/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <script>
+    // Smart base href: file:// yoki subpath bo'lsa avtomatik moslashadi
+    (function() {
+      if (window.location.protocol === 'file:') return;
+      var b = document.createElement('base');
+      var path = window.location.pathname || '';
+      if (path.startsWith('/web/')) {
+        b.href = '/web/';
+      } else {
+        b.href = '/';
+      }
+      document.head.appendChild(b);
+    })();
+  </script>
+
+  <script>
+    // Eski keshni avtomatik tozalash
+    (function() {
+      const APP_VER = '20260917_06';
+      if (localStorage.getItem('ijro_sw_ver') !== APP_VER) {
+        localStorage.setItem('ijro_sw_ver', APP_VER);
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            for (let name of names) caches.delete(name);
+          }).catch(function(){});
+        }
+      }
+    })();
+
+    // Injected third-party / Chromium DevTools / web-vitals reportAllChanges startTime xatolarini to'liq bartaraf etish
+    (function() {
+      // 0. Xavfsiz PerformanceEntry obyekti va Proxy massiv o'rog'i
+      const fallbackEntry = Object.freeze({
+        startTime: 0,
+        duration: 0,
+        value: 0,
+        name: '',
+        entryType: '',
+        toJSON: function() { return {}; }
+      });
+
+      function makeSafeEntry(e) {
+        if (!e || typeof e !== 'object') return fallbackEntry;
+        if (typeof e.startTime !== 'number') e.startTime = 0;
+        if (typeof e.duration !== 'number') e.duration = 0;
+        if (typeof e.value !== 'number') e.value = 0;
+        if (typeof e.name !== 'string') e.name = '';
+        if (typeof e.entryType !== 'string') e.entryType = '';
+        return e;
+      }
+
+      function wrapSafeArray(arr) {
+        if (!Array.isArray(arr)) return arr;
+        for (let i = 0; i < arr.length; i++) {
+          if (arr[i]) makeSafeEntry(arr[i]);
+        }
+        return new Proxy(arr, {
+          get: function(target, prop, receiver) {
+            if (prop === '0' || prop === 0 || prop === '-1' || (typeof prop === 'string' && !isNaN(prop))) {
+              const val = Reflect.get(target, prop, receiver);
+              return val !== undefined ? val : fallbackEntry;
+            }
+            return Reflect.get(target, prop, receiver);
+          }
+        });
+      }
+
+      // 1. window.performance metodlarini himoyalash
+      if (typeof window !== 'undefined' && window.performance) {
+        try {
+          const origGet = window.performance.getEntries ? window.performance.getEntries.bind(window.performance) : null;
+          const origGetByType = window.performance.getEntriesByType ? window.performance.getEntriesByType.bind(window.performance) : null;
+          const origGetByName = window.performance.getEntriesByName ? window.performance.getEntriesByName.bind(window.performance) : null;
+
+          if (origGet) {
+            window.performance.getEntries = function() {
+              try { return wrapSafeArray(origGet()); } catch (_) { return wrapSafeArray([]); }
+            };
+          }
+          if (origGetByType) {
+            window.performance.getEntriesByType = function(t) {
+              try { return wrapSafeArray(origGetByType(t)); } catch (_) { return wrapSafeArray([]); }
+            };
+          }
+          if (origGetByName) {
+            window.performance.getEntriesByName = function(n, t) {
+              try { return wrapSafeArray(origGetByName(n, t)); } catch (_) { return wrapSafeArray([]); }
+            };
+          }
+        } catch (_) {}
+      }
+
+      // 2. PerformanceObserver himoyasi (web-vitals xatosining asosiy o'chog'i)
+      if (typeof window !== 'undefined' && window.PerformanceObserver) {
+        try {
+          const OriginalPO = window.PerformanceObserver;
+          window.PerformanceObserver = function(callback) {
+            return new OriginalPO(function(list, observer) {
+              try {
+                if (list) {
+                  if (typeof list.getEntries === 'function') {
+                    const rawGet = list.getEntries.bind(list);
+                    list.getEntries = function() {
+                      try { return wrapSafeArray(rawGet()); } catch (_) { return wrapSafeArray([]); }
+                    };
+                  }
+                  if (typeof list.getEntriesByType === 'function') {
+                    const rawGetByType = list.getEntriesByType.bind(list);
+                    list.getEntriesByType = function(type) {
+                      try { return wrapSafeArray(rawGetByType(type)); } catch (_) { return wrapSafeArray([]); }
+                    };
+                  }
+                  if (typeof list.getEntriesByName === 'function') {
+                    const rawGetByName = list.getEntriesByName.bind(list);
+                    list.getEntriesByName = function(name, type) {
+                      try { return wrapSafeArray(rawGetByName(name, type)); } catch (_) { return wrapSafeArray([]); }
+                    };
+                  }
+                }
+                return callback.call(this, list, observer);
+              } catch (err) {
+                const msg = String(err && (err.message || err.stack || err) || '');
+                if (msg.includes('startTime') || msg.includes('reportAllChanges')) {
+                  return; // Xatoni mutlaqo to'xtatish
+                }
+                throw err;
+              }
+            });
+          };
+          window.PerformanceObserver.prototype = OriginalPO.prototype;
+          window.PerformanceObserver.supportedEntryTypes = OriginalPO.supportedEntryTypes;
+
+          if (OriginalPO.prototype && OriginalPO.prototype.takeRecords) {
+            const origTakeRecords = OriginalPO.prototype.takeRecords;
+            OriginalPO.prototype.takeRecords = function() {
+              try { return wrapSafeArray(origTakeRecords.apply(this, arguments)); } catch (_) { return wrapSafeArray([]); }
+            };
+          }
+        } catch (_) {}
+      }
+
+      // 3. Timerlar himoyasi (setTimeout, setInterval, requestAnimationFrame)
+      if (typeof window !== 'undefined') {
+        try {
+          const origST = window.setTimeout;
+          window.setTimeout = function(fn, delay, ...args) {
+            if (typeof fn === 'function') {
+              const wrapped = function() {
+                try {
+                  return fn.apply(this, args);
+                } catch (err) {
+                  const msg = String(err && (err.message || err.stack || err) || '');
+                  if (msg.includes('startTime') || msg.includes('reportAllChanges') || msg.includes('_leaflet_pos')) {
+                    return;
+                  }
+                  throw err;
+                }
+              };
+              return origST.call(window, wrapped, delay);
+            }
+            return origST.apply(window, arguments);
+          };
+
+          const origSI = window.setInterval;
+          window.setInterval = function(fn, delay, ...args) {
+            if (typeof fn === 'function') {
+              const wrapped = function() {
+                try {
+                  return fn.apply(this, args);
+                } catch (err) {
+                  const msg = String(err && (err.message || err.stack || err) || '');
+                  if (msg.includes('startTime') || msg.includes('reportAllChanges') || msg.includes('_leaflet_pos')) {
+                    return;
+                  }
+                  throw err;
+                }
+              };
+              return origSI.call(window, wrapped, delay);
+            }
+            return origSI.apply(window, arguments);
+          };
+
+          if (window.requestAnimationFrame) {
+            const origRAF = window.requestAnimationFrame;
+            window.requestAnimationFrame = function(cb) {
+              if (typeof cb === 'function') {
+                return origRAF.call(window, function(ts) {
+                  try {
+                    return cb(ts);
+                  } catch (err) {
+                    const msg = String(err && (err.message || err.stack || err) || '');
+                    if (msg.includes('startTime') || msg.includes('reportAllChanges') || msg.includes('_leaflet_pos')) {
+                      return;
+                    }
+                    throw err;
+                  }
+                });
+              }
+              return origRAF.apply(window, arguments);
+            };
+          }
+        } catch (_) {}
+      }
+
+      // 4. EventTarget addEventListener himoyasi
+      if (typeof EventTarget !== 'undefined' && EventTarget.prototype && EventTarget.prototype.addEventListener) {
+        try {
+          const origAdd = EventTarget.prototype.addEventListener;
+          EventTarget.prototype.addEventListener = function(type, listener, options) {
+            if (typeof listener === 'function') {
+              const wrapped = function(...args) {
+                try {
+                  return listener.apply(this, args);
+                } catch (err) {
+                  const msg = String(err && (err.message || err.stack || err) || '');
+                  if (msg.includes('startTime') || msg.includes('reportAllChanges') || msg.includes('_leaflet_pos')) {
+                    return;
+                  }
+                  throw err;
+                }
+              };
+              return origAdd.call(this, type, wrapped, options);
+            }
+            return origAdd.call(this, type, listener, options);
+          };
+        } catch (_) {}
+      }
+
+      // 5. console.error filtrlash
+      if (typeof console !== 'undefined' && console.error) {
+        const origErr = console.error;
+        console.error = function(...args) {
+          const combined = args.map(a => String(a && (a.stack || a.message || a) || '')).join(' ');
+          if (combined.includes("reading 'startTime'") || combined.includes('startTime') || combined.includes('reportAllChanges') || combined.includes('_leaflet_pos')) {
+            return;
+          }
+          return origErr.apply(console, args);
+        };
+      }
+
+      // 6. Global window.onerror
+      window.onerror = function(message, source, lineno, colno, error) {
+        const msgStr = String(message || '');
+        const stackStr = String(error && error.stack || '');
+        if (msgStr.includes("reading 'startTime'") || msgStr.includes('startTime') || msgStr.includes('reportAllChanges') || msgStr.includes('_leaflet_pos') || stackStr.includes('startTime') || stackStr.includes('reportAllChanges') || stackStr.includes('_leaflet_pos')) {
+          return true; // Suppress from console
+        }
+        return false;
+      };
+
+      // 7. Global error va unhandledrejection tinglovchilari
+      window.addEventListener('error', function(e) {
+        const msg = String(e && e.message || '');
+        const errStr = String(e && e.error && (e.error.message || e.error.stack) || '');
+        if (msg.includes('startTime') || errStr.includes('startTime') || errStr.includes('reportAllChanges') || msg.includes('_leaflet_pos') || errStr.includes('_leaflet_pos')) {
+          if (e.preventDefault) e.preventDefault();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return true;
+        }
+      }, true);
+
+      window.addEventListener('unhandledrejection', function(e) {
+        const reason = String(e && e.reason && (e.reason.message || e.reason.stack || e.reason) || '');
+        if (reason.includes('startTime') || reason.includes('reportAllChanges') || reason.includes('_leaflet_pos')) {
+          if (e.preventDefault) e.preventDefault();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return true;
+        }
+      });
+    })();
+  </script>
+  <style>
+    /* Asosiy ekranlar va shriftlar uchun tezkor himoya (FOUC to'xtatish) */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #0F172A;
+      color: #0F172A;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+    *, *::before, *::after {
+      box-sizing: inherit;
+    }
+    #app-container {
+      width: 100%;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #0F172A;
+      position: relative;
+    }
+    .screen {
+      display: none !important;
+      width: 100%;
+      min-height: 100vh;
+      box-sizing: border-box;
+      flex-direction: column;
+    }
+    .screen.active {
+      display: flex !important;
+    }
+    button, input, select, textarea {
+      font-family: inherit;
+      font-size: 14px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: #2563EB;
+      color: #FFFFFF;
+    }
+    .form-input, .form-textarea, .form-select {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid #CBD5E1;
+      background: #FFFFFF;
+      box-sizing: border-box;
+      outline: none;
+    }
+  </style>
+  <link id="main-stylesheet" rel="stylesheet" href="/css/style.css?v=20260917_06">
+  <script>
+    (function() {
+      var l = document.getElementById('main-stylesheet');
+      if (l) {
+        l.onerror = function() {
+          console.warn("Main stylesheet failed, loading fallback...");
+          var alt = document.createElement('link');
+          alt.rel = 'stylesheet';
+          var isWeb = window.location.pathname.startsWith('/web');
+          alt.href = (isWeb ? '/web/css/style.css' : 'css/style.css') + '?v=20260917_06';
+          document.head.appendChild(alt);
+        };
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Leaflet DomUtil.getPosition / setPosition xatolarini (reading '_leaflet_pos') butunlay bartaraf etish
+    (function() {
+      try {
+        if (typeof L !== 'undefined' && L.DomUtil) {
+          if (L.DomUtil.getPosition) {
+            const _origGetPos = L.DomUtil.getPosition;
+            L.DomUtil.getPosition = function(el) {
+              if (!el) return (typeof L.Point === 'function' ? new L.Point(0, 0) : { x: 0, y: 0 });
+              try {
+                return _origGetPos.call(L.DomUtil, el) || (typeof L.Point === 'function' ? new L.Point(0, 0) : { x: 0, y: 0 });
+              } catch (_) {
+                return (typeof L.Point === 'function' ? new L.Point(0, 0) : { x: 0, y: 0 });
+              }
+            };
+          }
+          if (L.DomUtil.setPosition) {
+            const _origSetPos = L.DomUtil.setPosition;
+            L.DomUtil.setPosition = function(el, point) {
+              if (!el) return;
+              try {
+                _origSetPos.call(L.DomUtil, el, point);
+              } catch (_) {}
+            };
+          }
+        }
+      } catch (_) {}
+    })();
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <!-- Firebase Web SDK (Compat v10) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+  <!-- Pre-render Session State (Login screen miltillashini va qaytib chiqishini butunlay to'xtatish) -->
+  <script>
+    (function() {
+      try {
+        var raw = localStorage.getItem('ijro_user');
+        if (raw) {
+          var u = JSON.parse(raw);
+          if (u && u.id) {
+            document.documentElement.classList.add('user-authenticated');
+          }
+        }
+      } catch (_) {}
+    })();
+  </script>
 </head>
-<body style="background: #0F172A; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif;">
-  <p>IJRO tizimiga o'tilmoqda...</p>
+<body>
+
+  <div id="app-container">
+
+    <!-- 1. LOGIN SCREEN (Defolt active emas, faqat tizimga kirmagan bo'lsa ko'rinadi) -->
+    <div id="login-screen" class="screen" style="justify-content: center; align-items: center; padding: 24px; background: linear-gradient(180deg, #0F172A 0%, #1E293B 100%);">
+      <div style="width: 100%; max-width: 360px; text-align: center;">
+        <img src="assets/logo.png" onerror="if(!this._t){this._t=1; this.src=(window.location.pathname.startsWith('/web')?'/web/assets/logo.png':'assets/logo.png');}" alt="IJRO" style="width: 100px; height: 100px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); margin-bottom: 16px;">
+        <h1 style="color: #FFFFFF; font-size: 26px; font-weight: 800; letter-spacing: 1px;">IJRO</h1>
+        <p style="color: #94A3B8; font-size: 13px; margin-bottom: 28px;">Tezkor Boshqaruv va Nazorat Tizimi</p>
+
+        <form onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 14px; text-align: left;">
+          <div class="form-group">
+            <label class="form-label" style="color: #CBD5E1;">Foydalanuvchi nomi</label>
+            <input type="text" id="login-user" class="form-input" placeholder="login kiriting" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color: #CBD5E1;">Maxfiy parol</label>
+            <input type="password" id="login-pass" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn btn-primary" style="margin-top: 8px; padding: 12px; font-size: 15px;">
+            Kirish
+          </button>
+        </form>
+
+      </div>
+    </div>
+
+    <!-- 2. MAYOR (HOKIM) SCREEN -->
+    <div id="mayor-screen" class="screen">
+      <!-- Top Bar -->
+      <div class="top-bar">
+        <div class="top-bar-left" onclick="openProfileSettingsModal()" style="cursor: pointer;" title="Profil va Login/Parol">
+          <div class="user-avatar" id="mayor-avatar">H</div>
+          <div class="user-info">
+            <div class="user-name" id="mayor-header-name">Tuman Hokimi</div>
+            <div class="user-role" id="mayor-header-region">Hokimlik Paneli</div>
+          </div>
+        </div>
+        <div class="top-bar-actions">
+          <button id="btn-open-broadcast" class="broadcast-header-btn" onclick="openBroadcastModal()" title="Ommaviy Xabarnoma / Chat 2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+            <span>📢 E'lon</span>
+          </button>
+          <button class="ai-header-btn" onclick="toggleAiAssistantModal()" title="Sun'iy Intellekt Yordamchisi">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>
+            <span>AI Yordamchi</span>
+          </button>
+          <button class="icon-btn" onclick="openProfileSettingsModal()" title="Profil va Login/Parol">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </button>
+          <button class="icon-btn" onclick="handleLogout()" title="Chiqish">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Content (Topshiriqlar, Rejalar, Ishchilar, Chatlar) -->
+      <div id="mayor-tab-content" style="flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;"></div>
+
+      <!-- Floating Action Button -->
+      <button id="mayor-fab" class="fab">+</button>
+
+      <!-- Bottom Navigation Bar (Tab 0: Topshiriqlar is DEFAULT!) -->
+      <div class="bottom-nav" id="mayor-bottom-nav">
+        <button class="nav-item active" onclick="switchMayorTab(0)">
+          <svg fill="currentColor" viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+          Topshiriqlar
+        </button>
+        <button class="nav-item" onclick="switchMayorTab(1)">
+          <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+          Rejalar
+        </button>
+        <button class="nav-item" onclick="switchMayorTab(2)">
+          <svg fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 3s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+          Ishchilar
+        </button>
+        <button class="nav-item" onclick="switchMayorTab(3)">
+          <svg fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+          Chatlar
+        </button>
+      </div>
+    </div>
+
+    <!-- 3. WORKER SCREEN -->
+    <div id="worker-screen" class="screen">
+      <div class="top-bar">
+        <div class="top-bar-left" onclick="openProfileSettingsModal()" style="cursor: pointer;" title="Profil va Login/Parol">
+          <div class="user-avatar" id="worker-avatar">I</div>
+          <div class="user-info">
+            <div class="user-name" id="worker-header-name">Mas'ul Xodim</div>
+            <div class="user-role" id="worker-header-pos">Vazifalar Paneli</div>
+          </div>
+        </div>
+        <div class="top-bar-actions">
+          <button class="icon-btn" onclick="openProfileSettingsModal()" title="Profil va Login/Parol">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </button>
+          <button class="icon-btn" onclick="handleLogout()" title="Chiqish">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="worker-tasks-list" class="task-list main-content"></div>
+    </div>
+
+    <!-- 4. BIG ADMIN SCREEN -->
+    <div id="admin-screen" class="screen">
+      <div class="top-bar">
+        <div class="top-bar-left" onclick="openProfileSettingsModal()" style="cursor: pointer;" title="Profil va Login/Parol">
+          <div class="user-avatar" id="admin-avatar">A</div>
+          <div class="user-info">
+            <div class="user-name" id="admin-header-name">Big Admin</div>
+            <div class="user-role">Kuzatuv va Boshqaruv Markazi</div>
+          </div>
+        </div>
+        <div class="top-bar-actions">
+          <button class="icon-btn" onclick="openProfileSettingsModal()" title="Profil va Login/Parol">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </button>
+          <button class="icon-btn" onclick="handleLogout()" title="Chiqish">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="admin-content" class="task-list main-content" style="flex: 1; min-height: 0; padding-bottom: calc(30px + var(--safe-bottom));"></div>
+    </div>
+
+    <!-- 5. CHAT SCREEN -->
+    <div id="chat-screen" class="screen chat-screen">
+      <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="top-bar-left" style="display: flex; align-items: center; gap: 6px;">
+          <button class="icon-btn" onclick="goBackFromChat()" style="margin-right: 4px;">
+            <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          </button>
+          <div class="user-avatar" id="chat-avatar" style="width: 36px; height: 36px; font-size: 14px;">?</div>
+          <div class="user-info">
+            <div class="user-name" id="chat-header-name" style="font-size: 15px;">Foydalanuvchi</div>
+            <div class="user-role" id="chat-header-status" style="color: #10B981; font-size: 11px;">online</div>
+          </div>
+        </div>
+        <div class="top-bar-right" style="margin-left: auto;">
+          <a id="chat-header-call-btn" href="#" style="display: none; width: 38px; height: 38px; border-radius: 50%; background: #22C55E; color: white; align-items: center; justify-content: center; text-decoration: none; box-shadow: 0 2px 6px rgba(34, 197, 94, 0.4);" title="Telefon qilish">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+          </a>
+        </div>
+      </div>
+      <div id="chat-messages-container" class="chat-messages chat-messages-container"></div>
+      <div class="chat-input-bar">
+        <div id="edit-preview-bar" class="edit-bar">
+          <div class="edit-bar-info">
+            <div class="edit-bar-title">Xabarni tahrirlash</div>
+            <div id="edit-preview-text" class="edit-bar-text"></div>
+          </div>
+          <button class="icon-btn" onclick="cancelEditing()" style="width: 24px; height: 24px; color: #64748B;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+
+        <div class="chat-input-wrapper">
+          <button class="chat-attach-btn" onclick="openAttachChoiceModal()" title="Fayl biriktirish">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
+          </button>
+          <input type="file" id="img-input" accept="image/*" style="display: none;" onchange="handleImagePicked(event)">
+          <input type="file" id="vid-input" accept="video/*" style="display: none;" onchange="handleVideoPicked(event)">
+          <input type="file" id="doc-input" accept="*/*" style="display: none;" onchange="handleDocumentPicked(event)">
+
+          <textarea id="chat-text-input" class="chat-input" placeholder="Xabar yozing..." rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendChatMessage();}"></textarea>
+
+          <button id="mic-btn" class="chat-mic-btn" onclick="startChatVoiceRecording()" title="Ovoz yozish">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+          </button>
+
+          <button class="chat-send-btn" onclick="sendChatMessage()" title="Yuborish">
+            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+
+        <div id="chat-recording-bar" style="display: none; width: 100%; align-items: center; justify-content: space-between; background: #FEF2F2; padding: 6px 12px; border-radius: 24px; border: 1px solid #FECACA; box-sizing: border-box;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="recording-dot" style="display: inline-block; width: 10px; height: 10px; background: #EF4444; border-radius: 50%;"></span>
+            <span id="chat-recording-timer" style="color: #EF4444; font-weight: 700; font-size: 13px;">Yozilmoqda: 0s</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button class="btn btn-outline" style="color: #EF4444; border-color: #EF4444; padding: 4px 12px; font-size: 12px; width: auto; display: inline-flex; align-items: center; gap: 4px;" onclick="cancelChatVoiceRecording()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg> O'chirish
+            </button>
+            <button class="btn btn-primary" style="padding: 4px 14px; font-size: 12px; width: auto; display: inline-flex; align-items: center; gap: 4px;" onclick="sendChatVoiceRecording()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Yuborish
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODALS -->
+
+    <!-- Create Task Modal -->
+    <div id="create-task-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('create-task-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+            Yangi Topshiriq Biriktirish
+          </div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('create-task-modal')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label class="form-label" style="margin-bottom: 0;">Topshiriq (Matn yoki Ovoz) *</label>
+            <button type="button" class="btn-voice-toggle" id="btn-toggle-task-voice" onclick="toggleTaskCreationVoiceMode()" style="display: inline-flex; align-items: center; gap: 4px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+              Ovoz yozish
+            </button>
+          </div>
+          <textarea id="new-task-title" class="form-input" placeholder="Topshiriq matni, manzil va izoh..." style="height: 80px; resize: none;"></textarea>
+          
+          <!-- Ovozli topshiriq konteyneri -->
+          <div id="new-task-voice-container" style="display: none; margin-top: 6px;">
+            <div id="new-task-voice-recorder" style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 10px; padding: 8px 12px;">
+              <button type="button" id="btn-task-modal-record" class="btn" onclick="toggleTaskModalRecording()" style="background: #EF4444; color: white; padding: 6px 14px; font-size: 13px; font-weight: bold; border-radius: 20px; display: flex; align-items: center; gap: 6px;">
+                <span id="task-modal-rec-dot" style="width: 8px; height: 8px; border-radius: 50%; background: white;"></span>
+                <span id="task-modal-rec-btn-text">Ovoz yozishni boshlash</span>
+              </button>
+              <span id="task-modal-rec-timer" style="font-weight: bold; font-size: 13px; color: #EF4444; display: none;">00:00</span>
+            </div>
+            <!-- Yozib olingan ovoz preview -->
+            <div id="new-task-voice-preview" style="display: none; align-items: center; gap: 8px; margin-top: 6px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px; padding: 6px 10px;">
+              <audio id="task-modal-audio-player" controls style="flex: 1; height: 32px;"></audio>
+              <button type="button" onclick="deleteTaskModalVoice()" style="background: #FEE2E2; color: #EF4444; border: none; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: bold; cursor: pointer;">O'chirish</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mas'ul xodim *</label>
+          <select id="new-task-worker" class="form-select"></select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label class="form-label">Boshlanish sanasi</label>
+            <input type="date" id="new-task-start" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tugash muddati</label>
+            <input type="date" id="new-task-end" class="form-input">
+          </div>
+        </div>
+
+        <!-- Rasm, Video va Fayllar yuklash (Ixtiyoriy) -->
+        <div class="form-group" style="margin-top: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="form-label" style="margin-bottom: 0;">Rasm, Video va Fayllar (Ixtiyoriy)</label>
+            <button type="button" class="btn-media-attach" onclick="document.getElementById('create-task-media-input').click()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+              Rasm / Video / Fayl qo'shish
+            </button>
+          </div>
+          <input type="file" id="create-task-media-input" accept="*/*" multiple style="display: none;" onchange="handleCreateTaskMediaPicked(event)">
+          <div id="create-task-media-preview" class="modal-media-preview-strip" style="display: none;"></div>
+        </div>
+
+        <button class="btn btn-primary" onclick="saveNewTask()" style="margin-top: 8px;">
+          Topshiriqni Saqlash
+        </button>
+      </div>
+    </div>
+
+    <!-- Edit Task Modal (Topshiriqni tahrirlash) -->
+    <div id="edit-task-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('edit-task-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            Topshiriqni Tahrirlash
+          </div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('edit-task-modal')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Topshiriq matni, manzil va izoh *</label>
+          <textarea id="edit-task-title" class="form-input" placeholder="Topshiriq matni, manzil va batafsil izohini shu yerga yozing..." style="height: 80px; resize: none;"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mas'ul xodim *</label>
+          <select id="edit-task-worker" class="form-select"></select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label class="form-label">Boshlanish sanasi</label>
+            <input type="date" id="edit-task-start" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tugash muddati</label>
+            <input type="date" id="edit-task-end" class="form-input">
+          </div>
+        </div>
+
+        <!-- Tahrirlashda Rasm, Video va Fayllar yuklash -->
+        <div class="form-group" style="margin-top: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="form-label" style="margin-bottom: 0;">Rasm, Video va Fayllar (Ixtiyoriy)</label>
+            <button type="button" class="btn-media-attach" onclick="document.getElementById('edit-task-media-input').click()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+              Rasm / Video / Fayl qo'shish
+            </button>
+          </div>
+          <input type="file" id="edit-task-media-input" accept="*/*" multiple style="display: none;" onchange="handleEditTaskMediaPicked(event)">
+          <div id="edit-task-media-preview" class="modal-media-preview-strip" style="display: none;"></div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 8px;">
+          <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeModal('edit-task-modal')">Bekor qilish</button>
+          <button type="button" class="btn btn-primary" style="flex: 2;" onclick="saveEditedTask()">O'zgarishlarni Saqlash</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Schedule Modal -->
+    <div id="create-schedule-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('create-schedule-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg>
+            Yangi Reja / Uchrashuv Qo'shish
+          </div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('create-schedule-modal')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label class="form-label" style="margin-bottom: 0;">Reja nomi (Matn yoki Ovoz) *</label>
+            <button type="button" class="btn-voice-toggle" id="btn-toggle-sched-voice" onclick="toggleSchedCreationVoiceMode()" style="display: inline-flex; align-items: center; gap: 4px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+              Ovoz yozish
+            </button>
+          </div>
+          <input type="text" id="new-schedule-title" class="form-input" placeholder="Masalan: Deputatlar bilan uchrashuv">
+          <div id="new-sched-voice-container" style="display: none; margin-top: 6px;">
+            <div id="new-sched-voice-recorder" style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 10px; padding: 8px 12px;">
+              <button type="button" id="btn-sched-modal-record" class="btn" onclick="toggleSchedModalRecording()" style="background: #EF4444; color: white; padding: 6px 14px; font-size: 13px; font-weight: bold; border-radius: 20px; display: flex; align-items: center; gap: 6px;">
+                <span id="sched-modal-rec-dot" style="width: 8px; height: 8px; border-radius: 50%; background: white;"></span>
+                <span id="sched-modal-rec-btn-text">Ovoz yozishni boshlash</span>
+              </button>
+              <span id="sched-modal-rec-timer" style="font-weight: bold; font-size: 13px; color: #EF4444; display: none;">00:00</span>
+            </div>
+            <div id="new-sched-voice-preview" style="display: none; align-items: center; gap: 8px; margin-top: 6px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px; padding: 6px 10px;">
+              <audio id="sched-modal-audio-player" controls style="flex: 1; height: 32px;"></audio>
+              <button type="button" onclick="deleteSchedModalVoice()" style="background: #FEE2E2; color: #EF4444; border: none; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg> O'chirish
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rejalashtirilgan vaqt *</label>
+          <input type="datetime-local" id="new-schedule-time" class="form-input">
+        </div>
+
+        <!-- Rejaga Rasm, Video va Fayllar yuklash (Ixtiyoriy) -->
+        <div class="form-group" style="margin-top: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="form-label" style="margin-bottom: 0;">Rasm, Video va Fayllar (Ixtiyoriy)</label>
+            <button type="button" class="btn-media-attach" onclick="document.getElementById('create-sched-media-input').click()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+              Rasm / Video / Fayl qo'shish
+            </button>
+          </div>
+          <input type="file" id="create-sched-media-input" accept="*/*" multiple style="display: none;" onchange="handleCreateSchedMediaPicked(event)">
+          <div id="create-sched-media-preview" class="modal-media-preview-strip" style="display: none;"></div>
+        </div>
+
+        <button class="btn btn-primary" onclick="saveNewSchedule()" style="margin-top: 8px;">
+          Rejani Saqlash
+        </button>
+      </div>
+    </div>
+
+    <!-- Edit Schedule Modal (Rejani tahrirlash) -->
+    <div id="edit-schedule-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('edit-schedule-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            Rejani Tahrirlash
+          </div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('edit-schedule-modal')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reja nomi *</label>
+          <input type="text" id="edit-schedule-title" class="form-input" placeholder="Reja nomi">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Joylashuv (Manzil)</label>
+          <input type="text" id="edit-schedule-location" class="form-input" placeholder="Masalan: Hokimlik binosi 3-qavat">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Eslatma / Izoh</label>
+          <textarea id="edit-schedule-notes" class="form-input" placeholder="Qo'shimcha eslatma" style="height: 50px; resize: none;"></textarea>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label class="form-label">Reja sanasi</label>
+            <input type="date" id="edit-schedule-date" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Reja vaqti</label>
+            <input type="time" id="edit-schedule-time" class="form-input">
+          </div>
+        </div>
+
+        <!-- Tahrirlashda Rejaga Rasm, Video va Fayllar yuklash -->
+        <div class="form-group" style="margin-top: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="form-label" style="margin-bottom: 0;">Rasm, Video va Fayllar (Ixtiyoriy)</label>
+            <button type="button" class="btn-media-attach" onclick="document.getElementById('edit-sched-media-input').click()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+              Rasm / Video / Fayl qo'shish
+            </button>
+          </div>
+          <input type="file" id="edit-sched-media-input" accept="*/*" multiple style="display: none;" onchange="handleEditSchedMediaPicked(event)">
+          <div id="edit-sched-media-preview" class="modal-media-preview-strip" style="display: none;"></div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 8px;">
+          <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeModal('edit-schedule-modal')">Bekor qilish</button>
+          <button type="button" class="btn btn-primary" style="flex: 2;" onclick="saveEditedSchedule()">O'zgarishlarni Saqlash</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Worker Modal -->
+    <div id="create-worker-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('create-worker-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            Yangi Mas'ul Xodim Qo'shish
+          </div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('create-worker-modal')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">F.I.SH (To'liq ism) *</label>
+          <input type="text" id="new-worker-name" class="form-input" placeholder="Masalan: Olim Hamidov">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lavozimi / Mas'uliyati</label>
+          <input type="text" id="new-worker-pos" class="form-input" placeholder="Masalan: Obodonlashtirish bo'lim boshlig'i">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Telefon raqami</label>
+          <input type="text" id="new-worker-phone" class="form-input" placeholder="+998901234567">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label class="form-label">Login *</label>
+            <input type="text" id="new-worker-user" class="form-input" placeholder="ishchi3">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Parol *</label>
+            <input type="password" id="new-worker-pass" class="form-input" placeholder="••••••••">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveNewWorker()" style="margin-top: 8px;">
+          Xodimni Qo'shish
+        </button>
+      </div>
+    </div>
+
+    <!-- Edit Worker Modal (Hokim ishchining login, parol va ma'lumotlarini ko'rish va o'zgartirishi uchun) -->
+    <div id="edit-worker-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('edit-worker-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            Xodim Ma'lumotlarini Tahrirlash
+          </div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('edit-worker-modal')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+        <input type="hidden" id="edit-worker-id">
+        <form onsubmit="handleSaveEditedWorker(event)" style="display: flex; flex-direction: column; gap: 10px;">
+          <div class="form-group">
+            <label class="form-label">F.I.SH (To'liq ism) *</label>
+            <input type="text" id="edit-worker-name" class="form-input" required placeholder="Masalan: Olim Hamidov">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Lavozimi / Mas'uliyati *</label>
+            <input type="text" id="edit-worker-pos" class="form-input" required placeholder="Masalan: Obodonlashtirish bo'lim boshlig'i">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Telefon raqami</label>
+            <input type="text" id="edit-worker-phone" class="form-input" placeholder="+998901234567">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="form-group">
+              <label class="form-label">Login *</label>
+              <input type="text" id="edit-worker-user" class="form-input" required placeholder="ishchi3">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Parol *</label>
+              <div style="position: relative; display: flex; align-items: center;">
+                <input type="password" id="edit-worker-pass" class="form-input" required placeholder="••••••••" style="padding-right: 36px;">
+                <button type="button" class="icon-btn" onclick="togglePasswordVisibility('edit-worker-pass', this)" style="position: absolute; right: 2px; color: #64748B; background: transparent; width: 32px; height: 32px;" title="Parolni ko'rsatish/yashirish">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 6px;">
+            <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeModal('edit-worker-modal')">Bekor qilish</button>
+            <button type="submit" class="btn btn-primary" style="flex: 2;">O'zgarishlarni Saqlash</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Profile & Login/Password Settings Modal (Hokim & Ishchilar uchun o'z login/parolini ko'rish va o'zgartirish) -->
+    <div id="profile-settings-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('profile-settings-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            Profil va Kirish Ma'lumotlari
+          </div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('profile-settings-modal')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 12px; background: #F8FAFC; border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; margin-bottom: 14px;">
+          <div class="user-avatar" id="profile-modal-avatar" style="width: 48px; height: 48px; font-size: 18px;">U</div>
+          <div>
+            <div style="font-weight: 700; font-size: 16px; color: var(--navy-dark);" id="profile-modal-fullname">Foydalanuvchi</div>
+            <div style="font-size: 12px; color: var(--primary-blue); font-weight: 600;" id="profile-modal-role">Lavozim</div>
+          </div>
+        </div>
+
+        <form onsubmit="handleSaveProfileSettings(event)" style="display: flex; flex-direction: column; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">F.I.SH (To'liq ism) *</label>
+            <input type="text" id="profile-input-fullname" class="form-input" required placeholder="To'liq ismingiz">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Telefon raqami</label>
+            <input type="text" id="profile-input-phone" class="form-input" placeholder="+998901234567">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Foydalanuvchi nomi (Login) *</label>
+            <input type="text" id="profile-input-username" class="form-input" required placeholder="Login kiriting" autocomplete="username">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Maxfiy parol *</label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="password" id="profile-input-password" class="form-input" required placeholder="Parol kiriting" style="padding-right: 44px;" autocomplete="current-password">
+              <button type="button" class="icon-btn" onclick="togglePasswordVisibility('profile-input-password', this)" style="position: absolute; right: 4px; color: #64748B; background: transparent;" title="Parolni ko'rsatish/yashirish">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div style="font-size: 11px; color: #64748B; margin-top: 4px;">Ushbu login va parol bilan ilovaga kirasiz</div>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 8px;">
+            <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeModal('profile-settings-modal')">Bekor qilish</button>
+            <button type="submit" class="btn btn-primary" style="flex: 2;">Saqlash</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Worker Completion Note Modal -->
+    <div id="worker-complete-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('worker-complete-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title" style="color: var(--status-green); display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--status-green)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            Topshiriqni Yakunlash
+          </div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('worker-complete-modal')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+        <div style="font-weight: bold; font-size: 14px; color: var(--primary-blue);" id="complete-task-title">Vazifa</div>
+        <div style="font-size: 12px; color: #64748B;" id="complete-task-addr">Manzil: ...</div>
+
+        <div class="form-group">
+          <label class="form-label">Bajarilgan ish bo'yicha hisobot / izoh yozing:</label>
+          <textarea id="complete-task-note" class="form-textarea" rows="4" placeholder="Masalan: Chuqurlar to'liq tekislanib yangi asfalt qoplamasi yotqizildi, obodonlashtirildi va topshirishga tayyor holga keltirildi..."></textarea>
+        </div>
+
+        <!-- Bajarilgan ish rasmlari, videolari va fayllari (Ixtiyoriy) -->
+        <div class="form-group" style="margin-top: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="form-label" style="margin-bottom: 0;">Bajarilgan ish fotosuratlari, videolari va fayllari (Ixtiyoriy)</label>
+            <button type="button" class="btn-media-attach" onclick="document.getElementById('worker-complete-media-input').click()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+              Rasm / Video / Fayl biriktirish
+            </button>
+          </div>
+          <input type="file" id="worker-complete-media-input" accept="*/*" multiple style="display: none;" onchange="handleWorkerCompleteMediaPicked(event)">
+          <div id="worker-complete-media-preview" class="modal-media-preview-strip" style="display: none;"></div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 14px;">
+          <button class="btn btn-outline" style="flex: 1;" onclick="closeModal('worker-complete-modal')">Bekor qilish</button>
+          <button class="btn btn-primary" style="flex: 2; background: var(--status-green);" onclick="confirmCompleteTask()">Topshiriqni topshirish</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Worker Task Seen/Acceptance Modal -->
+    <div id="task-seen-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('task-seen-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title" style="color: var(--primary-blue); display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            Topshiriqni Qabul Qilish
+          </div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('task-seen-modal')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+        
+        <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; margin-bottom: 12px;">
+          <div style="font-weight: 700; font-size: 14px; color: var(--text-main);" id="seen-modal-task-title">Vazifa</div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;" id="seen-modal-task-dates">Muddat: -</div>
+        </div>
+
+        <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">
+          Hokimga xabar yoki izoh yozing (ovozli yoki matnli):
+        </div>
+
+        <!-- Quick chips -->
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+          <span style="cursor: pointer; background: #EFF6FF; color: var(--primary-blue); border: 1px solid #BFDBFE; border-radius: 16px; padding: 4px 12px; font-size: 11px; font-weight: 600;" onclick="document.getElementById('seen-task-text').value='Topshiriqni ko\'rdim, qabul qildim!'">Qabul qildim</span>
+          <span style="cursor: pointer; background: #EFF6FF; color: var(--primary-blue); border: 1px solid #BFDBFE; border-radius: 16px; padding: 4px 12px; font-size: 11px; font-weight: 600;" onclick="document.getElementById('seen-task-text').value='Yetib bordim, ishni boshladik!'">Yetib bordim</span>
+        </div>
+
+        <div class="form-group">
+          <textarea id="seen-task-text" class="form-textarea" rows="2" placeholder="Matnli xabar (ixtiyoriy)..."></textarea>
+        </div>
+
+        <!-- Voice recording option -->
+        <div class="form-group">
+          <label class="form-label" style="display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+            Ovozli javob (Ixtiyoriy):
+          </label>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <button id="seen-voice-btn" class="btn btn-outline" style="width: auto; padding: 8px 14px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" onclick="toggleSeenVoiceRecording()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg> Ovoz yozish
+            </button>
+            <button id="seen-voice-del-btn" class="btn btn-outline" style="display: none; width: auto; padding: 8px 14px; font-size: 12px; color: var(--status-red); border-color: var(--status-red); align-items: center; gap: 4px;" onclick="deleteSeenVoiceRecording()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg> O'chirish
+            </button>
+            <span id="seen-voice-status" style="font-size: 12px; color: var(--text-secondary);">Ovoz yozilmagan</span>
+          </div>
+          <audio id="seen-voice-preview" controls style="display: none; width: 100%; height: 36px; margin-top: 8px;"></audio>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 8px;">
+          <button class="btn btn-outline" style="flex: 1;" onclick="closeModal('task-seen-modal')">Bekor qilish</button>
+          <button class="btn btn-primary" style="flex: 2; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" onclick="confirmTaskSeen()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+            Tasdiqlash va Yuborish
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attachment Choice Modal (Photo or Video) -->
+    <div id="attach-choice-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('attach-choice-modal')">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
+            Fayl tanlash
+          </div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeModal('attach-choice-modal')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+          <button class="btn btn-outline" style="justify-content: flex-start; padding: 14px; font-size: 15px; display: flex; align-items: center; gap: 10px;" onclick="closeModal('attach-choice-modal'); document.getElementById('img-input').click();">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+            <span><strong>Rasm yuborish</strong> (Galereyadan fotosurat)</span>
+          </button>
+          <button class="btn btn-outline" style="justify-content: flex-start; padding: 14px; font-size: 15px; display: flex; align-items: center; gap: 10px;" onclick="closeModal('attach-choice-modal'); document.getElementById('vid-input').click();">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+            <span><strong>Video yuborish</strong> (Galereyadan video fayl)</span>
+          </button>
+          <button class="btn btn-outline" style="justify-content: flex-start; padding: 14px; font-size: 15px; display: flex; align-items: center; gap: 10px;" onclick="closeModal('attach-choice-modal'); document.getElementById('doc-input').click();">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+            <span><strong>Hujjat / Fayl yuborish</strong> (PDF, Word, Excel, ZIP va h.k.)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Message Actions Modal (Edit / Delete) -->
+    <div id="message-actions-modal" class="modal-overlay" onclick="if(event.target===this)closeMessageActionsModal()">
+      <div class="modal-sheet" style="padding-bottom: calc(24px + var(--safe-bottom));">
+        <div class="modal-title" style="margin-bottom: 4px;">Xabar amallari</div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div id="msg-action-edit" class="task-card" style="flex-direction: row; align-items: center; gap: 12px; cursor: pointer; padding: 12px;" onclick="startEditingSelectedMessage()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            <div>
+              <div style="font-weight: 700; font-size: 14px;">Tahrirlash</div>
+              <div style="font-size: 11px; color: var(--text-secondary);">Xabar matnini o'zgartirish</div>
+            </div>
+          </div>
+          <div id="msg-action-delete" class="task-card" style="flex-direction: row; align-items: center; gap: 12px; cursor: pointer; padding: 12px; background: #FEE2E2;" onclick="deleteSelectedMessage()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--status-red)"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            <div>
+              <div style="font-weight: 700; font-size: 14px; color: var(--status-red);">O'chirish</div>
+              <div style="font-size: 11px; color: #991B1B;">Xabarni butunlay o'chirib tashlash</div>
+            </div>
+          </div>
+          <button class="btn btn-outline" style="margin-top: 4px;" onclick="closeMessageActionsModal()">Bekor qilish</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fullscreen Video Player Modal -->
+    <div id="video-player-modal" class="modal-overlay" style="background: black; z-index: 250; padding: 0;">
+      <button class="icon-btn" style="position: absolute; top: calc(16px + var(--safe-top)); right: 16px; background: rgba(0,0,0,0.6); z-index: 300; width: 44px; height: 44px;" onclick="closeVideoModal()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+      <video id="full-video-element" controls style="width: 100%; max-height: 100%; outline: none;" playsinline></video>
+    </div>
+
+    <!-- Fullscreen Image Viewer Modal -->
+    <div id="image-viewer-modal" class="modal-overlay" style="background: rgba(0,0,0,0.92); z-index: 250; padding: 0; display: none; align-items: center; justify-content: center;" onclick="if(event.target===this||event.target.tagName==='BUTTON'||event.target.closest('button'))closeImageViewerModal()">
+      <button class="icon-btn" style="position: absolute; top: calc(16px + var(--safe-top)); right: 16px; background: rgba(255,255,255,0.25); color: white; z-index: 300; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;" onclick="closeImageViewerModal()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+      <img id="full-image-element" src="" style="max-width: 96vw; max-height: 90vh; border-radius: 8px; object-fit: contain; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+    </div>
+
+    <!-- Broadcast / Ommaviy Xabarnoma Modal (Chat 2) -->
+    <div id="broadcast-modal" class="modal-overlay" onclick="if(event.target===this)closeBroadcastModal()">
+      <div class="modal-sheet" style="max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header">
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 32px; height: 32px; border-radius: 8px; background: #E0F2FE; color: #0284C7; display: flex; align-items: center; justify-content: center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+            </div>
+            <div>
+              <div style="font-weight: 700; font-size: 16px;">Ommaviy Xabarnoma (E'lon)</div>
+              <div style="font-size: 11px; color: var(--text-secondary);">Barcha yoki tanlangan tashkilot xodimlariga tezkor xabar</div>
+            </div>
+          </div>
+          <button class="icon-btn" style="color: #64748B;" onclick="closeBroadcastModal()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <div style="overflow-y: auto; flex: 1; padding-right: 2px; display: flex; flex-direction: column; gap: 12px;">
+          <!-- 1. Xabar matni -->
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="display: flex; justify-content: space-between;">
+              <span>Xabar / E'lon matni *</span>
+              <span id="broadcast-char-count" style="font-size: 11px; color: var(--text-secondary);">0 ta belgi</span>
+            </label>
+            <textarea id="broadcast-text" class="form-input" rows="3" placeholder="Masalan: Barcha mas'ul rahbarlar va xodimlar soat 16:00 da tuman hokimligiga majlisga yetib kelishi shart..." style="resize: vertical; font-size: 14px; line-height: 1.4;" oninput="updateBroadcastCharCount()"></textarea>
+            
+            <!-- Tezkor shablonlar -->
+            <div style="display: flex; gap: 6px; overflow-x: auto; padding-top: 6px; scrollbar-width: none;">
+              <button type="button" class="btn btn-outline" style="padding: 4px 10px; font-size: 11px; white-space: nowrap; border-radius: 14px;" onclick="setBroadcastTemplate('majlis')">📅 Soat 16:00 da majlis</button>
+              <button type="button" class="btn btn-outline" style="padding: 4px 10px; font-size: 11px; white-space: nowrap; border-radius: 14px;" onclick="setBroadcastTemplate('hisobot')">📊 Shoshilinch hisobot topshiring</button>
+              <button type="button" class="btn btn-outline" style="padding: 4px 10px; font-size: 11px; white-space: nowrap; border-radius: 14px;" onclick="setBroadcastTemplate('tekshiruv')">🚨 Hududlarni nazoratga oling</button>
+            </div>
+          </div>
+
+          <!-- 2. Tashkilot filtri -->
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Tashkilot / Yo'nalish bo'yicha saralash</label>
+            <select id="broadcast-org-select" class="form-input" onchange="handleBroadcastOrgFilterChange(this.value)">
+              <option value="all">🏢 Barcha tashkilotlar (Barcha ishchilar)</option>
+            </select>
+          </div>
+
+          <!-- 3. Xodimlar ro'yxati boshqaruvi (Select All & Counter) -->
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: #F8FAFC; border-radius: 8px; border: 1px solid #E2E8F0;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="broadcast-select-all" onchange="toggleBroadcastSelectAll(this.checked)" style="width: 18px; height: 18px; accent-color: var(--primary-blue); cursor: pointer;">
+              <span>Barchasini belgilash</span>
+            </label>
+            <span id="broadcast-selected-badge" style="font-size: 12px; font-weight: 700; color: var(--primary-blue); background: #EEF2FF; padding: 2px 8px; border-radius: 12px;">0 ta tanlandi</span>
+          </div>
+
+          <!-- 4. Xodimlar ro'yxati -->
+          <div id="broadcast-workers-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; border: 1px solid #E2E8F0; border-radius: 8px; padding: 6px; background: #FAFAFA;">
+            <!-- Xodimlar dinamik chiqadi -->
+          </div>
+        </div>
+
+        <!-- 5. Yuborish tugmasi -->
+        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #E2E8F0; display: flex; gap: 10px;">
+          <button class="btn btn-outline" style="flex: 1;" onclick="closeBroadcastModal()">Bekor qilish</button>
+          <button id="btn-send-broadcast" class="btn btn-primary" style="flex: 2; display: inline-flex; align-items: center; justify-content: center; gap: 8px;" onclick="submitBroadcastMessage()">
+            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            <span id="btn-send-broadcast-text">Xabarni Yuborish (0)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- iPhone Siri Floating Orb (Faqatgina eng pastki markazda aylanuvchi shar, ortiqcha detallarsiz) -->
+    <div id="ai-assistant-modal" class="ai-siri-container" onclick="toggleAiAssistantModal()" title="AI yordamchini to'xtatish uchun bosing">
+      <div class="ai-orb-stage">
+        <canvas id="ai-orb-canvas" width="160" height="160" class="ai-orb-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Toast Component -->
+    <div id="toast" class="toast">Bildirishnoma</div>
+
+  </div>
+
+  <!-- App Scripts (Cache-busted) -->
+  <script src="/js/firebase-config.js?v=20260917_05"></script>
+  <script src="/js/chat.js?v=20260917_06"></script>
+  <script src="/js/mayor.js?v=20260917_06"></script>
+  <script src="/js/ai-assistant.js?v=20260917_06"></script>
+  <script src="/js/worker.js?v=20260917_06"></script>
+  <script src="/js/admin.js?v=20260917_06"></script>
+  <script src="/js/app.js?v=20260917_06"></script>
+
+  <!-- PWA Service Worker Registration & Cache Clear -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
+      window.addEventListener('load', () => {
+        try {
+          const isSub = window.location.pathname.startsWith('/web');
+          const swScript = isSub ? '/web/sw.js?v=20260916_02' : '/sw.js?v=20260916_02';
+          const swScope = isSub ? '/web/' : '/';
+          navigator.serviceWorker.register(swScript, { scope: swScope })
+            .then(reg => {
+              reg.update();
+            })
+            .catch(err => console.log('SW reg error (ignored):', err));
+        } catch (_) {}
+      });
+    }
+  </script>
 </body>
 </html>

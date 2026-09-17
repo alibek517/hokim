@@ -44,45 +44,93 @@
 
     // Injected third-party / Chromium DevTools / web-vitals reportAllChanges startTime xatolarini to'liq bartaraf etish
     (function() {
-      // 1. PerformanceObserver himoyasi (web-vitals xatosining asosiy o'chog'i)
+      // 0. Xavfsiz PerformanceEntry obyekti va Proxy massiv o'rog'i
+      const fallbackEntry = Object.freeze({
+        startTime: 0,
+        duration: 0,
+        value: 0,
+        name: '',
+        entryType: '',
+        toJSON: function() { return {}; }
+      });
+
+      function makeSafeEntry(e) {
+        if (!e || typeof e !== 'object') return fallbackEntry;
+        if (typeof e.startTime !== 'number') e.startTime = 0;
+        if (typeof e.duration !== 'number') e.duration = 0;
+        if (typeof e.value !== 'number') e.value = 0;
+        if (typeof e.name !== 'string') e.name = '';
+        if (typeof e.entryType !== 'string') e.entryType = '';
+        return e;
+      }
+
+      function wrapSafeArray(arr) {
+        if (!Array.isArray(arr)) return arr;
+        for (let i = 0; i < arr.length; i++) {
+          if (arr[i]) makeSafeEntry(arr[i]);
+        }
+        return new Proxy(arr, {
+          get: function(target, prop, receiver) {
+            if (prop === '0' || prop === 0 || prop === '-1' || (typeof prop === 'string' && !isNaN(prop))) {
+              const val = Reflect.get(target, prop, receiver);
+              return val !== undefined ? val : fallbackEntry;
+            }
+            return Reflect.get(target, prop, receiver);
+          }
+        });
+      }
+
+      // 1. window.performance metodlarini himoyalash
+      if (typeof window !== 'undefined' && window.performance) {
+        try {
+          const origGet = window.performance.getEntries ? window.performance.getEntries.bind(window.performance) : null;
+          const origGetByType = window.performance.getEntriesByType ? window.performance.getEntriesByType.bind(window.performance) : null;
+          const origGetByName = window.performance.getEntriesByName ? window.performance.getEntriesByName.bind(window.performance) : null;
+
+          if (origGet) {
+            window.performance.getEntries = function() {
+              try { return wrapSafeArray(origGet()); } catch (_) { return wrapSafeArray([]); }
+            };
+          }
+          if (origGetByType) {
+            window.performance.getEntriesByType = function(t) {
+              try { return wrapSafeArray(origGetByType(t)); } catch (_) { return wrapSafeArray([]); }
+            };
+          }
+          if (origGetByName) {
+            window.performance.getEntriesByName = function(n, t) {
+              try { return wrapSafeArray(origGetByName(n, t)); } catch (_) { return wrapSafeArray([]); }
+            };
+          }
+        } catch (_) {}
+      }
+
+      // 2. PerformanceObserver himoyasi (web-vitals xatosining asosiy o'chog'i)
       if (typeof window !== 'undefined' && window.PerformanceObserver) {
         try {
           const OriginalPO = window.PerformanceObserver;
           window.PerformanceObserver = function(callback) {
             return new OriginalPO(function(list, observer) {
               try {
-                if (list && typeof list.getEntries === 'function') {
-                  const rawGet = list.getEntries.bind(list);
-                  list.getEntries = function() {
-                    try {
-                      const arr = rawGet();
-                      return Array.isArray(arr) ? arr.filter(function(x) { return x && x.startTime !== undefined; }) : arr;
-                    } catch (_) {
-                      return [];
-                    }
-                  };
-                }
-                if (list && typeof list.getEntriesByType === 'function') {
-                  const rawGetByType = list.getEntriesByType.bind(list);
-                  list.getEntriesByType = function(type) {
-                    try {
-                      const arr = rawGetByType(type);
-                      return Array.isArray(arr) ? arr.filter(function(x) { return x && x.startTime !== undefined; }) : arr;
-                    } catch (_) {
-                      return [];
-                    }
-                  };
-                }
-                if (list && typeof list.getEntriesByName === 'function') {
-                  const rawGetByName = list.getEntriesByName.bind(list);
-                  list.getEntriesByName = function(name, type) {
-                    try {
-                      const arr = rawGetByName(name, type);
-                      return Array.isArray(arr) ? arr.filter(function(x) { return x && x.startTime !== undefined; }) : arr;
-                    } catch (_) {
-                      return [];
-                    }
-                  };
+                if (list) {
+                  if (typeof list.getEntries === 'function') {
+                    const rawGet = list.getEntries.bind(list);
+                    list.getEntries = function() {
+                      try { return wrapSafeArray(rawGet()); } catch (_) { return wrapSafeArray([]); }
+                    };
+                  }
+                  if (typeof list.getEntriesByType === 'function') {
+                    const rawGetByType = list.getEntriesByType.bind(list);
+                    list.getEntriesByType = function(type) {
+                      try { return wrapSafeArray(rawGetByType(type)); } catch (_) { return wrapSafeArray([]); }
+                    };
+                  }
+                  if (typeof list.getEntriesByName === 'function') {
+                    const rawGetByName = list.getEntriesByName.bind(list);
+                    list.getEntriesByName = function(name, type) {
+                      try { return wrapSafeArray(rawGetByName(name, type)); } catch (_) { return wrapSafeArray([]); }
+                    };
+                  }
                 }
                 return callback.call(this, list, observer);
               } catch (err) {
@@ -96,10 +144,80 @@
           };
           window.PerformanceObserver.prototype = OriginalPO.prototype;
           window.PerformanceObserver.supportedEntryTypes = OriginalPO.supportedEntryTypes;
+
+          if (OriginalPO.prototype && OriginalPO.prototype.takeRecords) {
+            const origTakeRecords = OriginalPO.prototype.takeRecords;
+            OriginalPO.prototype.takeRecords = function() {
+              try { return wrapSafeArray(origTakeRecords.apply(this, arguments)); } catch (_) { return wrapSafeArray([]); }
+            };
+          }
         } catch (_) {}
       }
 
-      // 2. EventTarget addEventListener himoyasi
+      // 3. Timerlar himoyasi (setTimeout, setInterval, requestAnimationFrame)
+      if (typeof window !== 'undefined') {
+        try {
+          const origST = window.setTimeout;
+          window.setTimeout = function(fn, delay, ...args) {
+            if (typeof fn === 'function') {
+              const wrapped = function() {
+                try {
+                  return fn.apply(this, args);
+                } catch (err) {
+                  const msg = String(err && (err.message || err.stack || err) || '');
+                  if (msg.includes('startTime') || msg.includes('reportAllChanges') || msg.includes('_leaflet_pos')) {
+                    return;
+                  }
+                  throw err;
+                }
+              };
+              return origST.call(window, wrapped, delay);
+            }
+            return origST.apply(window, arguments);
+          };
+
+          const origSI = window.setInterval;
+          window.setInterval = function(fn, delay, ...args) {
+            if (typeof fn === 'function') {
+              const wrapped = function() {
+                try {
+                  return fn.apply(this, args);
+                } catch (err) {
+                  const msg = String(err && (err.message || err.stack || err) || '');
+                  if (msg.includes('startTime') || msg.includes('reportAllChanges') || msg.includes('_leaflet_pos')) {
+                    return;
+                  }
+                  throw err;
+                }
+              };
+              return origSI.call(window, wrapped, delay);
+            }
+            return origSI.apply(window, arguments);
+          };
+
+          if (window.requestAnimationFrame) {
+            const origRAF = window.requestAnimationFrame;
+            window.requestAnimationFrame = function(cb) {
+              if (typeof cb === 'function') {
+                return origRAF.call(window, function(ts) {
+                  try {
+                    return cb(ts);
+                  } catch (err) {
+                    const msg = String(err && (err.message || err.stack || err) || '');
+                    if (msg.includes('startTime') || msg.includes('reportAllChanges') || msg.includes('_leaflet_pos')) {
+                      return;
+                    }
+                    throw err;
+                  }
+                });
+              }
+              return origRAF.apply(window, arguments);
+            };
+          }
+        } catch (_) {}
+      }
+
+      // 4. EventTarget addEventListener himoyasi
       if (typeof EventTarget !== 'undefined' && EventTarget.prototype && EventTarget.prototype.addEventListener) {
         try {
           const origAdd = EventTarget.prototype.addEventListener;
@@ -123,7 +241,7 @@
         } catch (_) {}
       }
 
-      // 3. console.error filtrlash
+      // 5. console.error filtrlash
       if (typeof console !== 'undefined' && console.error) {
         const origErr = console.error;
         console.error = function(...args) {
@@ -135,17 +253,17 @@
         };
       }
 
-      // 4. Global window.onerror
+      // 6. Global window.onerror
       window.onerror = function(message, source, lineno, colno, error) {
         const msgStr = String(message || '');
         const stackStr = String(error && error.stack || '');
-        if (msgStr.includes("reading 'startTime'") || msgStr.includes('startTime') || msgStr.includes('reportAllChanges') || msgStr.includes('_leaflet_pos')) {
+        if (msgStr.includes("reading 'startTime'") || msgStr.includes('startTime') || msgStr.includes('reportAllChanges') || msgStr.includes('_leaflet_pos') || stackStr.includes('startTime') || stackStr.includes('reportAllChanges') || stackStr.includes('_leaflet_pos')) {
           return true; // Suppress from console
         }
         return false;
       };
 
-      // 5. Global error va unhandledrejection tinglovchilari
+      // 7. Global error va unhandledrejection tinglovchilari
       window.addEventListener('error', function(e) {
         const msg = String(e && e.message || '');
         const errStr = String(e && e.error && (e.error.message || e.error.stack) || '');
