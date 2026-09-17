@@ -50,14 +50,29 @@ function clearMayorWorkerSearch() {
   renderMayorWorkers();
 }
 
-// --- MEDIA ATTACHMENT HELPERS (RASM VA VIDEO YUKLASH) ---
+// --- MEDIA ATTACHMENT HELPERS (RASM, VIDEO VA HAR QANDAY FAYLLAR YUKLASH) ---
 let createTaskMediaList = [];
 let editTaskMediaList = [];
 let createSchedMediaList = [];
 let editSchedMediaList = [];
 
+function getFileBadgeInfo(fileName) {
+  const ext = (fileName || '').split('.').pop().toLowerCase();
+  let color = '#2563EB'; // default blue
+  let label = ext.toUpperCase() || 'FILE';
+  if (['pdf'].includes(ext)) { color = '#DC2626'; label = 'PDF'; }
+  else if (['xls', 'xlsx', 'csv'].includes(ext)) { color = '#16A34A'; label = ext.toUpperCase(); }
+  else if (['doc', 'docx'].includes(ext)) { color = '#2563EB'; label = ext.toUpperCase(); }
+  else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) { color = '#D97706'; label = ext.toUpperCase(); }
+  else if (['ppt', 'pptx'].includes(ext)) { color = '#EA580C'; label = ext.toUpperCase(); }
+  else if (['txt', 'rtf', 'md'].includes(ext)) { color = '#475569'; label = ext.toUpperCase(); }
+  return { ext, color, label };
+}
+window.getFileBadgeInfo = getFileBadgeInfo;
+
 async function processMediaFile(file) {
-  const isVideo = file.type.startsWith('video');
+  const isVideo = (file.type && file.type.startsWith('video')) || /\.(mp4|mov|avi|3gp|m4v|webm|mkv)$/i.test(file.name || '');
+  const isImage = (file.type && file.type.startsWith('image')) || /\.(jpe?g|png|gif|webp|bmp|heic|heif|svg)$/i.test(file.name || '');
   const localPreviewUrl = URL.createObjectURL(file);
 
   if (isVideo) {
@@ -105,6 +120,7 @@ async function processMediaFile(file) {
           type: 'VIDEO',
           base64: result,
           url: null,
+          mediaPath: null,
           name: file.name,
           size: videoFile.size
         });
@@ -112,7 +128,7 @@ async function processMediaFile(file) {
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(videoFile);
     });
-  } else {
+  } else if (isImage) {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -130,12 +146,57 @@ async function processMediaFile(file) {
           const dataUrl = c.toDataURL('image/jpeg', 0.82);
           resolve({
             id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-            type: 'IMAGE', base64: dataUrl, url: null,
-            name: file.name, size: dataUrl.length
+            type: 'IMAGE',
+            base64: dataUrl,
+            url: null,
+            mediaPath: null,
+            name: file.name,
+            size: dataUrl.length
           });
         };
         img.onerror = () => resolve(null);
         img.src = e.target.result;
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  } else {
+    // Har xil hujjatlar va fayllar (PDF, Excel, Word, ZIP va h.k.)
+    if (file.size > 2 * 1024 * 1024 && typeof saveMediaToFirebaseChunks === 'function') {
+      try {
+        if (typeof showToast === 'function') showToast('Fayl yuklanmoqda...');
+        const chunkRes = await saveMediaToFirebaseChunks(file, (p) => {
+          if (p % 25 === 0 && typeof showToast === 'function') showToast(`Fayl: ${p}%`);
+        });
+        return {
+          id: 'file_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          type: 'FILE',
+          mimeType: file.type || 'application/octet-stream',
+          base64: null,
+          url: 'chunk:' + chunkRes.mediaId,
+          mediaPath: 'chunk:' + chunkRes.mediaId,
+          name: file.name,
+          size: file.size,
+          isChunked: true
+        };
+      } catch (chunkErr) {
+        console.warn('Chunk file upload failed, falling back to base64:', chunkErr);
+      }
+    }
+
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        resolve({
+          id: 'file_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          type: 'FILE',
+          mimeType: file.type || 'application/octet-stream',
+          base64: e.target.result,
+          url: null,
+          mediaPath: null,
+          name: file.name,
+          size: file.size
+        });
       };
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(file);
@@ -218,7 +279,19 @@ function renderModalMediaPreviews(mediaList, containerId, removeFnName) {
   }
   container.style.display = 'flex';
   container.innerHTML = mediaList.map((m, idx) => {
-    const isVid = m.type === 'VIDEO';
+    const isVid = (m.type || '').toUpperCase() === 'VIDEO';
+    const isFile = (m.type || '').toUpperCase() === 'FILE';
+    if (isFile) {
+      const info = getFileBadgeInfo(m.name);
+      return `
+        <div class="modal-media-item" style="background: #F8FAFC; border: 1px solid #CBD5E1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px; text-align: center; border-radius: 8px;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="${info.color}"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+          <div style="font-size: 10px; font-weight: 700; color: #1E293B; max-width: 68px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">${escapeHtml(m.name || 'fayl')}</div>
+          <div class="modal-media-badge" style="background: ${info.color}; font-size: 9px; position: static; margin-top: 2px;">${info.label}</div>
+          <button type="button" class="modal-media-remove-btn" onclick="${removeFnName}(${idx})" title="O'chirish">✕</button>
+        </div>
+      `;
+    }
     // m.url = Firebase Storage URL; m.base64 = local preview/objectURL/base64
     const src = m.url || (m.base64 && m.base64.startsWith('data:') ? m.base64 : ('data:' + (isVid ? 'video/mp4' : 'image/jpeg') + ';base64,' + m.base64));
     return `
@@ -230,6 +303,40 @@ function renderModalMediaPreviews(mediaList, containerId, removeFnName) {
   }).join('');
 }
 
+async function downloadAttachedFile(src, filename = 'fayl', mimeType = 'application/octet-stream') {
+  if (!src) {
+    if (typeof showToast === 'function') showToast('Fayl topilmadi');
+    return;
+  }
+  let finalSrc = src;
+  if (src.startsWith('chunk:')) {
+    const mediaId = src.replace('chunk:', '');
+    if (typeof showToast === 'function') showToast('Fayl yuklab olinmoqda...');
+    if (typeof loadChunkedMedia === 'function') {
+      finalSrc = await loadChunkedMedia(mediaId, mimeType);
+    }
+  }
+
+  if (!finalSrc) {
+    if (typeof showToast === 'function') showToast('Faylni yuklashda xatolik yuz berdi');
+    return;
+  }
+
+  try {
+    const a = document.createElement('a');
+    a.href = finalSrc;
+    a.download = filename || 'hujjat';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    if (typeof showToast === 'function') showToast('Fayl yuklab olindi ✓');
+  } catch (err) {
+    console.error('Download error:', err);
+    window.open(finalSrc, '_blank');
+  }
+}
+window.downloadAttachedFile = downloadAttachedFile;
+
 function renderCardMediaGallery(mediaList) {
   const list = Array.isArray(mediaList) ? mediaList : (mediaList ? Object.values(mediaList) : []);
   if (list.length === 0) return '';
@@ -238,9 +345,10 @@ function renderCardMediaGallery(mediaList) {
       ${list.map((m) => {
         if (!m) return '';
         const isVid = (m.type || '').toUpperCase() === 'VIDEO' || /\.(mp4|mov|avi|3gp|m4v|webm)$/i.test(m.name || m.url || m.mediaPath || '');
+        const isFile = (m.type || '').toUpperCase() === 'FILE' || (!isVid && /\.(pdf|docx?|xlsx?|csv|zip|rar|7z|txt|pptx?)$/i.test(m.name || ''));
         let src = m.url || m.mediaPath || '';
         if (!src && m.base64 && typeof m.base64 === 'string') {
-          src = m.base64.startsWith('data:') ? m.base64 : ('data:' + (isVid ? 'video/mp4' : 'image/jpeg') + ';base64,' + m.base64);
+          src = m.base64.startsWith('data:') ? m.base64 : ('data:' + (isVid ? 'video/mp4' : (isFile ? (m.mimeType || 'application/octet-stream') : 'image/jpeg')) + ';base64,' + m.base64);
         }
         if (isVid) {
           const isChunk = typeof src === 'string' && src.startsWith('chunk:');
@@ -258,6 +366,18 @@ function renderCardMediaGallery(mediaList) {
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
               </div>
               <div class="modal-media-badge" style="bottom: 3px; left: 3px;">Video</div>
+            </div>
+          `;
+        } else if (isFile) {
+          const info = getFileBadgeInfo(m.name);
+          const safeName = (m.name || 'fayl').replace(/'/g, "\\'");
+          const safeMime = (m.mimeType || '').replace(/'/g, "\\'");
+          return `
+            <div class="task-card-media-item" onclick="downloadAttachedFile('${src}', '${safeName}', '${safeMime}')" title="Faylni yuklab olish (${escapeHtml(m.name || 'fayl')})" style="background: #F8FAFC; border: 1px solid #CBD5E1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px; cursor: pointer; text-align: center; border-radius: 8px;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="${info.color}"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+              <div style="font-size: 10px; font-weight: 600; color: #1E293B; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px;">${escapeHtml(m.name || 'Fayl')}</div>
+              <div style="font-size: 9px; color: #64748B; margin-top: 1px;">Yuklab olish ⬇</div>
+              <div class="modal-media-badge" style="bottom: 3px; left: 3px; background: ${info.color}; font-size: 8px;">${info.label}</div>
             </div>
           `;
         } else {
@@ -581,7 +701,7 @@ function renderMayorTasks() {
             <div style="margin-top: 6px;">
               <div style="font-size: 11.5px; font-weight: 600; color: #15803D; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
-                Yuborilgan foto va video dalillar (${completionMedia.length} ta):
+                Biriktirilgan dalillar va fayllar (${completionMedia.length} ta):
               </div>
               ${renderCardMediaGallery(completionMedia)}
             </div>

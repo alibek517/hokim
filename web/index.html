@@ -19,7 +19,7 @@
   <script>
     // Eski keshni avtomatik tozalash
     (function() {
-      const APP_VER = '20260917_05';
+      const APP_VER = '20260917_06';
       if (localStorage.getItem('ijro_sw_ver') !== APP_VER) {
         localStorage.setItem('ijro_sw_ver', APP_VER);
         if ('caches' in window) {
@@ -372,6 +372,7 @@
           </button>
           <input type="file" id="img-input" accept="image/*" style="display: none;" onchange="handleImagePicked(event)">
           <input type="file" id="vid-input" accept="video/*" style="display: none;" onchange="handleVideoPicked(event)">
+          <input type="file" id="doc-input" accept="*/*" style="display: none;" onchange="handleDocumentPicked(event)">
 
           <textarea id="chat-text-input" class="chat-input" placeholder="Xabar yozing..." rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendChatMessage();}"></textarea>
 
@@ -455,16 +456,16 @@
           </div>
         </div>
 
-        <!-- Rasm va Video yuklash (Ixtiyoriy) -->
+        <!-- Rasm, Video va Fayllar yuklash (Ixtiyoriy) -->
         <div class="form-group" style="margin-top: 4px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <label class="form-label" style="margin-bottom: 0;">Rasm va Videolar (Ixtiyoriy)</label>
+            <label class="form-label" style="margin-bottom: 0;">Rasm, Video va Fayllar (Ixtiyoriy)</label>
             <button type="button" class="btn-media-attach" onclick="document.getElementById('create-task-media-input').click()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
-              Rasm / Video qo'shish
+              Rasm / Video / Fayl qo'shish
             </button>
           </div>
-          <input type="file" id="create-task-media-input" accept="image/*,video/*" multiple style="display: none;" onchange="handleCreateTaskMediaPicked(event)">
+          <input type="file" id="create-task-media-input" accept="*/*" multiple style="display: none;" onchange="handleCreateTaskMediaPicked(event)">
           <div id="create-task-media-preview" class="modal-media-preview-strip" style="display: none;"></div>
         </div>
 
@@ -503,16 +504,16 @@
           </div>
         </div>
 
-        <!-- Tahrirlashda Rasm va Video yuklash -->
+        <!-- Tahrirlashda Rasm, Video va Fayllar yuklash -->
         <div class="form-group" style="margin-top: 4px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <label class="form-label" style="margin-bottom: 0;">Rasm va Videolar (Ixtiyoriy)</label>
+            <label class="form-label" style="margin-bottom: 0;">Rasm, Video va Fayllar (Ixtiyoriy)</label>
             <button type="button" class="btn-media-attach" onclick="document.getElementById('edit-task-media-input').click()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
-              Rasm / Video qo'shish
+              Rasm / Video / Fayl qo'shish
             </button>
           </div>
-          <input type="file" id="edit-task-media-input" accept="image/*,video/*" multiple style="display: none;" onchange="handleEditTaskMediaPicked(event)">
+          <input type="file" id="edit-task-media-input" accept="*/*" multiple style="display: none;" onchange="handleEditTaskMediaPicked(event)">
           <div id="edit-task-media-preview" class="modal-media-preview-strip" style="display: none;"></div>
         </div>
 
@@ -563,16 +564,16 @@
           <input type="datetime-local" id="new-schedule-time" class="form-input">
         </div>
 
-        <!-- Rejaga Rasm va Video yuklash (Ixtiyoriy) -->
+        <!-- Rejaga Rasm, Video va Fayllar yuklash (Ixtiyoriy) -->
         <div class="form-group" style="margin-top: 4px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <label class="form-label" style="margin-bottom: 0;">Rasm va Videolar (Ixtiyoriy)</label>
+            <label class="form-label" style="margin-bottom: 0;">Rasm, Video va Fayllar (Ixtiyoriy)</label>
             <button type="button" class="btn-media-attach" onclick="document.getElementById('create-sched-media-input').click()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
-              Rasm / Video qo'shish
+              Rasm / Video / Fayl qo'shish
             </button>
           </div>
-          <input type="file" id="create-sched-media-input" accept="image/*,video/*" multiple style="display: none;" onchange="handleCreateSchedMediaPicked(event)">
+          <input type="file" id="create-sched-media-input" accept="*/*" multiple style="display: none;" onchange="handleCreateSchedMediaPicked(event)">
           <div id="create-sched-media-preview" class="modal-media-preview-strip" style="display: none;"></div>
         </div>
 
@@ -615,16 +616,16 @@
           </div>
         </div>
 
-        <!-- Tahrirlashda Rejaga Rasm va Video yuklash -->
+        <!-- Tahrirlashda Rejaga Rasm, Video va Fayllar yuklash -->
         <div class="form-group" style="margin-top: 4px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <label class="form-label" style="margin-bottom: 0;">Rasm va Videolar (Ixtiyoriy)</label>
+            <label class="form-label" style="margin-bottom: 0;">Rasm, Video va Fayllar (Ixtiyoriy)</label>
             <button type="button" class="btn-media-attach" onclick="document.getElementById('edit-sched-media-input').click()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
-              Rasm / Video qo'shish
+              Rasm / Video / Fayl qo'shish
             </button>
           </div>
-          <input type="file" id="edit-sched-media-input" accept="image/*,video/*" multiple style="display: none;" onchange="handleEditSchedMediaPicked(event)">
+          <input type="file" id="edit-sched-media-input" accept="*/*" multiple style="display: none;" onchange="handleEditSchedMediaPicked(event)">
           <div id="edit-sched-media-preview" class="modal-media-preview-strip" style="display: none;"></div>
         </div>
 
@@ -792,16 +793,16 @@
           <textarea id="complete-task-note" class="form-textarea" rows="4" placeholder="Masalan: Chuqurlar to'liq tekislanib yangi asfalt qoplamasi yotqizildi, obodonlashtirildi va topshirishga tayyor holga keltirildi..."></textarea>
         </div>
 
-        <!-- Bajarilgan ish rasmlari / videosi (Ixtiyoriy) -->
+        <!-- Bajarilgan ish rasmlari, videolari va fayllari (Ixtiyoriy) -->
         <div class="form-group" style="margin-top: 4px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <label class="form-label" style="margin-bottom: 0;">Bajarilgan ish fotosuratlari / videosi (Ixtiyoriy)</label>
+            <label class="form-label" style="margin-bottom: 0;">Bajarilgan ish fotosuratlari, videolari va fayllari (Ixtiyoriy)</label>
             <button type="button" class="btn-media-attach" onclick="document.getElementById('worker-complete-media-input').click()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
-              Rasm / Video biriktirish
+              Rasm / Video / Fayl biriktirish
             </button>
           </div>
-          <input type="file" id="worker-complete-media-input" accept="image/*,video/*" multiple style="display: none;" onchange="handleWorkerCompleteMediaPicked(event)">
+          <input type="file" id="worker-complete-media-input" accept="*/*" multiple style="display: none;" onchange="handleWorkerCompleteMediaPicked(event)">
           <div id="worker-complete-media-preview" class="modal-media-preview-strip" style="display: none;"></div>
         </div>
 
@@ -888,6 +889,10 @@
           <button class="btn btn-outline" style="justify-content: flex-start; padding: 14px; font-size: 15px; display: flex; align-items: center; gap: 10px;" onclick="closeModal('attach-choice-modal'); document.getElementById('vid-input').click();">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
             <span><strong>Video yuborish</strong> (Galereyadan video fayl)</span>
+          </button>
+          <button class="btn btn-outline" style="justify-content: flex-start; padding: 14px; font-size: 15px; display: flex; align-items: center; gap: 10px;" onclick="closeModal('attach-choice-modal'); document.getElementById('doc-input').click();">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--primary-blue)"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+            <span><strong>Hujjat / Fayl yuborish</strong> (PDF, Word, Excel, ZIP va h.k.)</span>
           </button>
         </div>
       </div>
@@ -1012,12 +1017,12 @@
 
   <!-- App Scripts (Cache-busted) -->
   <script src="/js/firebase-config.js?v=20260917_05"></script>
-  <script src="/js/chat.js?v=20260917_05"></script>
-  <script src="/js/mayor.js?v=20260917_05"></script>
-  <script src="/js/ai-assistant.js?v=20260917_05"></script>
-  <script src="/js/worker.js?v=20260917_05"></script>
-  <script src="/js/admin.js?v=20260917_05"></script>
-  <script src="/js/app.js?v=20260917_05"></script>
+  <script src="/js/chat.js?v=20260917_06"></script>
+  <script src="/js/mayor.js?v=20260917_06"></script>
+  <script src="/js/ai-assistant.js?v=20260917_06"></script>
+  <script src="/js/worker.js?v=20260917_06"></script>
+  <script src="/js/admin.js?v=20260917_06"></script>
+  <script src="/js/app.js?v=20260917_06"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>

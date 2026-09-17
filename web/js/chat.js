@@ -105,6 +105,24 @@ function renderChatMessages() {
         '<button class="icon-btn" style="background: #2563EB; color: white; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;" onclick="playAudio(\'' + src + '\', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>' +
         '<div><div style="font-weight: bold; font-size: 13px; display: flex; align-items: center; gap: 4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="#2563EB"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>Ovozli xabar</div>' +
         '<div style="font-size: 11px; color: #2563EB;">' + (m.audioDurationSec || 3) + ' sek</div></div></div>';
+    } else if (m.messageType === 'FILE' || m.messageType === 'DOCUMENT') {
+      const fileName = m.fileName || m.name || m.textContent || 'Fayl';
+      const safeName = fileName.replace(/'/g, "\\'");
+      const mimeType = m.mimeType || 'application/octet-stream';
+      const safeMime = mimeType.replace(/'/g, "\\'");
+      const src = m.mediaBase64 ? ('data:' + mimeType + ';base64,' + m.mediaBase64) : (m.mediaPath || '');
+      const info = typeof getFileBadgeInfo === 'function' ? getFileBadgeInfo(fileName) : { color: '#2563EB', label: 'FILE' };
+      const sizeStr = formatBytes(m.fileSize || m.size || 0);
+
+      contentHtml = '<div style="background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.18); border-radius: 10px; padding: 8px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 180px; max-width: 260px;" onclick="event.stopPropagation(); downloadChatFile(\'' + src + '\', \'' + safeName + '\', \'' + safeMime + '\')" title="Yuklab olish uchun bosing">' +
+        '<div style="width: 38px; height: 38px; border-radius: 8px; background: ' + info.color + '; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; flex-shrink: 0;">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>' +
+        '<span style="font-size: 8px; font-weight: 800; text-transform: uppercase; line-height: 1;">' + info.label + '</span>' +
+        '</div>' +
+        '<div style="flex: 1; min-width: 0;">' +
+        '<div style="font-weight: 700; font-size: 13px; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + escapeHtml(fileName) + '</div>' +
+        '<div style="font-size: 11px; color: #64748B; margin-top: 1px;">' + sizeStr + ' • Yuklab olish ⬇</div>' +
+        '</div></div>';
     } else {
       contentHtml = '<div>' + escapeHtml(m.textContent || '') + '</div>';
     }
@@ -396,6 +414,100 @@ async function handleVideoPicked(e) {
     showToast('Xatolik: video yuborilmadi. ' + (err.message || ''));
   }
 }
+
+function formatBytes(bytes, decimals = 1) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + (sizes[i] || 'MB');
+}
+window.formatBytes = formatBytes;
+
+async function downloadChatFile(src, filename = 'fayl', mimeType = 'application/octet-stream') {
+  if (!src) {
+    if (typeof showToast === 'function') showToast('Fayl topilmadi');
+    return;
+  }
+  let finalSrc = src;
+  if (src.startsWith('chunk:')) {
+    const mediaId = src.replace('chunk:', '');
+    if (typeof showToast === 'function') showToast('Fayl yuklab olinmoqda...');
+    if (typeof loadChunkedMedia === 'function') {
+      finalSrc = await loadChunkedMedia(mediaId, mimeType);
+    }
+  }
+
+  if (!finalSrc) {
+    if (typeof showToast === 'function') showToast('Faylni yuklashda xatolik yuz berdi');
+    return;
+  }
+
+  try {
+    const a = document.createElement('a');
+    a.href = finalSrc;
+    a.download = filename || 'fayl';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    if (typeof showToast === 'function') showToast('Fayl yuklab olindi ✓');
+  } catch (err) {
+    console.error('Download error:', err);
+    window.open(finalSrc, '_blank');
+  }
+}
+window.downloadChatFile = downloadChatFile;
+
+async function handleDocumentPicked(e) {
+  const file = e.target.files[0];
+  if (!file || !activeChatPeer || !window.store.currentUser) return;
+  e.target.value = '';
+
+  showToast('Fayl yuklanmoqda...');
+  try {
+    let mediaPath = null;
+    let mediaBase64 = null;
+
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('Katta fayl yuklanmoqda...');
+      const chunkRes = await saveMediaToFirebaseChunks(file, (p) => {
+        if (p % 25 === 0) showToast(`Fayl yuklanmoqda: ${p}%`);
+      });
+      mediaPath = 'chunk:' + chunkRes.mediaId;
+    } else {
+      mediaBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    const msg = {
+      id: 'msg_doc_' + Date.now(),
+      senderId: window.store.currentUser.id,
+      receiverId: activeChatPeer.id,
+      senderName: window.store.currentUser.fullName || window.store.currentUser.firstName,
+      messageType: 'FILE',
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type || 'application/octet-stream',
+      mediaPath: mediaPath,
+      mediaBase64: mediaBase64,
+      textContent: file.name,
+      timestamp: Date.now(),
+      isRead: false
+    };
+    await window.dbApi.sendMessage(msg);
+    if (typeof playNotificationSound === 'function') playNotificationSound('send');
+    showToast('Fayl yuborildi ✓');
+  } catch (err) {
+    console.error('Fayl yuborishda xatolik:', err);
+    showToast('Xatolik: fayl yuborilmadi. ' + (err.message || ''));
+  }
+}
+window.handleDocumentPicked = handleDocumentPicked;
 
 function openAttachChoiceModal() {
   const modal = document.getElementById('attach-choice-modal');

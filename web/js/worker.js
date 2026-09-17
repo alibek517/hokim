@@ -351,7 +351,7 @@ function renderWorkerTasks() {
             <div style="margin-top: 6px;">
               <div style="font-size: 11.5px; font-weight: 600; color: #15803D; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
-                Yuborilgan foto va video dalillar (${completionMedia.length} ta):
+                Biriktirilgan dalillar va fayllar (${completionMedia.length} ta):
               </div>
               ${window.renderCardMediaGallery ? window.renderCardMediaGallery(completionMedia) : ''}
             </div>
@@ -489,9 +489,15 @@ async function confirmWorkerComplete() {
   // Clean media items to ensure no temporary blob URLs are written to base64 in database
   const cleanMediaList = workerCompleteMediaList.map(m => {
     const isVid = (m.type || '').toUpperCase() === 'VIDEO' || /\.(mp4|mov|avi|3gp|m4v|webm)$/i.test(m.name || m.url || m.mediaPath || '');
+    const isFile = (m.type || '').toUpperCase() === 'FILE' || (!isVid && /\.(pdf|docx?|xlsx?|csv|zip|rar|7z|txt|pptx?)$/i.test(m.name || ''));
+    let itemType = 'IMAGE';
+    if (isVid) itemType = 'VIDEO';
+    else if (isFile) itemType = 'FILE';
+
     return {
       id: m.id || ('med_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)),
-      type: isVid ? 'VIDEO' : 'IMAGE',
+      type: itemType,
+      mimeType: m.mimeType || (isVid ? 'video/mp4' : (isFile ? 'application/octet-stream' : 'image/jpeg')),
       base64: (m.url || m.mediaPath) ? null : (m.base64 || null),
       url: m.url || null,
       mediaPath: m.url || m.mediaPath || null,
@@ -548,15 +554,21 @@ async function confirmWorkerComplete() {
     // Send attached completion media as messages too
     for (const m of cleanMediaList) {
       const isVid = m.type === 'VIDEO';
+      const isFile = m.type === 'FILE';
+      const msgType = isVid ? 'VIDEO' : (isFile ? 'FILE' : 'IMAGE');
+
       const mediaMsg = {
         id: 'msg_media_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
         senderId: worker.id,
         receiverId: mayor.id,
         senderName: worker.fullName || worker.firstName,
-        messageType: isVid ? 'VIDEO' : 'IMAGE',
+        messageType: msgType,
+        fileName: m.name || (isFile ? 'Fayl' : ''),
+        fileSize: m.size || 0,
+        mimeType: m.mimeType || (isFile ? 'application/octet-stream' : (isVid ? 'video/mp4' : 'image/jpeg')),
         mediaPath: m.url || m.mediaPath || null,
         mediaBase64: (m.url || m.mediaPath) ? null : (m.base64 && m.base64.startsWith('data:') ? m.base64.split(',')[1] : m.base64),
-        textContent: `Topshiriq hisoboti: ${task?.title || ''}`,
+        textContent: isFile ? (m.name || 'Fayl') : `Topshiriq hisoboti: ${task?.title || ''}`,
         timestamp: Date.now(),
         isRead: false
       };
