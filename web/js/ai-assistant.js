@@ -10,6 +10,7 @@
   let isTemporarilyPausedForTts = false;
   let ignoreSpeechUntil = 0;
   let currentSpeakingText = '';
+  let lastAiSpokenTexts = [];
   let recognition = null;
   let lastHeartbeatTime = Date.now();
   let aiState = 'IDLE'; // 'IDLE' | 'DRAFTING_TASK' | 'CONFIRMING_TASK' | 'DISAMBIGUATING_WORKER' | 'CONFIRMING_DELETE_TASK' | 'DISAMBIGUATING_DELETE_TASK' | 'CONFIRMING_BROADCAST' | 'DRAFTING_SCHEDULE' | 'CONFIRMING_SCHEDULE' | 'DRAFTING_WORKER' | 'CONFIRMING_WORKER'
@@ -18,6 +19,20 @@
   let pendingDeleteTasks = [];
   let pendingDeleteSingleTask = null;
   let pendingBroadcastData = null;
+
+  function recordAiSpokenText(text) {
+    if (!text) return;
+    const clean = normalizeUzbekSpeech(text);
+    if (!clean) return;
+    lastAiSpokenTexts.push(clean);
+    clean.split(/[.,!?;:]+/).forEach(part => {
+      const p = part.trim();
+      if (p.length > 3) lastAiSpokenTexts.push(p);
+    });
+    if (lastAiSpokenTexts.length > 25) {
+      lastAiSpokenTexts = lastAiSpokenTexts.slice(-25);
+    }
+  }
 
   // Device & Platform Detection
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
@@ -67,7 +82,10 @@
       try {
         activeAudioPlayer.pause();
         activeAudioPlayer.currentTime = 0;
-        activeAudioPlayer.src = '';
+        if (activeAudioPlayer.src && activeAudioPlayer.src.startsWith('blob:')) {
+          URL.revokeObjectURL(activeAudioPlayer.src);
+        }
+        activeAudioPlayer.removeAttribute('src');
       } catch (_) {}
       activeAudioPlayer = null;
     }
@@ -78,31 +96,72 @@
     }
     isSpeaking = false;
     isTemporarilyPausedForTts = false;
-    ignoreSpeechUntil = 0;
+    ignoreSpeechUntil = Date.now() + 350;
     currentSpeakingText = '';
-    updateAiStatus('listening', 'Eshitmoqda...');
+    speechAccumulatedChunks = [];
+    lastInterimText = '';
+    if (speechSilenceTimer) {
+      clearTimeout(speechSilenceTimer);
+      speechSilenceTimer = null;
+    }
+    if (shouldKeepListening) {
+      updateAiStatus('listening', 'Eshitmoqda...');
+      setTimeout(() => {
+        if (shouldKeepListening && !isSpeaking && !isTemporarilyPausedForTts) {
+          safeStartRecognition();
+        }
+      }, 150);
+    } else {
+      updateAiStatus('idle', 'Kutilmoqda');
+    }
   }
   window.stopAiSpeaking = stopSpeaking;
 
-  // Helper: Dinamikdan chiqqan o'zining aks-sadosimi yoki haqiqiy foydalanuvchi nutqimi?
-  function isEchoOfCurrentSpeech(recognizedText, spokenText) {
-    if (!spokenText || !recognizedText) return false;
+  // Helper: Dinamikdan chiqqan o'zining ovozi/aks-sadosi (Echo) ekanligini tekshirish
+  function isAiSelfVoiceEcho(recognizedText) {
+    if (!recognizedText) return false;
+    const cleanRec = normalizeUzbekSpeech(recognizedText);
+    if (!cleanRec) return false;
 
-    const cleanRec = recognizedText.toLowerCase().replace(/[^a-zа-яўқғҳ0-9]/gi, ' ').replace(/\s+/g, ' ').trim();
-    const cleanSpoken = spokenText.toLowerCase().replace(/[^a-zа-яўқғҳ0-9]/gi, ' ').replace(/\s+/g, ' ').trim();
-    if (!cleanRec || !cleanSpoken) return false;
-
-    // To'xtatish yoki buyruq so'zlari bo'lsa, bu QAT'IYAN aks-sado emas, foydalanuvchi buyrug'i
-    if (/to['`]?xta|jim|shosh|yo['`]?q|bo['`]?ldi|kut|yetar|boshqa|toxta|toxtat/i.test(cleanRec)) {
+    // To'xtatish yoki zudlik bilan buyruq so'zlari bo'lsa, bu aks-sado emas, foydalanuvchi xohishi
+    if (/^(to['`]?xta|toxtat|jim|bas|stop|yetadi|yopil|xayr)$/i.test(cleanRec)) {
       return false;
     }
 
-    // Agar tanilgan so'z to'liq AI hozir aytayotgan gapning qismi bo'lsa (dinamikdan mikrofonga o'tgan echo)
-    if (cleanSpoken.includes(cleanRec)) {
+    // Agar AI ayni paytda gapirayotgan bo'lsa yoki endigina tugatib echo to'lqini tarqalayotgan bo'lsa
+    if (isSpeaking || isTemporarilyPausedForTts || Date.now() < ignoreSpeechUntil) {
       return true;
     }
 
+    // AI hozir aytgan gap bilan solishtirish
+    if (currentSpeakingText) {
+      const curClean = normalizeUzbekSpeech(currentSpeakingText);
+      if (curClean.includes(cleanRec) || cleanRec.includes(curClean)) {
+        return true;
+      }
+    }
+
+    // AI avval aytgan gaplar tarixi bilan solishtirish
+    for (const prev of lastAiSpokenTexts) {
+      if (!prev) continue;
+      if (prev.includes(cleanRec) || cleanRec.includes(prev)) {
+        return true;
+      }
+      // So'zlar o'xshashligini tekshirish (kamida 2 ta so'zdan 70% mos kelsa aks-sado)
+      const recWords = cleanRec.split(' ').filter(w => w.length > 2);
+      if (recWords.length >= 2) {
+        const matching = recWords.filter(w => prev.includes(w));
+        if (matching.length / recWords.length >= 0.7) {
+          return true;
+        }
+      }
+    }
+
     return false;
+  }
+
+  function isEchoOfCurrentSpeech(recognizedText, spokenText) {
+    return isAiSelfVoiceEcho(recognizedText);
   }
   let draftTask = {
     title: '',
@@ -168,10 +227,8 @@
 
       recognition.onspeechstart = () => {
         lastHeartbeatTime = Date.now();
-        // Foydalanuvchi gapira boshlaganda AI HAR DOIM darhol jim bo'ladi va kutadi!
-        if (isSpeaking) {
-          console.log("[AI] Foydalanuvchi gapira boshladi -> AI darhol jim bo'ldi");
-          stopSpeaking();
+        if (isSpeaking || isTemporarilyPausedForTts || Date.now() < ignoreSpeechUntil) {
+          return;
         }
         if (speechSilenceTimer) {
           clearTimeout(speechSilenceTimer);
@@ -181,15 +238,15 @@
 
       recognition.onaudiostart = () => {
         lastHeartbeatTime = Date.now();
-        if (isSpeaking) {
-          stopSpeaking();
+        if (isSpeaking || isTemporarilyPausedForTts || Date.now() < ignoreSpeechUntil) {
+          return;
         }
       };
 
       recognition.onsoundstart = () => {
         lastHeartbeatTime = Date.now();
-        if (isSpeaking) {
-          stopSpeaking();
+        if (isSpeaking || isTemporarilyPausedForTts || Date.now() < ignoreSpeechUntil) {
+          return;
         }
       };
 
@@ -209,9 +266,19 @@
         const text = (finalTranscript || interim).trim();
         if (!text) return;
 
-        // Foydalanuvchi gapirayotganda AI QAT'IYAN jim bo'ladi:
-        if (isSpeaking) {
-          stopSpeaking();
+        // Anti-Echo / O'z ovozini eshitishni butunlay to'sish:
+        // Agar AI gapirayotgan bo'lsa, yoki echo kutish rejimida bo'lsa, yoki aytilgan gap AI matniga to'g'ri kelsa
+        if (isSpeaking || isTemporarilyPausedForTts || Date.now() < ignoreSpeechUntil || isAiSelfVoiceEcho(text)) {
+          const norm = normalizeUzbekSpeech(text);
+          if (/^(to['`]?xta|toxtat|jim|bas|stop|yetadi|yopil)$/i.test(norm)) {
+            stopSpeaking();
+            speechAccumulatedChunks = [];
+            lastInterimText = '';
+            showTemporaryUserText("To'xtatildi");
+            return;
+          }
+          // AI o'z ovozini eshitmasligi uchun qolgan barcha aks-sadolarni butunlay tashlab yuboramiz
+          return;
         }
 
         // 1. "30224", "30.00.24", "00.24", "00:24" kabi shovqin va fantom raqamlarni butunlay bloklash
@@ -291,6 +358,11 @@
 
       recognition.onend = () => {
         isListening = false;
+        // Agar AI gapirayotgan bo'lsa yoki TTS pauzada bo'lsa, mikrofonni qayta yoqmaymiz!
+        if (isSpeaking || isTemporarilyPausedForTts) {
+          return;
+        }
+
         // Agar gap to'plangan bo'lsa, uni yo'qotmay qayta ishlaymiz:
         if (speechAccumulatedChunks.length > 0 && !speechSilenceTimer) {
           speechSilenceTimer = setTimeout(() => {
@@ -298,13 +370,13 @@
           }, 400);
         }
         // Infinity continuous listening: agar to'xtash buyrug'i berilmagan bo'lsa, zudlik bilan qayta yoqiladi
-        if (shouldKeepListening) {
+        if (shouldKeepListening && !isSpeaking && !isTemporarilyPausedForTts) {
           setTimeout(() => {
-            if (shouldKeepListening) {
+            if (shouldKeepListening && !isSpeaking && !isTemporarilyPausedForTts) {
               safeStartRecognition();
             }
           }, isIOS ? 50 : 80);
-        } else {
+        } else if (!isSpeaking) {
           updateAiStatus('idle', 'Kutilmoqda');
         }
       };
@@ -316,6 +388,7 @@
   // Safe Start Recognition (Handles Chrome/Android state recovery)
   function safeStartRecognition() {
     if (!shouldKeepListening) return;
+    if (isSpeaking || isTemporarilyPausedForTts || Date.now() < ignoreSpeechUntil) return;
     if (!SpeechRecognition) return;
 
     if (!recognition) {
@@ -371,6 +444,7 @@
     if (watchdogTimer) clearInterval(watchdogTimer);
     watchdogTimer = setInterval(() => {
       if (!shouldKeepListening) return;
+      if (isSpeaking || isTemporarilyPausedForTts) return;
       if (!isListening) {
         safeStartRecognition();
       } else if (!isSpeaking && (Date.now() - lastHeartbeatTime > 6500)) {
@@ -468,9 +542,15 @@
   function finishSpeechCleanup(callback) {
     isSpeaking = false;
     isTemporarilyPausedForTts = false;
-    ignoreSpeechUntil = 0;
+    ignoreSpeechUntil = Date.now() + 450; // 450ms xona aks-sadosi (echo) to'liq tarqalishi uchun bufer
     currentSpeakingText = '';
     lastHeartbeatTime = Date.now();
+    speechAccumulatedChunks = [];
+    lastInterimText = '';
+    if (speechSilenceTimer) {
+      clearTimeout(speechSilenceTimer);
+      speechSilenceTimer = null;
+    }
 
     // Audio ijrosi tugagach, brauzer mikrofon oqimini yangilash uchun recognition ni toza qayta ishga tushirish
     try {
@@ -483,10 +563,10 @@
     if (shouldKeepListening) {
       updateAiStatus('listening', 'Eshitmoqda...');
       setTimeout(() => {
-        if (shouldKeepListening) {
+        if (shouldKeepListening && !isSpeaking && !isTemporarilyPausedForTts) {
           safeStartRecognition();
         }
-      }, 120);
+      }, 350);
     } else {
       updateAiStatus('idle', 'Kutilmoqda');
     }
@@ -518,14 +598,20 @@
       return;
     }
 
+    recordAiSpokenText(cleanText);
     isSpeaking = true;
+    isTemporarilyPausedForTts = true;
     currentSpeakingText = cleanText;
     updateAiStatus('speaking', 'Gapirmoqda...');
 
-    // Muhim: Foydalanuvchi gapirsa eshitish uchun recognition faol qoladi (Barge-in)
-    if (shouldKeepListening && !isListening) {
-      safeStartRecognition();
-    }
+    // AI o'z ovozini mikrofondan eshitib chalg'imasligi uchun mikrofonni TTS vaqtida vaqtincha to'xtatamiz
+    try {
+      if (recognition) {
+        recognition.onend = null;
+        recognition.stop();
+      }
+    } catch (_) {}
+    isListening = false;
 
     // 1. Microsoft Neural O'zbekcha ovoz: blob orqali (HTML/500 javob audio.src ni buzmasin)
     if (!sharedTtsAudio) {
@@ -551,11 +637,16 @@
     audio.onplay = () => {
       fallbackTriggered = true;
       isSpeaking = true;
+      isTemporarilyPausedForTts = true;
       currentSpeakingText = cleanText;
       updateAiStatus('speaking', 'Gapirmoqda...');
-      if (shouldKeepListening && !isListening) {
-        safeStartRecognition();
-      }
+      try {
+        if (recognition) {
+          recognition.onend = null;
+          recognition.stop();
+        }
+      } catch (_) {}
+      isListening = false;
     };
 
     audio.onended = () => {
@@ -649,11 +740,16 @@
 
       utterance.onstart = () => {
         isSpeaking = true;
+        isTemporarilyPausedForTts = true;
         currentSpeakingText = text;
         updateAiStatus('speaking', 'Gapirmoqda...');
-        if (shouldKeepListening && !isListening) {
-          safeStartRecognition();
-        }
+        try {
+          if (recognition) {
+            recognition.onend = null;
+            recognition.stop();
+          }
+        } catch (_) {}
+        isListening = false;
       };
 
       utterance.onend = () => {
