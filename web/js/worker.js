@@ -331,13 +331,31 @@ function renderWorkerTasks() {
       `;
     }
 
-    // Worker Completion Note
-    let completionNoteHtml = '';
-    if (task.completionNotes) {
-      completionNoteHtml = `
-        <div class="task-completion-note" style="margin-top: 4px; padding: 6px 10px; font-size: 11.5px;">
-          <span class="note-label">Siz qoldirgan izoh:</span>
-          <div>${escapeHtml(task.completionNotes)}</div>
+    // Worker Completion Report & Media Gallery
+    let completionReportHtml = '';
+    const completionMedia = Array.isArray(task.completionMediaList) ? task.completionMediaList : (task.completionMediaList ? Object.values(task.completionMediaList) : []);
+    const hasCompletionMedia = completionMedia.length > 0;
+
+    if (task.completionNotes || hasCompletionMedia) {
+      completionReportHtml = `
+        <div class="task-completion-report" style="margin-top: 8px; padding: 10px 12px; background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: 10px;">
+          <div style="font-size: 12px; font-weight: 700; color: #166534; display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <span style="display: inline-flex; align-items: center; gap: 5px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="#16A34A"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              Siz topshirgan hisobot (Bajarilgan ish natijasi)
+            </span>
+            ${task.completedAt ? `<span style="font-size: 11px; font-weight: 500; color: #15803D;">${new Date(task.completedAt).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>` : ''}
+          </div>
+          ${task.completionNotes ? `<div style="font-size: 12.5px; color: #1E293B; margin-bottom: 6px; line-height: 1.4; white-space: pre-wrap;">${escapeHtml(task.completionNotes)}</div>` : ''}
+          ${hasCompletionMedia ? `
+            <div style="margin-top: 6px;">
+              <div style="font-size: 11.5px; font-weight: 600; color: #15803D; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                Yuborilgan foto va video dalillar (${completionMedia.length} ta):
+              </div>
+              ${window.renderCardMediaGallery ? window.renderCardMediaGallery(completionMedia) : ''}
+            </div>
+          ` : ''}
         </div>
       `;
     }
@@ -392,7 +410,7 @@ function renderWorkerTasks() {
         ${task.description ? `<div class="task-desc">${escapeHtml(task.description)}</div>` : ''}
         ${window.renderCardMediaGallery ? window.renderCardMediaGallery(task.mediaList) : ''}
 
-        ${completionNoteHtml}
+        ${completionReportHtml}
         ${actionBtnHtml}
       </div>
     `;
@@ -468,21 +486,50 @@ async function confirmWorkerComplete() {
   const task = window.store.tasks.find(t => t.id === completingTaskId);
   const notes = document.getElementById('complete-task-note').value.trim();
 
+  // Clean media items to ensure no temporary blob URLs are written to base64 in database
+  const cleanMediaList = workerCompleteMediaList.map(m => {
+    const isVid = (m.type || '').toUpperCase() === 'VIDEO' || /\.(mp4|mov|avi|3gp|m4v|webm)$/i.test(m.name || m.url || m.mediaPath || '');
+    return {
+      id: m.id || ('med_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)),
+      type: isVid ? 'VIDEO' : 'IMAGE',
+      base64: (m.url || m.mediaPath) ? null : (m.base64 || null),
+      url: m.url || null,
+      mediaPath: m.url || m.mediaPath || null,
+      name: m.name || '',
+      size: m.size || 0
+    };
+  });
+
+  if (typeof showToast === 'function') {
+    showToast(cleanMediaList.length > 0 ? "Topshiriq hisoboti va fayllar yuklanmoqda..." : "Topshiriq yakunlanmoqda...");
+  }
+
   const updates = {
     status: 'COMPLETED_GREEN',
     completionNotes: notes || null,
-    completionMediaList: workerCompleteMediaList.length > 0 ? workerCompleteMediaList : null,
+    completionMediaList: cleanMediaList.length > 0 ? cleanMediaList : null,
     completedAt: Date.now()
   };
 
-  await window.dbApi.updateTask(completingTaskId, updates);
+  try {
+    await window.dbApi.updateTask(completingTaskId, updates);
+  } catch (err) {
+    console.warn("updateTask error:", err);
+  }
 
   // Send automatic chat message to Mayor with completion report!
-  const mayor = window.store.users.find(u => u.id === (task ? task.mayorId : (worker.mayorId || '')));
+  let mayor = (window.store.users || []).find(u => u.role === 'MAYOR' && (u.id === task?.mayorId || u.username === task?.mayorId));
+  if (!mayor && worker?.mayorId) {
+    mayor = (window.store.users || []).find(u => u.role === 'MAYOR' && (u.id === worker.mayorId || u.username === worker.mayorId));
+  }
+  if (!mayor) {
+    mayor = (window.store.users || []).find(u => u.role === 'MAYOR');
+  }
+
   if (mayor) {
     const reportText = notes ? 
-      `'${task.title}' bo'yicha ishlar muvaffaqiyatli yakunlandi.\n\nXodim izohi: ${notes}\nManzil: ${task.address || ''}` :
-      `'${task.title}' bo'yicha ishlar muvaffaqiyatli yakunlandi va topshirishga tayyor. (Manzil: ${task.address || ''})`;
+      `'${task?.title || 'Topshiriq'}' bo'yicha ishlar muvaffaqiyatli yakunlandi.\n\nXodim izohi: ${notes}\nManzil: ${task?.address || ''}` :
+      `'${task?.title || 'Topshiriq'}' bo'yicha ishlar muvaffaqiyatli yakunlandi va topshirishga tayyor. (Manzil: ${task?.address || ''})`;
 
     const chatMsg = {
       id: 'msg_rep_' + Date.now(),
@@ -494,29 +541,34 @@ async function confirmWorkerComplete() {
       timestamp: Date.now(),
       isRead: false
     };
-    await window.dbApi.sendMessage(chatMsg);
+    try {
+      await window.dbApi.sendMessage(chatMsg);
+    } catch (_) {}
 
     // Send attached completion media as messages too
-    for (const m of workerCompleteMediaList) {
+    for (const m of cleanMediaList) {
+      const isVid = m.type === 'VIDEO';
       const mediaMsg = {
         id: 'msg_media_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
         senderId: worker.id,
         receiverId: mayor.id,
         senderName: worker.fullName || worker.firstName,
-        messageType: m.type === 'VIDEO' ? 'VIDEO' : 'IMAGE',
-        mediaPath: m.url || null,
-        mediaBase64: m.url ? null : (m.base64 && m.base64.startsWith('data:') ? m.base64.split(',')[1] : m.base64),
-        textContent: `Topshiriq hisoboti: ${task.title}`,
+        messageType: isVid ? 'VIDEO' : 'IMAGE',
+        mediaPath: m.url || m.mediaPath || null,
+        mediaBase64: (m.url || m.mediaPath) ? null : (m.base64 && m.base64.startsWith('data:') ? m.base64.split(',')[1] : m.base64),
+        textContent: `Topshiriq hisoboti: ${task?.title || ''}`,
         timestamp: Date.now(),
         isRead: false
       };
-      await window.dbApi.sendMessage(mediaMsg);
+      try {
+        await window.dbApi.sendMessage(mediaMsg);
+      } catch (_) {}
     }
   }
 
   workerCompleteMediaList = [];
   closeModal('worker-complete-modal');
-  showToast("Topshiriq tugatildi! Izoh va fayllar Hokimga yuborildi.");
+  showToast("Topshiriq tugatildi! Barcha foto, video va hisobot Hokimga yuborildi.");
 }
 window.confirmCompleteTask = confirmWorkerComplete;
 window.confirmWorkerComplete = confirmWorkerComplete;

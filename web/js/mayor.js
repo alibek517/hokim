@@ -231,18 +231,29 @@ function renderModalMediaPreviews(mediaList, containerId, removeFnName) {
 }
 
 function renderCardMediaGallery(mediaList) {
-  if (!Array.isArray(mediaList) || mediaList.length === 0) return '';
+  const list = Array.isArray(mediaList) ? mediaList : (mediaList ? Object.values(mediaList) : []);
+  if (list.length === 0) return '';
   return `
     <div class="task-media-grid">
-      ${mediaList.map((m) => {
-        const isVid = m.type === 'VIDEO';
-        // Support both Storage URL (m.url or m.mediaPath) and base64
-        const src = m.url || m.mediaPath ||
-          (m.base64 ? (m.base64.startsWith('data:') ? m.base64 : ('data:' + (isVid ? 'video/mp4' : 'image/jpeg') + ';base64,' + m.base64)) : '');
+      ${list.map((m) => {
+        if (!m) return '';
+        const isVid = (m.type || '').toUpperCase() === 'VIDEO' || /\.(mp4|mov|avi|3gp|m4v|webm)$/i.test(m.name || m.url || m.mediaPath || '');
+        let src = m.url || m.mediaPath || '';
+        if (!src && m.base64 && typeof m.base64 === 'string') {
+          src = m.base64.startsWith('data:') ? m.base64 : ('data:' + (isVid ? 'video/mp4' : 'image/jpeg') + ';base64,' + m.base64);
+        }
         if (isVid) {
+          const isChunk = typeof src === 'string' && src.startsWith('chunk:');
           return `
-            <div class="task-card-media-item" onclick="playVideo('${src}')" title="Videoni ko'rish">
-              <video src="${src}"></video>
+            <div class="task-card-media-item" onclick="playVideo('${src}')" title="Videoni ko'rish (bosing)">
+              ${isChunk ? `
+                <div style="width: 100%; height: 100%; min-height: 80px; background: linear-gradient(135deg, #1E293B, #0F172A); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="#60A5FA"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                  <span style="font-size: 10px; color: #94A3B8; font-weight: 600;">Video</span>
+                </div>
+              ` : `
+                <video src="${src}" preload="metadata" playsinline></video>
+              `}
               <div class="task-card-video-overlay">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
               </div>
@@ -251,8 +262,8 @@ function renderCardMediaGallery(mediaList) {
           `;
         } else {
           return `
-            <div class="task-card-media-item" onclick="openImageViewer('${src}')" title="Rasmni to'liq ko'rish">
-              <img src="${src}" alt="media" loading="lazy">
+            <div class="task-card-media-item" onclick="openImageViewer('${src}')" title="Rasmni to'liq ko'rish (bosing)">
+              <img src="${src}" alt="${escapeHtml(m.name || 'foto')}" loading="lazy">
             </div>
           `;
         }
@@ -446,7 +457,7 @@ function renderMayorTasks() {
   if (!container || !mayor) return;
 
   const now = Date.now();
-  let tasks = window.store.tasks.filter(t => t.mayorId === mayor.id);
+  let tasks = window.store.tasks.filter(t => !t.mayorId || t.mayorId === mayor.id || (mayor.username && t.mayorId === mayor.username));
 
   if (taskFilterIndex === 1) tasks = tasks.filter(t => t.status === 'PENDING_RED');
   else if (taskFilterIndex === 2) tasks = tasks.filter(t => t.status === 'IN_PROGRESS_YELLOW');
@@ -550,13 +561,31 @@ function renderMayorTasks() {
       day: '2-digit', month: '2-digit', year: 'numeric'
     });
 
-    // Worker Completion Note
-    let completionNoteHtml = '';
-    if (task.completionNotes) {
-      completionNoteHtml = `
-        <div class="task-completion-note" style="margin-top: 4px; padding: 6px 10px; font-size: 11.5px;">
-          <span class="note-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -1px; margin-right: 3px;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>Xodim hisoboti:</span>
-          <div>${escapeHtml(task.completionNotes)}</div>
+    // Worker Completion Report & Media (Bajarilgan ish foto/video dalillari)
+    let completionReportHtml = '';
+    const completionMedia = Array.isArray(task.completionMediaList) ? task.completionMediaList : (task.completionMediaList ? Object.values(task.completionMediaList) : []);
+    const hasCompletionMedia = completionMedia.length > 0;
+
+    if (task.completionNotes || hasCompletionMedia) {
+      completionReportHtml = `
+        <div class="task-completion-report" style="margin-top: 8px; padding: 10px 12px; background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: 10px;">
+          <div style="font-size: 12px; font-weight: 700; color: #166534; display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <span style="display: inline-flex; align-items: center; gap: 5px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="#16A34A"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              Xodim hisoboti (Bajarilgan ish natijasi)
+            </span>
+            ${task.completedAt ? `<span style="font-size: 11px; font-weight: 500; color: #15803D;">${new Date(task.completedAt).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>` : ''}
+          </div>
+          ${task.completionNotes ? `<div style="font-size: 12.5px; color: #1E293B; margin-bottom: 6px; line-height: 1.4; white-space: pre-wrap;">${escapeHtml(task.completionNotes)}</div>` : ''}
+          ${hasCompletionMedia ? `
+            <div style="margin-top: 6px;">
+              <div style="font-size: 11.5px; font-weight: 600; color: #15803D; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                Yuborilgan foto va video dalillar (${completionMedia.length} ta):
+              </div>
+              ${renderCardMediaGallery(completionMedia)}
+            </div>
+          ` : ''}
         </div>
       `;
     }
@@ -565,7 +594,7 @@ function renderMayorTasks() {
     let actionBtnHtml = '';
     if (task.status === 'COMPLETED_GREEN') {
       actionBtnHtml = `
-        <button class="btn btn-blue" onclick="inspectTask('${task.id}')" style="margin-top: 4px; padding: 7px 12px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+        <button class="btn btn-blue" onclick="inspectTask('${task.id}')" style="margin-top: 6px; padding: 8px 12px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Borib Tekshirdim (Tasdiqlash)
         </button>
       `;
@@ -682,7 +711,7 @@ function renderMayorTasks() {
           </div>
         ` : ''}
 
-        ${completionNoteHtml}
+        ${completionReportHtml}
         ${actionBtnHtml}
       </div>
     `;

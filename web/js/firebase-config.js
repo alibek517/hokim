@@ -273,7 +273,7 @@ function initFirebase() {
             list.forEach(task => {
               if (!task || !task.id) return;
               const isMyTaskAsWorker = (task.assignedWorkerId === currentUser.id || (currentUser.username && task.assignedWorkerId === currentUser.username));
-              const isMyTaskAsMayor = (task.mayorId === currentUser.id || (currentUser.username && task.mayorId === currentUser.username));
+              const isMyTaskAsMayor = (!task.mayorId || task.mayorId === currentUser.id || (currentUser.username && task.mayorId === currentUser.username));
 
               if (!seenTaskIds.has(task.id)) {
                 seenTaskIds.add(task.id);
@@ -440,13 +440,14 @@ async function pollRestDatabase() {
 
 // Database API Methods
 const dbApi = {
-  async updateTaskStatus(taskId, newStatus, notes) {
+  async updateTaskStatus(taskId, newStatus, notes, completionMediaList) {
     const now = Date.now();
     const updates = { status: newStatus };
     if (newStatus === 'IN_PROGRESS_YELLOW') updates.startedAt = now;
     if (newStatus === 'COMPLETED_GREEN') {
       updates.completedAt = now;
       if (notes) updates.completionNotes = notes;
+      if (completionMediaList) updates.completionMediaList = completionMediaList;
     }
     if (newStatus === 'INSPECTED_BLUE') updates.inspectedAt = now;
 
