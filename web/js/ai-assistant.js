@@ -1554,14 +1554,75 @@ MUHIM QOIDALAR:
       };
     }
 
+    // =========================================================================
+    // 0.7. TOP-PRIORITY: Topshiriqlarni Holati Bo'yicha Filtrlash (Filter Tasks by Status)
+    // Foydalanuvchi "jarayondagi topshiriqlarni chiqar", "boshlanmaganlarni och", "bajarilganlarni ko'rsat" desa:
+    // Bu tekshiruv CREATE_TASK, NAVIGATE va SEARCH'dan oldin qat'iy ishlashi shart!
+    // =========================================================================
+
+    // 2: Jarayondagilar (In progress / Sariq)
+    const isJarayon = (
+      /\b(?:jarayon|jarayonda|jarayondagi|jarayondagilar|jarayondagilarni|jarayondagini|ishlanmoqda|ishlanayotgan|ishlanayotganlar|ishlanayotganlarni|sariq|sariqlar|sariqlarni)\b/i.test(text) &&
+      !text.includes('yangi topshiriq') && !text.includes('yangi vazifa')
+    );
+    if (isJarayon) {
+      return { intent: 'FILTER_STATUS', statusIdx: 2, message: "Jarayondagi topshiriqlar ochildi." };
+    }
+
+    // 1: Boshlanmaganlar (Pending / Qizil)
+    const isBoshlanmagan = (
+      /\b(?:boshlanmagan|boshlanmaganlar|boshlanmaganlarni|boshlanmagani|boshlanmaganini|kutilayotgan|kutilayotganlar|kutilayotganlarni|bajarilmagan|bajarilmaganlar|bajarilmaganlarni|qizil|qizillar|qizillarni)\b/i.test(text) &&
+      !text.includes('yangi topshiriq') && !text.includes('yangi vazifa')
+    );
+    if (isBoshlanmagan) {
+      return { intent: 'FILTER_STATUS', statusIdx: 1, message: "Boshlanmagan topshiriqlar ochildi." };
+    }
+
+    // 3: Bajarilganlar (Completed / Yashil)
+    const isBajarilgan = (
+      /\b(?:bajarilgan|bajarilganlar|bajarilganlarni|bajarilgani|bajarilganini|tugatilgan|tugatilganlar|tugatilganlarni|bitgan|bitganlar|bitganlarni|yashil|yashillar|yashillarni)\b/i.test(text) &&
+      !text.includes('bajarilsin') && !text.includes('shuni bajar') && !text.includes('darhol bajar') && !text.includes('yangi topshiriq') && !text.includes('yangi vazifa')
+    );
+    if (isBajarilgan) {
+      return { intent: 'FILTER_STATUS', statusIdx: 3, message: "Bajarilgan topshiriqlar ochildi." };
+    }
+
+    // 4: Tekshirilganlar (Inspected / Ko'k)
+    const isTekshirilgan = (
+      /\b(?:tekshirilgan|tekshirilganlar|tekshirilganlarni|tekshirilgani|tekshirilganini|tasdiqlangan|tasdiqlanganlar|tasdiqlanganlarni|ko['ʻ`]?k|kok|ko['ʻ`]?klar|ko['ʻ`]?klarni)\b/i.test(text) &&
+      !text.includes('tekshirib ber') && !text.includes('tekshirgin') && !text.includes('tekshirib ko\'r')
+    );
+    if (isTekshirilgan) {
+      return { intent: 'FILTER_STATUS', statusIdx: 4, message: "Tekshirilgan topshiriqlar ochildi." };
+    }
+
+    // Kechikkan / Muddati o'tgan
+    const isKechikkan = /\b(?:kechikkan|kechikkanlar|kechikkanlarni|kechikkani|muddati\s+o['ʻ`]?tgan|muddati\s+otgan|vaqti\s+o['ʻ`]?tgan)\b/i.test(text);
+    if (isKechikkan) {
+      return { intent: 'FILTER_STATUS', statusIdx: 1, message: "Kechikkan va muddati o'tgan topshiriqlar ko'rsatilmoqda." };
+    }
+
+    // 0: Barcha topshiriqlar (Hamma / Barcha)
+    const isAllTasks = (
+      /\b(?:barcha|hamma|barchasi|hammasi|barchasini|hammasini)\w*\s+(?:topshiriq|vazifa|ish)\w*/i.test(text) ||
+      /\b(?:topshiriq|vazifa)\w*\s+(?:barchasi|hammasi|barchasini|hammasini)\b/i.test(text) ||
+      /\b(?:barchasi|hammasi|barcha|hamma)\w*\s*(?:och|chiqar|ko['ʻ`]?rsat|korsat)\b/i.test(text) ||
+      text === 'barchasi' || text === 'hammasi' || text === 'barcha' ||
+      text === 'topshiriqlarni chiqar' || text === 'topshiriqlarni ko\'rsat' || text === 'topshiriqlarni korsat' || text === 'topshiriqlarni och'
+    );
+    if (isAllTasks) {
+      return { intent: 'FILTER_STATUS', statusIdx: 0, message: "Barcha topshiriqlar ro'yxati ochildi." };
+    }
+
     // 1. Yangi topshiriq yaratish (Create Task - MUST BE CHECKED BEFORE NAVIGATE)
+    const hasStatusWord = isJarayon || isBoshlanmagan || isBajarilgan || isTekshirilgan || isKechikkan || isAllTasks;
     const hasTaskWord = /\b(?:topshiriq|topshiriqni|topshiriqlar|topshiriqlarni|vazifa|vazifani|vazifalar|ish|ishni)\b/i.test(text);
     const hasAssignVerb = /\b(?:yarat|yaratgin|yaratvor|yaratish|ber|bergin|bervor|bervoring|berish|beryap|beryab|bervom|bervot|berayap|berjak|beraman|beramiz|bermoqchi|beraylik|yukla|yuklagin|yuklavor|yuklash|biriktir|biriktirgin|biriktirvor|biriktirib|biriktirish|biriktirilsin|topshir|topshirgin|topshirvor|topshirib|topshirish|topshirilsin|qo['`]?sh|qo['`]?y|qoy|och|ochvor|ochib\s+ber|kirit|kiritvor|yoz|yozib\s+qo['`]?y)\b/i.test(text);
 
     const workerRes = findWorkersInSpeech(text);
     const hasWorkerDirective = Boolean(workerRes && /\b(?:biriktir|topshir|yukla|ber|et|ayt)\b/i.test(text));
 
-    const isExplicitTaskCreate = (
+    const isExplicitTaskCreate = !hasStatusWord && (
       (hasTaskWord && hasAssignVerb) ||
       text.includes('yangi topshiriq') ||
       text.includes('yangi vazifa') ||
@@ -1667,41 +1728,13 @@ MUHIM QOIDALAR:
       };
     }
 
-    // 8.0 Barcha topshiriqlarni chiqarish / ko'rsatish
-    const isShowAllTasks = (
-      text.includes('barcha topshiriq') ||
-      text.includes('hamma topshiriq') ||
-      text.includes('barcha vazifa') ||
-      text.includes('hamma vazifa') ||
-      text.includes('topshiriqlarni chiqar') ||
-      text.includes('topshiriqni chiqar') ||
-      text.includes('topshiriqlarni korsat') ||
-      text.includes("topshiriqlarni ko'rsat") ||
-      text.includes('hammasini chiqar') ||
-      text.includes('hammasini korsat') ||
-      text.includes("hammasini ko'rsat") ||
-      text.includes('barchasini chiqar') ||
-      text.includes('barchasini korsat') ||
-      text.includes("barchasini ko'rsat") ||
-      text === 'hammasi' ||
-      text === 'barchasi' ||
-      text === 'barcha'
-    );
-    if (isShowAllTasks) {
-      return {
-        intent: 'FILTER_STATUS',
-        statusIdx: 0,
-        message: "Barcha topshiriqlar ro'yxati ochildi."
-      };
-    }
-
     // 8. Sahifalarga o'tish (Navigation - Tab 0, 1, 2, 3)
     // Tab 0: Topshiriqlar ("1-pej", "1-page", "birinchi sahifa", "topshiriqlar", "topshiriqqa o't", "asosiy sahifa")
-    const isNavTab0 = (
+    const isNavTab0 = !hasStatusWord && (
       /\b(?:1[- ]?(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*|birinchi\s+(?:pej|peyj|page|sahifa|vkladka|bolim|bo'lim)\w*|bosh\s+sahifa|asosiy\s+sahifa|glavniy)\b/i.test(text) ||
       (
         (text.includes('topshiriq') || text.includes('vazifa')) &&
-        (text.includes('sahifa') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('ot') || text.includes('och') || text.includes('chiqar') || text.includes("ko'rsat") || text.includes('korsat') || text.includes('bolim') || text.includes("bo'lim") || text === 'topshiriqlar' || text === 'topshiriq' || text === 'vazifalar' || text === 'vazifa' || text.includes('topshiriqqa') || text.includes('topshiriqlarga'))
+        (text.includes('sahifa') || text.includes('pej') || text.includes('page') || text.includes("o't") || text.includes('ot') || text === 'topshiriqlar' || text === 'topshiriq' || text === 'vazifalar' || text === 'vazifa' || text.includes('topshiriqqa') || text.includes('topshiriqlarga'))
       )
     );
     if (isNavTab0) {
@@ -1743,48 +1776,6 @@ MUHIM QOIDALAR:
     );
     if (isNavTab3) {
       return { intent: 'NAVIGATE', tab: 3, message: "4-sahifa: Chatlar bo'limi ochildi." };
-    }
-
-    // 9. Filtrlash (Filter)
-    // 0: Barchasi
-    if (
-      text.includes('barchasini och') || text.includes('barchasini ko\'rsat') || 
-      text.includes('hamma topshiriq') || text.includes('barcha topshiriq') ||
-      text === 'barchasi' || text === 'hammasi' || text === 'barcha' || text === 'barchasini' || text === 'hammasini'
-    ) {
-      return { intent: 'FILTER_STATUS', statusIdx: 0, message: "Barcha topshiriqlar ro'yxati ochildi." };
-    }
-    // 1: Boshlanmagan (Qizil / Kutilmoqda)
-    if (
-      text.includes('boshlanmagan') || text.includes('boshlanmaganlar') || text.includes('kutilayotgan') || 
-      text.includes('bajarilmagan') || text.includes('qizil')
-    ) {
-      return { intent: 'FILTER_STATUS', statusIdx: 1, message: "Boshlanmagan topshiriqlar ochildi." };
-    }
-    // 2: Jarayonda (Sariq / Ishlanmoqda)
-    if (
-      text.includes('jarayon') || text.includes('jarayondagi') || text.includes('jarayondagilar') || 
-      text.includes('ishlanmoqda') || text.includes('ishlanayotgan') || text.includes('sariq')
-    ) {
-      return { intent: 'FILTER_STATUS', statusIdx: 2, message: "Jarayondagi topshiriqlar ochildi." };
-    }
-    // 3: Bajarilgan (Yashil / Tugatilgan)
-    if (
-      text.includes('bajarilgan') || text.includes('bajarilganlar') || text.includes('tugatilgan') || 
-      text.includes('bitgan') || text.includes('yashil')
-    ) {
-      return { intent: 'FILTER_STATUS', statusIdx: 3, message: "Bajarilgan topshiriqlar ochildi." };
-    }
-    // 4: Tekshirilgan (Ko'k / Tasdiqlangan)
-    if (
-      text.includes('tekshirilgan') || text.includes('tekshirilganlar') || text.includes('tasdiqlangan') || 
-      text.includes('ko\'k') || text.includes('tekshirilganlarni')
-    ) {
-      return { intent: 'FILTER_STATUS', statusIdx: 4, message: "Tekshirilgan topshiriqlar ochildi." };
-    }
-    // Kechikkan / Muddati o'tgan
-    if (text.includes('kechikkan') || text.includes('muddati o\'tgan') || text.includes('kechikkanlar')) {
-      return { intent: 'FILTER_STATUS', statusIdx: 1, message: "Kechikkan va boshlanmagan topshiriqlar ko'rsatilmoqda." };
     }
 
     // 10. Minnatdorchilik va umumiy savollar
@@ -1909,7 +1900,7 @@ MUHIM QOIDALAR:
 
     // Agar foydalanuvchi qaysidir modal yoki sahifada bo'lsa-da, yangi buyruq aytsa (masalan: rejada turib "topshiriq yarat" desa)
     // eskirgan drafting holatidan darhol chiqib, to'g'ridan-to'g'ri yangi sahifa va modalga o'tadi!
-    if (isTopLevelAction && (aiState === 'IDLE' || aiState.startsWith('DRAFTING_') || localAction.intent === 'CREATE_TASK' || localAction.intent === 'CREATE_SCHEDULE' || localAction.intent === 'CREATE_WORKER' || localAction.intent === 'NAVIGATE' || localAction.intent === 'CLOSE_MODAL')) {
+    if (isTopLevelAction && (aiState === 'IDLE' || aiState.startsWith('DRAFTING_') || localAction.intent === 'CREATE_TASK' || localAction.intent === 'CREATE_SCHEDULE' || localAction.intent === 'CREATE_WORKER' || localAction.intent === 'NAVIGATE' || localAction.intent === 'CLOSE_MODAL' || localAction.intent === 'FILTER_STATUS')) {
       if (aiState !== 'IDLE' && window.mayorAiHelpers && window.mayorAiHelpers.closeAllModals) {
         window.mayorAiHelpers.closeAllModals();
       }
@@ -2107,8 +2098,23 @@ MUHIM QOIDALAR:
           window.mayorAiHelpers.switchToTab(0);
           window.mayorAiHelpers.filterTasksByStatus(localAction.statusIdx);
         }
-        appendAiMessage('jarvis', localAction.message);
-        speakText(localAction.message);
+        let countMsg = localAction.message;
+        try {
+          const mayor = window.store?.currentUser;
+          const tasks = (window.store?.tasks || []).filter(t => !mayor?.id || t.mayorId === mayor.id);
+          const statusMap = { 0: 'ALL', 1: 'PENDING_RED', 2: 'IN_PROGRESS_YELLOW', 3: 'COMPLETED_GREEN', 4: 'INSPECTED_BLUE' };
+          if (localAction.statusIdx === 0) {
+            countMsg = `Barcha topshiriqlar ro'yxati ochildi (${tasks.length} ta topshiriq).`;
+          } else {
+            const st = statusMap[localAction.statusIdx];
+            const matchingCount = tasks.filter(t => t.status === st).length;
+            const labelMap = { 1: 'Boshlanmagan', 2: 'Jarayondagi', 3: 'Bajarilgan', 4: 'Tekshirilgan' };
+            const label = labelMap[localAction.statusIdx] || '';
+            countMsg = `${label} topshiriqlar ochildi (${matchingCount} ta topshiriq).`;
+          }
+        } catch (_) {}
+        appendAiMessage('jarvis', countMsg);
+        speakText(countMsg);
         return;
       }
 

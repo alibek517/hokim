@@ -2462,6 +2462,11 @@ window.mayorAiHelpers = {
     switchMayorTab(tabIdx);
   },
   filterTasksByStatus: (statusIdx) => {
+    mayorTaskSearchQuery = '';
+    const taskInput = document.getElementById('mayor-task-search-input');
+    if (taskInput) taskInput.value = '';
+    const taskClear = document.getElementById('mayor-task-search-clear');
+    if (taskClear) taskClear.style.display = 'none';
     setTaskFilter(statusIdx);
   },
   clearSearch: () => {
