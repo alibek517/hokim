@@ -399,10 +399,42 @@ function updateAdminStatusHeader() {
 
 let adminLeafletMap = null;
 let adminLeafletMarker = null;
+let adminMapInvalidateTimer = null;
+
+function ensureLeafletDomUtilPatched() {
+  try {
+    if (typeof L !== 'undefined' && L.DomUtil) {
+      if (L.DomUtil.getPosition && !L.DomUtil._isPatched) {
+        L.DomUtil._isPatched = true;
+        const _origGetPos = L.DomUtil.getPosition;
+        L.DomUtil.getPosition = function(el) {
+          if (!el) return (typeof L.Point === 'function' ? new L.Point(0, 0) : { x: 0, y: 0 });
+          try {
+            return _origGetPos.call(L.DomUtil, el) || (typeof L.Point === 'function' ? new L.Point(0, 0) : { x: 0, y: 0 });
+          } catch (_) {
+            return (typeof L.Point === 'function' ? new L.Point(0, 0) : { x: 0, y: 0 });
+          }
+        };
+        const _origSetPos = L.DomUtil.setPosition;
+        L.DomUtil.setPosition = function(el, point) {
+          if (!el) return;
+          try {
+            _origSetPos.call(L.DomUtil, el, point);
+          } catch (_) {}
+        };
+      }
+    }
+  } catch (_) {}
+}
 
 function resetAdminMap() {
+  if (adminMapInvalidateTimer) {
+    clearTimeout(adminMapInvalidateTimer);
+    adminMapInvalidateTimer = null;
+  }
   if (adminLeafletMap) {
     try {
+      if (typeof adminLeafletMap.stop === 'function') adminLeafletMap.stop();
       adminLeafletMap.remove();
     } catch (_) {}
     adminLeafletMap = null;
@@ -411,6 +443,8 @@ function resetAdminMap() {
 }
 
 function updateAdminMapLocation(lat, lon) {
+  ensureLeafletDomUtilPatched();
+
   const coordsEl = document.getElementById('admin-coords-text');
   if (coordsEl) coordsEl.innerText = `${lat.toString().substring(0, 8)}, ${lon.toString().substring(0, 8)}`;
 
@@ -425,6 +459,18 @@ function updateAdminMapLocation(lat, lon) {
   if (typeof L === 'undefined') {
     mapContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: #94A3B8; font-size: 12px;">Xarita yuklanmoqda (${latNum}, ${lonNum})...</div>`;
     return;
+  }
+
+  // Agar mavjud xarita eskirgan/ajralgan DOM elementiga ulangan bo'lsa, tozalab qayta yaratamiz
+  if (adminLeafletMap) {
+    const currContainer = (typeof adminLeafletMap.getContainer === 'function') ? adminLeafletMap.getContainer() : null;
+    if (!currContainer || currContainer !== mapContainer || !document.body.contains(currContainer)) {
+      resetAdminMap();
+    }
+  }
+
+  if (mapContainer._leaflet_id && !adminLeafletMap) {
+    mapContainer._leaflet_id = null;
   }
 
   const webCustomPin = L.divIcon({
@@ -487,10 +533,13 @@ function updateAdminMapLocation(lat, lon) {
     }
   }
 
-  setTimeout(() => {
-    if (adminLeafletMap) {
-      adminLeafletMap.invalidateSize();
-    }
+  if (adminMapInvalidateTimer) clearTimeout(adminMapInvalidateTimer);
+  adminMapInvalidateTimer = setTimeout(() => {
+    try {
+      if (adminLeafletMap && typeof adminLeafletMap.invalidateSize === 'function') {
+        adminLeafletMap.invalidateSize();
+      }
+    } catch (_) {}
   }, 200);
 }
 

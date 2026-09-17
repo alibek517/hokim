@@ -19,7 +19,7 @@
   <script>
     // Eski keshni avtomatik tozalash
     (function() {
-      const APP_VER = '20260917_01';
+      const APP_VER = '20260917_02';
       if (localStorage.getItem('ijro_sw_ver') !== APP_VER) {
         localStorage.setItem('ijro_sw_ver', APP_VER);
         if ('caches' in window) {
@@ -98,7 +98,7 @@
                   return listener.apply(this, args);
                 } catch (err) {
                   const msg = String(err && (err.message || err.stack || err) || '');
-                  if (msg.includes('startTime') || msg.includes('reportAllChanges')) {
+                  if (msg.includes('startTime') || msg.includes('reportAllChanges') || msg.includes('_leaflet_pos')) {
                     return;
                   }
                   throw err;
@@ -116,7 +116,7 @@
         const origErr = console.error;
         console.error = function(...args) {
           const combined = args.map(a => String(a && (a.stack || a.message || a) || '')).join(' ');
-          if (combined.includes("reading 'startTime'") || combined.includes('startTime') || combined.includes('reportAllChanges')) {
+          if (combined.includes("reading 'startTime'") || combined.includes('startTime') || combined.includes('reportAllChanges') || combined.includes('_leaflet_pos')) {
             return;
           }
           return origErr.apply(console, args);
@@ -127,7 +127,7 @@
       window.onerror = function(message, source, lineno, colno, error) {
         const msgStr = String(message || '');
         const stackStr = String(error && error.stack || '');
-        if (msgStr.includes("reading 'startTime'") || msgStr.includes('startTime') || stackStr.includes('reportAllChanges')) {
+        if (msgStr.includes("reading 'startTime'") || msgStr.includes('startTime') || msgStr.includes('reportAllChanges') || msgStr.includes('_leaflet_pos')) {
           return true; // Suppress from console
         }
         return false;
@@ -137,7 +137,7 @@
       window.addEventListener('error', function(e) {
         const msg = String(e && e.message || '');
         const errStr = String(e && e.error && (e.error.message || e.error.stack) || '');
-        if (msg.includes('startTime') || errStr.includes('startTime') || errStr.includes('reportAllChanges')) {
+        if (msg.includes('startTime') || errStr.includes('startTime') || errStr.includes('reportAllChanges') || msg.includes('_leaflet_pos') || errStr.includes('_leaflet_pos')) {
           if (e.preventDefault) e.preventDefault();
           if (e.stopImmediatePropagation) e.stopImmediatePropagation();
           return true;
@@ -146,7 +146,7 @@
 
       window.addEventListener('unhandledrejection', function(e) {
         const reason = String(e && e.reason && (e.reason.message || e.reason.stack || e.reason) || '');
-        if (reason.includes('startTime') || reason.includes('reportAllChanges')) {
+        if (reason.includes('startTime') || reason.includes('reportAllChanges') || reason.includes('_leaflet_pos')) {
           if (e.preventDefault) e.preventDefault();
           if (e.stopImmediatePropagation) e.stopImmediatePropagation();
           return true;
@@ -157,6 +157,35 @@
   <link rel="stylesheet" href="/css/style.css?v=20260917_01">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Leaflet DomUtil.getPosition / setPosition xatolarini (reading '_leaflet_pos') butunlay bartaraf etish
+    (function() {
+      try {
+        if (typeof L !== 'undefined' && L.DomUtil) {
+          if (L.DomUtil.getPosition) {
+            const _origGetPos = L.DomUtil.getPosition;
+            L.DomUtil.getPosition = function(el) {
+              if (!el) return (typeof L.Point === 'function' ? new L.Point(0, 0) : { x: 0, y: 0 });
+              try {
+                return _origGetPos.call(L.DomUtil, el) || (typeof L.Point === 'function' ? new L.Point(0, 0) : { x: 0, y: 0 });
+              } catch (_) {
+                return (typeof L.Point === 'function' ? new L.Point(0, 0) : { x: 0, y: 0 });
+              }
+            };
+          }
+          if (L.DomUtil.setPosition) {
+            const _origSetPos = L.DomUtil.setPosition;
+            L.DomUtil.setPosition = function(el, point) {
+              if (!el) return;
+              try {
+                _origSetPos.call(L.DomUtil, el, point);
+              } catch (_) {}
+            };
+          }
+        }
+      } catch (_) {}
+    })();
+  </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
   <!-- Firebase Web SDK (Compat v10) -->
@@ -982,13 +1011,13 @@
   </div>
 
   <!-- App Scripts (Cache-busted) -->
-  <script src="/js/firebase-config.js?v=20260917_01"></script>
-  <script src="/js/chat.js?v=20260917_01"></script>
-  <script src="/js/mayor.js?v=20260917_01"></script>
-  <script src="/js/ai-assistant.js?v=20260917_01"></script>
-  <script src="/js/worker.js?v=20260917_01"></script>
-  <script src="/js/admin.js?v=20260917_01"></script>
-  <script src="/js/app.js?v=20260917_01"></script>
+  <script src="/js/firebase-config.js?v=20260917_02"></script>
+  <script src="/js/chat.js?v=20260917_02"></script>
+  <script src="/js/mayor.js?v=20260917_02"></script>
+  <script src="/js/ai-assistant.js?v=20260917_02"></script>
+  <script src="/js/worker.js?v=20260917_02"></script>
+  <script src="/js/admin.js?v=20260917_02"></script>
+  <script src="/js/app.js?v=20260917_02"></script>
 
   <!-- PWA Service Worker Registration & Cache Clear -->
   <script>
